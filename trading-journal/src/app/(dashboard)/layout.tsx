@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { auth } from "@/lib/auth/server";
-import { userHasTradingAccount } from "@/lib/db/accounts";
+import { getUserTradingAccounts } from "@/lib/db/accounts";
 
 export const instant = false;
 
@@ -15,7 +15,11 @@ export default async function DashboardLayout({
   await connection();
   const { data: session } = await auth.getSession();
   if (!session?.user) redirect("/sign-in");
-  if (!(await userHasTradingAccount(session.user.id))) redirect("/onboarding");
+
+  const accounts = await getUserTradingAccounts(session.user.id);
+  if (accounts.length === 0) redirect("/onboarding");
+
+  const activeAccount = accounts.find((a) => a.isDefault) || accounts[0] || null;
 
   return (
     <Suspense
@@ -31,7 +35,22 @@ export default async function DashboardLayout({
         </div>
       }
     >
-      <DashboardShell user={{ name: session.user.name, email: session.user.email }}>{children}</DashboardShell>
+      <DashboardShell
+        user={{ name: session.user.name, email: session.user.email }}
+        activeAccount={
+          activeAccount
+            ? {
+                id: activeAccount.id,
+                name: activeAccount.name,
+                currency: activeAccount.currency,
+                balance: activeAccount.currentBalance,
+                accountType: activeAccount.accountType,
+              }
+            : null
+        }
+      >
+        {children}
+      </DashboardShell>
     </Suspense>
   );
 }

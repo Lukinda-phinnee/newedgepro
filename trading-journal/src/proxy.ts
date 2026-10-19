@@ -15,9 +15,24 @@ export default function proxy(request: NextRequest) {
     request.headers.set("cookie", `${cookieHeader}; ${secureCookies}`);
   }
 
+  const { pathname } = request.nextUrl;
+
+  // Public unauthenticated routes
+  const isPublicPage =
+    pathname === "/" ||
+    pathname === "/sign-in" ||
+    pathname.startsWith("/sign-in/") ||
+    pathname === "/sign-up" ||
+    pathname.startsWith("/sign-up/") ||
+    pathname.startsWith("/api/auth");
+
+  if (isPublicPage) {
+    return NextResponse.next({ request: { headers: request.headers } });
+  }
+
   // API routes return their own JSON auth errors; only normalize localhost
   // cookies here instead of redirecting API callers through page middleware.
-  if (request.nextUrl.pathname === "/api/accounts" || request.nextUrl.pathname.startsWith("/api/accounts/")) {
+  if (pathname.startsWith("/api/")) {
     return NextResponse.next({ request: { headers: request.headers } });
   }
 
@@ -26,11 +41,13 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/onboarding/:path*",
-    "/journal/:path*",
-    "/analytics/:path*",
-    "/settings/:path*",
-    "/api/accounts/:path*",
+    /*
+     * Match all request paths except for:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, sitemap.xml, robots.txt
+     * - static image/font assets
+     */
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2|ico)$).*)",
   ],
 };

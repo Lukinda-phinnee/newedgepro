@@ -29,7 +29,21 @@ const navigationGroups = [
   ] },
 ];
 
-export function DashboardShell({ children, user }: { children: React.ReactNode; user: { name: string | null; email: string } }) {
+export function DashboardShell({
+  children,
+  user,
+  activeAccount,
+}: {
+  children: React.ReactNode;
+  user: { name: string | null; email: string };
+  activeAccount?: {
+    id: string;
+    name: string;
+    currency: string;
+    balance: number;
+    accountType: "demo" | "live";
+  } | null;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -72,9 +86,33 @@ export function DashboardShell({ children, user }: { children: React.ReactNode; 
       <div className={cn("min-h-screen transition-[padding] duration-200", collapsed ? "lg:pl-[76px]" : "lg:pl-[252px]")}>
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/70 bg-background/90 px-4 backdrop-blur-xl sm:px-6">
           <div className="flex items-center gap-3"><button aria-label="Open navigation" className="rounded-lg p-2 text-muted-foreground hover:bg-white/5 lg:hidden" onClick={() => setMobileOpen(true)}><Menu size={19} /></button><div className="hidden items-center gap-2 text-xs text-muted-foreground/60 sm:flex"><span>Workspace</span><span>/</span></div><h1 className="text-sm font-medium text-foreground/90">{title}</h1></div>
-          <div className="flex items-center gap-2"><ThemeToggle className="h-8 w-8 rounded-lg border-border/70 bg-white/[0.02]"/><Link href="/trade-log" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-violet-600 px-3 text-xs font-medium text-white shadow-sm shadow-violet-950/30 transition hover:bg-violet-500"><Plus size={14}/>Log a trade</Link></div>
+          <div className="flex items-center gap-2.5">
+            {activeAccount && (
+              <Link
+                href="/portfolio-hub"
+                className="hidden items-center gap-2 rounded-lg border border-border/70 bg-white/[0.03] px-2.5 py-1 text-xs text-foreground/80 hover:border-violet-500/40 hover:bg-white/[0.06] transition md:flex"
+                title="Active trading account · Click to manage in Portfolio Hub"
+              >
+                <span className={cn("size-2 rounded-full", activeAccount.accountType === "live" ? "bg-emerald-400" : "bg-violet-400")} />
+                <span className="font-medium truncate max-w-[130px]">{activeAccount.name}</span>
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  {activeAccount.currency} {activeAccount.balance.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                </span>
+              </Link>
+            )}
+            <ThemeToggle className="h-8 w-8 rounded-lg border-border/70 bg-white/[0.02]"/><Link href="/trade-log" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-violet-600 px-3 text-xs font-medium text-white shadow-sm shadow-violet-950/30 transition hover:bg-violet-500"><Plus size={14}/>Log a trade</Link>
+          </div>
         </header>
-        <main className="mx-auto w-full max-w-[1440px] p-4 sm:p-7 lg:p-9">{children}</main>
+        <main
+          className={cn(
+            "w-full transition-all duration-200",
+            pathname === "/portfolio-hub"
+              ? "p-4"
+              : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9",
+          )}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

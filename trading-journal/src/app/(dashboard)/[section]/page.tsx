@@ -10,7 +10,6 @@ const sections: Record<string, { title: string; description: string; eyebrow: st
   "rule-engine": { title: "Rule engine", description: "Define the guardrails that keep your trading consistent and aligned with your plan.", eyebrow: "DISCIPLINE" },
   plan: { title: "Trading plan", description: "Set your intentions, define your levels, and prepare for the sessions ahead.", eyebrow: "PREPARATION" },
   "trader-notes": { title: "Trader notes", description: "Keep your observations, ideas, and reflections close to your trading practice.", eyebrow: "NOTEBOOK" },
-  "portfolio-hub": { title: "Portfolio hub", description: "Bring your accounts and performance into one clear view.", eyebrow: "OVERVIEW" },
   profile: { title: "Profile", description: "Your EdgePro account profile and personal details.", eyebrow: "YOUR ACCOUNT" },
   settings: { title: "Settings", description: "Manage your account preferences and journal experience.", eyebrow: "YOUR ACCOUNT" },
 };

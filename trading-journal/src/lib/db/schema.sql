@@ -38,6 +38,17 @@ ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS risk_per_trade_percent NUM
 ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS max_daily_loss_percent NUMERIC(5, 2);
 ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS max_drawdown_percent NUMERIC(5, 2);
 ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS profit_target_percent NUMERIC(6, 2);
+ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT false;
+ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS current_balance NUMERIC(18, 2);
+ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS broker_name VARCHAR(100);
+ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS account_number VARCHAR(50);
+ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
+ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS notes TEXT;
+UPDATE trading_accounts
+SET current_balance = COALESCE(current_balance, starting_balance);
+UPDATE trading_accounts
+SET is_default = true
+WHERE id IN (SELECT id FROM trading_accounts ORDER BY created_at ASC LIMIT 1);
 UPDATE trading_accounts
 SET max_drawdown = COALESCE(max_drawdown, starting_balance),
     profit_target = COALESCE(profit_target, starting_balance),
