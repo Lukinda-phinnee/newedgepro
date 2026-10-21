@@ -12,15 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   BriefcaseBusiness,
-  Check,
-  ChevronRight,
   DollarSign,
   Loader2,
-  LockKeyhole,
   Plus,
   ShieldAlert,
-  Sparkles,
-  TrendingUp,
   X,
 } from "lucide-react";
 import type { TradingAccount } from "@/types/account";
@@ -182,15 +177,11 @@ export function CreateAccountDialog({
           >
             <X size={18} />
           </button>
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-300">
-            <Sparkles size={12} />
-            <span>Account Architecture</span>
-          </div>
-          <DialogTitle className="mt-2 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+          <DialogTitle className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
             Add New Account
           </DialogTitle>
-          <DialogDescription className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            Configure capital, environment, and personalized risk guardrails to keep your trading protected.
+          <DialogDescription className="sr-only">
+            Add a new trading account and configure risk guardrails.
           </DialogDescription>
 
           {/* Account Type Toggle */}
@@ -335,7 +326,7 @@ export function CreateAccountDialog({
           </div>
 
           {/* Guardrails Section */}
-          <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { TradingAccount, PortfolioSummary } from "@/types/account";
+import { useActiveAccount } from "@/components/active-account-context";
 import { PortfolioSummaryBanner } from "./portfolio-summary-banner";
 import { AccountCard } from "./account-card";
 import { CreateAccountDialog } from "./create-account-dialog";
@@ -32,9 +33,10 @@ export function PortfolioHubView({
   initialAccounts,
   initialSummary,
 }: PortfolioHubViewProps) {
-  const [accounts, setAccounts] = useState<TradingAccount[]>(initialAccounts);
+  const { accounts: contextAccounts, refreshAccounts, setActiveAccount } = useActiveAccount();
+  const accounts = contextAccounts && contextAccounts.length > 0 ? contextAccounts : initialAccounts;
   const [selectedAccountId, setSelectedAccountId] = useState<string>(
-    initialAccounts.find((a) => a.isDefault)?.id || initialAccounts[0]?.id || "",
+    accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "",
   );
   const [search, setSearch] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "live" | "demo" | "active">("all");
@@ -84,53 +86,37 @@ export function PortfolioHubView({
     return accounts.find((a) => a.id === selectedAccountId) || accounts[0] || null;
   }, [accounts, selectedAccountId]);
 
-  // Handlers
+  // Handlers — all mutations sync back to the global ActiveAccountContext
   const handleAccountCreated = (newAcc: TradingAccount) => {
-    setAccounts((prev) => [newAcc, ...prev]);
+    refreshAccounts([newAcc, ...accounts]);
     showFeedback(`Successfully created "${newAcc.name}"`);
   };
 
   const handleAccountUpdated = (updated: TradingAccount) => {
-    setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    refreshAccounts(accounts.map((a) => (a.id === updated.id ? updated : a)));
     showFeedback(`Updated guardrails and settings for "${updated.name}"`);
   };
 
   const handleAccountReset = (updated: TradingAccount) => {
-    setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    refreshAccounts(accounts.map((a) => (a.id === updated.id ? updated : a)));
     showFeedback(`Reset balance for "${updated.name}"`);
   };
 
   const handleAccountDeleted = (id: string) => {
-    setAccounts((prev) => {
-      const remaining = prev.filter((a) => a.id !== id);
-      // If deleted account was default and remaining exist, make first default
-      const hadDefault = prev.some((a) => a.id === id && a.isDefault);
-      if (hadDefault && remaining.length > 0 && !remaining.some((a) => a.isDefault)) {
-        remaining[0] = { ...remaining[0], isDefault: true };
-      }
-      return remaining;
-    });
+    const remaining = accounts.filter((a) => a.id !== id);
+    // If deleted account was default and remaining exist, make first default
+    const hadDefault = accounts.some((a) => a.id === id && a.isDefault);
+    if (hadDefault && remaining.length > 0 && !remaining.some((a) => a.isDefault)) {
+      remaining[0] = { ...remaining[0], isDefault: true };
+    }
+    refreshAccounts(remaining);
     showFeedback("Account removed from portfolio");
   };
 
   const handleSetDefault = async (accountId: string) => {
-    try {
-      const response = await fetch(`/api/accounts/${accountId}/default`, {
-        method: "POST",
-      });
-      if (!response.ok) throw new Error("Failed to set default account");
-
-      setAccounts((prev) =>
-        prev.map((a) => ({
-          ...a,
-          isDefault: a.id === accountId,
-        })),
-      );
-      const acc = accounts.find((a) => a.id === accountId);
-      showFeedback(`Set "${acc?.name || "Account"}" as primary active account`);
-    } catch {
-      showFeedback("Could not set account as primary. Please try again.");
-    }
+    setActiveAccount(accountId);
+    const acc = accounts.find((a) => a.id === accountId);
+    showFeedback(`Set "${acc?.name || "Account"}" as primary active account`);
   };
 
   // Filter & Sort

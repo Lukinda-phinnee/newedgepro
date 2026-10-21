@@ -9,7 +9,11 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const sql = neon(process.env.DATABASE_URL_UNPOOLED);
+const dbUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+if (!dbUrl) {
+  throw new Error("Neither DATABASE_URL_UNPOOLED nor DATABASE_URL is set");
+}
+const sql = neon(dbUrl);
 const schema = readFileSync(join(__dirname, "schema.sql"), "utf-8");
 
 // Split on statement boundaries and run each non-empty statement

@@ -73,40 +73,55 @@ function mapAccountRow(row: Record<string, unknown>): TradingAccount {
 }
 
 export async function userHasTradingAccount(userId: string): Promise<boolean> {
-  const rows = await sql`
-    SELECT id
-    FROM trading_accounts
-    WHERE user_id = ${userId}
-    LIMIT 1
-  `;
+  try {
+    const rows = await sql`
+      SELECT id
+      FROM trading_accounts
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `;
 
-  return rows.length > 0;
+    return rows.length > 0;
+  } catch (err) {
+    console.error("Failed to check user trading account:", err);
+    return false;
+  }
 }
 
 export async function getUserTradingAccounts(userId: string): Promise<TradingAccount[]> {
-  const rows = await sql`
-    SELECT *
-    FROM trading_accounts
-    WHERE user_id = ${userId}
-    ORDER BY is_default DESC, created_at DESC
-  `;
+  try {
+    const rows = await sql`
+      SELECT *
+      FROM trading_accounts
+      WHERE user_id = ${userId}
+      ORDER BY is_default DESC, created_at DESC
+    `;
 
-  return (rows as Record<string, unknown>[]).map(mapAccountRow);
+    return (rows as Record<string, unknown>[]).map(mapAccountRow);
+  } catch (err) {
+    console.error("Failed to query trading accounts:", err);
+    return [];
+  }
 }
 
 export async function getTradingAccountById(
   userId: string,
   accountId: string,
 ): Promise<TradingAccount | null> {
-  const rows = await sql`
-    SELECT *
-    FROM trading_accounts
-    WHERE user_id = ${userId} AND id = ${accountId}
-    LIMIT 1
-  `;
+  try {
+    const rows = await sql`
+      SELECT *
+      FROM trading_accounts
+      WHERE user_id = ${userId} AND id = ${accountId}
+      LIMIT 1
+    `;
 
-  if (rows.length === 0) return null;
-  return mapAccountRow(rows[0] as Record<string, unknown>);
+    if (rows.length === 0) return null;
+    return mapAccountRow(rows[0] as Record<string, unknown>);
+  } catch (err) {
+    console.error("Failed to query trading account by id:", err);
+    return null;
+  }
 }
 
 export async function setDefaultTradingAccount(userId: string, accountId: string): Promise<void> {

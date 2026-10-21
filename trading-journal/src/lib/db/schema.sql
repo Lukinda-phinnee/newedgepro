@@ -85,7 +85,8 @@ CREATE INDEX IF NOT EXISTS trading_accounts_user_id_created_at_idx
 -- Trades table
 CREATE TABLE IF NOT EXISTS trades (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  account_id UUID REFERENCES trading_accounts(id) ON DELETE CASCADE,
   symbol VARCHAR(20) NOT NULL,
   side VARCHAR(4) NOT NULL CHECK (side IN ('long', 'short')),
   entry_price DECIMAL(18, 8) NOT NULL,
@@ -95,7 +96,7 @@ CREATE TABLE IF NOT EXISTS trades (
   take_profit DECIMAL(18, 8),
   pnl DECIMAL(18, 8),
   pnl_percentage DECIMAL(10, 4),
-  status VARCHAR(10) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+  status VARCHAR(10) NOT NULL DEFAULT 'closed' CHECK (status IN ('open', 'closed')),
   strategy VARCHAR(100),
   notes TEXT,
   opened_at TIMESTAMPTZ NOT NULL,
@@ -103,3 +104,98 @@ CREATE TABLE IF NOT EXISTS trades (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS account_id UUID;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS market_session VARCHAR(30);
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS market_condition VARCHAR(30);
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS confidence SMALLINT CHECK (confidence IS NULL OR (confidence >= 1 AND confidence <= 5));
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS planned_entry DECIMAL(18, 8);
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS review_status VARCHAR(20) NOT NULL DEFAULT 'unreviewed';
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS execution_grade VARCHAR(10);
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS review_rating SMALLINT CHECK (review_rating IS NULL OR (review_rating >= 1 AND review_rating <= 5));
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS followed_rules VARCHAR(20) DEFAULT 'yes';
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS mistake_tags TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS what_went_well TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS what_to_improve TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS lessons_learned TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS review_notes TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS screenshots TEXT;
+CREATE INDEX IF NOT EXISTS trades_user_id_account_id_idx ON trades (user_id, account_id, opened_at DESC);
+CREATE INDEX IF NOT EXISTS trades_user_review_status_idx ON trades (user_id, review_status, opened_at DESC);
+
+-- ==========================================
+-- RULE ENGINE: Sets, Rules & Violations
+-- ==========================================
+
+-- Rule sets belong to a user, optionally linked to an account (NULL means System / Global Default)
+CREATE TABLE IF NOT EXISTS rule_sets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  account_id UUID REFERENCES trading_accounts(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL DEFAULT 'System Default Rules',
+  version INTEGER NOT NULL DEFAULT 1,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  is_draft BOOLEAN NOT NULL DEFAULT false,
+  description TEXT,
+  effective_from TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS rule_sets_user_id_idx ON rule_sets (user_id, is_active);
+CREATE INDEX IF NOT EXISTS rule_sets_account_id_idx ON rule_sets (account_id, is_active);
+
+-- Rules configured within a rule set
+CREATE TABLE IF NOT EXISTS rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rule_set_id UUID NOT NULL REFERENCES rule_sets(id) ON DELETE CASCADE,
+  rule_name VARCHAR(120) NOT NULL,
+  description TEXT,
+  rule_type VARCHAR(50) NOT NULL,
+  rule_category VARCHAR(50) NOT NULL,
+  condition VARCHAR(80) NOT NULL,
+  comparison_operator VARCHAR(20) NOT NULL,
+  threshold_value JSONB NOT NULL,
+  evaluation_scope VARCHAR(30) NOT NULL DEFAULT 'TRADE',
+  time_window VARCHAR(30),
+  filters JSONB DEFAULT '{}'::jsonb,
+  severity VARCHAR(20) NOT NULL DEFAULT 'HIGH',
+  consequence VARCHAR(40) NOT NULL DEFAULT 'BLOCK_TRADE',
+  consequence_params JSONB DEFAULT '{}'::jsonb,
+  consequence_duration INTEGER,
+  exit_condition TEXT,
+  user_message TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  effective_from TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS rules_rule_set_id_idx ON rules (rule_set_id, is_active);
+CREATE INDEX IF NOT EXISTS rules_category_idx ON rules (rule_category, is_active);
+
+-- Violation logs recorded from pre/post trade evaluation or simulations
+CREATE TABLE IF NOT EXISTS rule_violations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  account_id UUID REFERENCES trading_accounts(id) ON DELETE SET NULL,
+  rule_id UUID REFERENCES rules(id) ON DELETE SET NULL,
+  trade_id UUID REFERENCES trades(id) ON DELETE SET NULL,
+  violation_name VARCHAR(150) NOT NULL,
+  rule_type VARCHAR(50),
+  severity VARCHAR(20) NOT NULL DEFAULT 'MEDIUM',
+  action_taken VARCHAR(50) NOT NULL DEFAULT 'WARN',
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS rule_violations_user_id_idx ON rule_violations (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS rule_violations_account_id_idx ON rule_violations (account_id, created_at DESC);
+
+-- Trading accounts link to current rule set and safety enforcement states
+ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS current_rule_set_id UUID REFERENCES rule_sets(id) ON DELETE SET NULL;
+ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS cooldown_until TIMESTAMPTZ;
+ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+
