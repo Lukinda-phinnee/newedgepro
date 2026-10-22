@@ -1,16 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Award,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  TrendingUp,
-  Brain,
-  ShieldAlert,
-} from "lucide-react";
+import { Award, CheckCircle2, Clock, ShieldAlert, Sparkles, TrendingUp } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import type { Trade } from "@/types/trade";
+import { cn } from "@/lib/utils";
 
 interface TradeReviewStatsProps {
   trades: Trade[];
@@ -91,153 +86,172 @@ export function TradeReviewStats({ trades, currency = "USD" }: TradeReviewStatsP
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {/* 1. Review Queue Progress */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-4.5 shadow-xs transition hover:border-violet-500/30">
+      <Card className="group relative overflow-hidden rounded-2xl border-border/70 bg-card/80 p-4.5 backdrop-blur-sm transition-all duration-200 hover:border-border hover:shadow-xs">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-            Review Queue
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Audit Progress
           </span>
-          <div className="flex size-8 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
-            <Clock size={16} />
+          <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors group-hover:text-foreground">
+            <Clock size={14} />
           </div>
         </div>
-        <div className="mt-3 flex items-baseline gap-2">
-          <span className="text-2xl font-bold tracking-tight text-foreground">
+
+        <div className="mt-2.5 flex items-baseline gap-2">
+          <span className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
             {stats.reviewRate}%
           </span>
-          <span className="text-xs text-foreground/70">
-            ({stats.reviewedCount} / {stats.total} trades)
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {stats.reviewedCount} of {stats.total} trades
           </span>
         </div>
-        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+
+        {/* Minimalist Apple Progress Track */}
+        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-secondary">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-violet-500 to-emerald-400 transition-all duration-500"
+            className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
             style={{ width: `${stats.reviewRate}%` }}
           />
         </div>
-        <p className="mt-2 text-[11px] text-foreground/70">
-          {stats.unreviewedCount > 0 ? (
-            <span className="font-semibold text-amber-400">
-              {stats.unreviewedCount} trade{stats.unreviewedCount > 1 ? "s" : ""} awaiting review
-            </span>
-          ) : (
-            <span className="font-medium text-emerald-400">All trades reviewed</span>
-          )}
-        </p>
-      </div>
 
-      {/* 2. Rule Adherence & Discipline */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-4.5 shadow-xs transition hover:border-emerald-500/30">
+        <div className="mt-2.5 flex items-center justify-between text-[11px]">
+          {stats.unreviewedCount > 0 ? (
+            <Badge variant="warning" size="sm">
+              {stats.unreviewedCount} awaiting review
+            </Badge>
+          ) : (
+            <Badge variant="success" size="sm">
+              All trades reviewed
+            </Badge>
+          )}
+          {stats.flaggedCount > 0 && (
+            <span className="text-muted-foreground tabular-nums">
+              {stats.flaggedCount} flagged
+            </span>
+          )}
+        </div>
+      </Card>
+
+      {/* 2. Rule Adherence */}
+      <Card className="group relative overflow-hidden rounded-2xl border-border/70 bg-card/80 p-4.5 backdrop-blur-sm transition-all duration-200 hover:border-border hover:shadow-xs">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-            Rule Adherence
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Plan Adherence
           </span>
-          <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
-            <CheckCircle2 size={16} />
+          <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors group-hover:text-foreground">
+            <CheckCircle2 size={14} />
           </div>
         </div>
-        <div className="mt-3 flex items-baseline gap-2">
-          <span className="text-2xl font-bold tracking-tight text-foreground">
+
+        <div className="mt-2.5 flex items-baseline gap-2">
+          <span className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
             {stats.ruleAdherenceRate}%
           </span>
-          <span className="text-xs text-foreground/70">followed plan</span>
+          <span className="text-xs text-muted-foreground">followed rules</span>
         </div>
-        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-foreground/70">
-          <span
-            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium ${
+
+        <div className="mt-3 flex items-center justify-between gap-1 text-[11px]">
+          <Badge
+            variant={
               stats.ruleAdherenceRate >= 80
-                ? "bg-emerald-500/10 text-emerald-400"
+                ? "success"
                 : stats.ruleAdherenceRate >= 60
-                ? "bg-amber-500/10 text-amber-400"
-                : "bg-rose-500/10 text-rose-400"
-            }`}
+                ? "warning"
+                : "destructive"
+            }
+            size="sm"
           >
             {stats.ruleAdherenceRate >= 80
-              ? "High Discipline"
+              ? "Disciplined"
               : stats.ruleAdherenceRate >= 60
-              ? "Moderate Leaks"
-              : "Rule Drift Risk"}
-          </span>
-          <span className="text-foreground/70">on reviewed setups</span>
-        </div>
-        <p className="mt-2 text-[11px] text-foreground/70 truncate" suppressHydrationWarning>
+              ? "Minor Leaks"
+              : "Rule Drift"}
+          </Badge>
+
           {stats.disciplinedAvgPnl !== null ? (
-            <>
-              Disciplined Avg:{" "}
-              <span className={stats.disciplinedAvgPnl >= 0 ? "text-emerald-400 font-semibold" : "text-rose-400"}>
-                {stats.disciplinedAvgPnl >= 0 ? "+" : ""}${Math.round(stats.disciplinedAvgPnl).toLocaleString("en-US")}
+            <span className="text-muted-foreground tabular-nums truncate">
+              Plan avg:{" "}
+              <span
+                className={cn(
+                  "font-medium",
+                  stats.disciplinedAvgPnl >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600 dark:text-rose-400"
+                )}
+              >
+                {stats.disciplinedAvgPnl >= 0 ? "+" : ""}$
+                {Math.round(stats.disciplinedAvgPnl).toLocaleString("en-US")}
               </span>
-            </>
+            </span>
           ) : (
-            "Review trades to audit rule discipline"
+            <span className="text-muted-foreground">Needs review</span>
           )}
-        </p>
-      </div>
+        </div>
+      </Card>
 
       {/* 3. Execution Quality */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-4.5 shadow-xs transition hover:border-violet-500/30">
+      <Card className="group relative overflow-hidden rounded-2xl border-border/70 bg-card/80 p-4.5 backdrop-blur-sm transition-all duration-200 hover:border-border hover:shadow-xs">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-            Execution Grade
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Execution Quality
           </span>
-          <div className="flex size-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
-            <Award size={16} />
+          <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors group-hover:text-foreground">
+            <Award size={14} />
           </div>
         </div>
-        <div className="mt-3 flex items-baseline gap-2">
-          <span className="text-2xl font-bold tracking-tight text-foreground">
-            {stats.avgRating ? `${stats.avgRating} / 5.0` : "—"}
+
+        <div className="mt-2.5 flex items-baseline gap-2">
+          <span className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+            {stats.avgRating ? `${stats.avgRating}` : "—"}
           </span>
           {stats.avgRating && (
-            <span className="text-xs font-medium text-amber-400">★ Quality</span>
+            <span className="text-xs text-muted-foreground">/ 5.0 rating</span>
           )}
         </div>
-        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-foreground/70">
-          <span className="rounded-md border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 font-bold text-violet-300">
-            {stats.gradeACount} Grade A Setups
-          </span>
-          <span className="text-foreground/70">in journal</span>
-        </div>
-        <p className="mt-2 text-[11px] text-foreground/70">
-          Institutional execution standard benchmark
-        </p>
-      </div>
 
-      {/* 4. Top Leak Identified */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-4.5 shadow-xs transition hover:border-rose-500/30">
+        <div className="mt-3 flex items-center justify-between text-[11px]">
+          <Badge variant="violet" size="sm">
+            {stats.gradeACount} Grade A Setups
+          </Badge>
+          <span className="text-muted-foreground">playbook benchmark</span>
+        </div>
+      </Card>
+
+      {/* 4. Primary Leak */}
+      <Card className="group relative overflow-hidden rounded-2xl border-border/70 bg-card/80 p-4.5 backdrop-blur-sm transition-all duration-200 hover:border-border hover:shadow-xs">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-            Primary Leak
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Top Execution Leak
           </span>
-          <div className="flex size-8 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
-            <ShieldAlert size={16} />
+          <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors group-hover:text-foreground">
+            <ShieldAlert size={14} />
           </div>
         </div>
-        <div className="mt-3">
+
+        <div className="mt-2.5 min-h-[32px]">
           {stats.topLeaks.length > 0 ? (
-            <div>
-              <div className="text-base font-bold tracking-tight text-foreground truncate">
-                {stats.topLeaks[0][0]}
-              </div>
-              <div className="mt-1 flex items-center gap-1.5 text-[11px] text-foreground/70">
-                <span className="rounded-md bg-rose-500/10 px-1.5 py-0.5 font-semibold text-rose-400">
-                  {stats.topLeaks[0][1]} occurrence{stats.topLeaks[0][1] > 1 ? "s" : ""}
-                </span>
-                <span className="text-foreground/70">top leakage source</span>
-              </div>
+            <div className="truncate text-base font-semibold tracking-tight text-foreground">
+              {stats.topLeaks[0][0]}
             </div>
           ) : (
-            <div>
-              <div className="text-sm font-semibold text-foreground">No leaks logged</div>
-              <p className="mt-1 text-[11px] text-foreground/70">
-                Tag mistakes during review to isolate leaks
-              </p>
+            <div className="text-sm font-medium text-muted-foreground">
+              No leaks identified
             </div>
           )}
         </div>
-        <p className="mt-2 text-[11px] text-foreground/70">
-          Focus: eliminate recurring psychological traps
-        </p>
-      </div>
+
+        <div className="mt-3 flex items-center justify-between text-[11px]">
+          {stats.topLeaks.length > 0 ? (
+            <>
+              <Badge variant="destructive" size="sm">
+                {stats.topLeaks[0][1]} {stats.topLeaks[0][1] === 1 ? "time" : "times"}
+              </Badge>
+              <span className="text-muted-foreground">recurring leak</span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">tag leaks during review</span>
+          )}
+        </div>
+      </Card>
     </div>
   );
 }

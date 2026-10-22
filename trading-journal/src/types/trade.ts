@@ -43,6 +43,27 @@ export interface Trade {
   lessonsLearned?: string | null;
   reviewNotes?: string | null;
   screenshots?: string[] | null;
+  // Automated Rule Engine evaluation properties
+  ruleVerdict?: "ACCEPT" | "WARN" | "BLOCK" | null;
+  ruleViolationsCount?: number | null;
+  ruleEvaluation?: {
+    verdict: "ACCEPT" | "WARN" | "BLOCK";
+    triggeredRules: Array<{
+      ruleId: string;
+      ruleName: string;
+      ruleCategory: string;
+      metric: string;
+      severity: string;
+      consequence: string;
+      message: string;
+      actualValue?: unknown;
+      threshold?: unknown;
+    }>;
+    passedRules?: Array<{ ruleId: string; ruleName: string; metric: string }>;
+    messages: string[];
+    evaluatedAt: string;
+    ruleSetName?: string;
+  } | null;
 }
 
 export interface DayTradeSummary {

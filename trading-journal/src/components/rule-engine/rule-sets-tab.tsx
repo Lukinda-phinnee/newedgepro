@@ -69,6 +69,7 @@ export function RuleSetsTab({
   const [activeCategory, setActiveCategory] = useState<RuleCategory | "All">(
     selectedCategoryFilter,
   );
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Apple §16.2 Agency: Undo-based deletion instead of confirm()
@@ -78,11 +79,21 @@ export function RuleSetsTab({
 
   const rules = ruleSet?.rules || [];
 
-  // Filter rules by selected category
+  // Active / inactive rule counts
+  const activeCount = useMemo(() => rules.filter((r) => r.isActive).length, [rules]);
+  const inactiveCount = rules.length - activeCount;
+
+  // Filter rules by selected category and active/inactive status
   const filteredRules = useMemo(() => {
-    if (activeCategory === "All") return rules;
-    return rules.filter((r) => r.ruleCategory === activeCategory);
-  }, [rules, activeCategory]);
+    return rules.filter((r) => {
+      const matchCat = activeCategory === "All" || r.ruleCategory === activeCategory;
+      const matchStatus =
+        statusFilter === "ALL" ||
+        (statusFilter === "ACTIVE" && r.isActive) ||
+        (statusFilter === "INACTIVE" && !r.isActive);
+      return matchCat && matchStatus;
+    });
+  }, [rules, activeCategory, statusFilter]);
 
   // Counts per category
   const categoryCounts = useMemo(() => {
@@ -145,11 +156,14 @@ export function RuleSetsTab({
     const nextState = !rule.isActive;
     onRuleToggled(rule.id, nextState);
     try {
-      await fetch(`/api/rules/sets/${ruleSet?.id}/rules/${rule.id}`, {
+      const res = await fetch(`/api/rules/sets/${ruleSet?.id}/rules/${rule.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: nextState }),
       });
+      if (!res.ok) {
+        throw new Error(`Failed to toggle rule: ${res.statusText}`);
+      }
     } catch (err) {
       console.error("Failed to toggle rule:", err);
       // Revert if error
@@ -233,35 +247,80 @@ export function RuleSetsTab({
         </div>
       </div>
 
-      {/* Category Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-        {CATEGORIES.map((cat) => {
-          const isSel = activeCategory === cat;
-          const count = categoryCounts[cat] ?? 0;
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setActiveCategory(cat)}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5",
-                isSel
-                  ? "bg-violet-600 text-white shadow-sm font-semibold"
-                  : "bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-border/60",
-              )}
-            >
-              <span>{cat}</span>
-              <span
+      {/* Category & Status Filter Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Category Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+          {CATEGORIES.map((cat) => {
+            const isSel = activeCategory === cat;
+            const count = categoryCounts[cat] ?? 0;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setActiveCategory(cat)}
                 className={cn(
-                  "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
-                  isSel ? "bg-white/20 text-white" : "bg-white/[0.05] text-muted-foreground",
+                  "px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5",
+                  isSel
+                    ? "bg-violet-600 text-white shadow-sm font-semibold"
+                    : "bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-border/60",
                 )}
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
+                <span>{cat}</span>
+                <span
+                  className={cn(
+                    "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                    isSel ? "bg-white/20 text-white" : "bg-white/[0.05] text-muted-foreground",
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active / Inactive Status Filter */}
+        <div className="flex items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-1 shrink-0 self-start md:self-auto text-xs shadow-sm">
+          {(["ALL", "ACTIVE", "INACTIVE"] as const).map((status) => {
+            const isSelected = statusFilter === status;
+            const count =
+              status === "ALL"
+                ? rules.length
+                : status === "ACTIVE"
+                  ? activeCount
+                  : inactiveCount;
+            const labels = { ALL: "All", ACTIVE: "Active", INACTIVE: "Deactivated" };
+
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setStatusFilter(status)}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all press-scale-sm",
+                  isSelected
+                    ? status === "ACTIVE"
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                      : status === "INACTIVE"
+                        ? "bg-neutral-800 text-neutral-300 border border-neutral-700 shadow-sm"
+                        : "bg-white/10 text-white border border-white/10 shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <span>{labels[status]}</span>
+                <span
+                  className={cn(
+                    "text-[10px] font-mono px-1.5 py-0.2 rounded-full",
+                    isSelected ? "bg-black/30 text-white" : "bg-white/[0.06] text-muted-foreground",
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Rules list */}
@@ -269,17 +328,36 @@ export function RuleSetsTab({
         {Object.keys(groupedRules).length === 0 ? (
           <div className="rounded-2xl border border-border/70 bg-card p-12 text-center">
             <Shield size={32} className="mx-auto text-muted-foreground/40 mb-3" />
-            <h3 className="text-sm font-bold text-foreground">No rules found in this category</h3>
+            <h3 className="text-sm font-bold text-foreground">
+              {statusFilter === "INACTIVE"
+                ? "No deactivated rules found"
+                : statusFilter === "ACTIVE"
+                  ? "No active rules found"
+                  : "No rules found in this category"}
+            </h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Add your first rule to define constraints for this category and protect your process.
+              {statusFilter === "INACTIVE"
+                ? "All guardrails in this view are currently active and enforcing discipline."
+                : "Add your first rule to define constraints for this category and protect your process."}
             </p>
-            <Button
-              size="sm"
-              onClick={onOpenCreateRule}
-              className="mt-4 text-xs bg-violet-600 hover:bg-violet-500 text-white"
-            >
-              <Plus size={13} className="mr-1.5" /> Create Rule
-            </Button>
+            {statusFilter === "INACTIVE" ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setStatusFilter("ALL")}
+                className="mt-4 text-xs border-border/70"
+              >
+                View All Rules
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={onOpenCreateRule}
+                className="mt-4 text-xs bg-violet-600 hover:bg-violet-500 text-white"
+              >
+                <Plus size={13} className="mr-1.5" /> Create Rule
+              </Button>
+            )}
           </div>
         ) : (
           (Object.keys(groupedRules) as RuleCategory[]).map((cat) => {
@@ -305,31 +383,73 @@ export function RuleSetsTab({
                         className={cn(
                           "group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border transition-all",
                           rule.isActive
-                            ? "border-border/80 bg-card hover:border-violet-500/40"
-                            : "border-border/40 bg-card/80 opacity-70",
+                            ? "border-border/80 bg-card hover:border-violet-500/40 shadow-sm"
+                            : "border-border/40 bg-card/60 opacity-75 hover:opacity-100",
                         )}
                       >
-                        {/* Rule Main Information */}
-                        <div className="flex items-start gap-3.5 min-w-0">
-                          <button
-                            type="button"
-                            onClick={() => handleToggle(rule)}
-                            title={rule.isActive ? "Deactivate Rule" : "Activate Rule"}
-                            className={cn(
-                              "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border transition",
-                              rule.isActive
-                                ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
-                                : "bg-neutral-800 border-neutral-700 text-neutral-400",
-                            )}
-                          >
-                            <Power size={14} />
-                          </button>
+                        {/* Rule Main Information + Toggle Switch */}
+                        <div className="flex items-start gap-4 min-w-0 flex-1">
+                          {/* Apple-style Interactive Toggle Switch */}
+                          <div className="flex sm:flex-col items-center justify-center gap-1 shrink-0 self-start sm:self-center">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={rule.isActive}
+                              aria-label={rule.isActive ? `Deactivate rule: ${rule.ruleName}` : `Activate rule: ${rule.ruleName}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggle(rule);
+                              }}
+                              title={rule.isActive ? "Click to deactivate rule" : "Click to activate rule"}
+                              className={cn(
+                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500/50 press-scale-sm",
+                                rule.isActive
+                                  ? "bg-emerald-500 shadow-sm shadow-emerald-950/20"
+                                  : "bg-neutral-800 border border-neutral-700/70",
+                              )}
+                            >
+                              <motion.span
+                                layout
+                                transition={springToggle}
+                                className={cn(
+                                  "pointer-events-none inline-block size-5 rounded-full bg-white shadow-md ring-0",
+                                  rule.isActive ? "translate-x-5" : "translate-x-0",
+                                )}
+                              />
+                            </button>
+                            <span
+                              className={cn(
+                                "text-[10px] font-bold tracking-wider uppercase select-none transition-colors",
+                                rule.isActive ? "text-emerald-400" : "text-muted-foreground/60",
+                              )}
+                            >
+                              {rule.isActive ? "Active" : "Off"}
+                            </span>
+                          </div>
 
-                          <div className="min-w-0 space-y-1">
+                          <div className="min-w-0 space-y-1.5 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-xs font-bold text-foreground truncate">
+                              <h4
+                                className={cn(
+                                  "text-xs font-bold truncate transition-colors",
+                                  rule.isActive ? "text-foreground" : "text-muted-foreground",
+                                )}
+                              >
                                 {rule.ruleName}
                               </h4>
+
+                              {/* Active Status Badge */}
+                              <span
+                                className={cn(
+                                  "px-2 py-0.2 rounded text-[10px] font-semibold uppercase tracking-wider",
+                                  rule.isActive
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25"
+                                    : "bg-neutral-800 text-neutral-400 border border-neutral-700",
+                                )}
+                              >
+                                {rule.isActive ? "Active" : "Deactivated"}
+                              </span>
+
                               {/* Severity Badge */}
                               <span
                                 className={cn(

@@ -14,6 +14,8 @@ import {
   Eye,
   Loader2,
   Plus,
+  ShieldAlert,
+  ShieldCheck,
   Star,
   Trash2,
   UploadCloud,
@@ -641,6 +643,27 @@ export function LogTradeDialog({
               <span className="font-semibold text-foreground">
                 {pipInfo.riskRewardRatio} R
               </span>
+            </div>
+          )}
+
+          {/* Rule Engine Discipline Pre-flight Check */}
+          {entryPrice && (
+            <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition duration-200">
+              {stopLoss ? (
+                <div className="flex items-center gap-1.5 text-emerald-400">
+                  <ShieldCheck size={14} className="shrink-0" />
+                  <span className="text-[11px] font-medium">
+                    Rule Guardrail: Stop Loss defined (${Number(stopLoss).toLocaleString()}). Compliant with safety criteria.
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-amber-400">
+                  <ShieldAlert size={14} className="shrink-0" />
+                  <span className="text-[11px] font-medium">
+                    Rule Warning: No stop loss defined. Will register as a rule discipline deviation upon logging.
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

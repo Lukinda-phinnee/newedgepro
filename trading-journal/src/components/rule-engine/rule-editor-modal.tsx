@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -8,13 +8,14 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Loader2,
   Lock,
   Plus,
+  Search,
   Shield,
   ShieldAlert,
   Sliders,
   X,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,14 @@ interface RuleEditorModalProps {
   onSaveSuccess: (savedRule: Rule) => void;
 }
 
+interface InstrumentResult {
+  symbol: string;
+  rawSymbol?: string;
+  name: string;
+  type: string;
+  exchange: string;
+}
+
 const CATEGORIES: RuleCategory[] = [
   "Risk",
   "Frequency",
@@ -56,6 +65,30 @@ const CATEGORIES: RuleCategory[] = [
 ];
 
 const SEVERITIES: SeverityLevel[] = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"];
+
+const POPULAR_PAIRS = [
+  "EURUSD",
+  "GBPUSD",
+  "USDJPY",
+  "AUDUSD",
+  "NQ",
+  "ES",
+  "BTCUSD",
+  "GC",
+  "CL",
+];
+
+const SESSIONS = ["London", "New York", "Asian", "London Close", "Tokyo"];
+
+const DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
 
 const CONSEQUENCE_CONFIGS: Record<
   ConsequenceType,
@@ -188,10 +221,55 @@ export function RuleEditorModal({
     }
     return ["EURUSD", "GBPUSD", "NQ", "ES"];
   });
+
+  // Instrument search & select state (for Eligibility -> Allowed Instruments)
+  const [instrumentQuery, setInstrumentQuery] = useState("");
+  const [instrumentResults, setInstrumentResults] = useState<InstrumentResult[]>([]);
+  const [isSearchingInstruments, setIsSearchingInstruments] = useState(false);
+  const [isInstrumentDropdownOpen, setIsInstrumentDropdownOpen] = useState(false);
+  const instrumentSearchRef = useRef<HTMLDivElement>(null);
+
+  // Generic custom text input
   const [newItemInput, setNewItemInput] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        instrumentSearchRef.current &&
+        !instrumentSearchRef.current.contains(e.target as Node)
+      ) {
+        setIsInstrumentDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Online instrument search with debounce
+  useEffect(() => {
+    if (!isInstrumentDropdownOpen || category !== "Eligibility" || selectedMetricId !== "instrument") {
+      return;
+    }
+
+    const trimmed = instrumentQuery.trim();
+    setIsSearchingInstruments(true);
+
+    const timer = setTimeout(() => {
+      fetch(`/api/instruments/search?q=${encodeURIComponent(trimmed || "EUR")}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setInstrumentResults(data.instruments || []);
+        })
+        .catch(() => setInstrumentResults([]))
+        .finally(() => setIsSearchingInstruments(false));
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [instrumentQuery, isInstrumentDropdownOpen, category, selectedMetricId]);
 
   // Sync state when editing or reopening
   useEffect(() => {
@@ -248,6 +326,7 @@ export function RuleEditorModal({
     } else if (Array.isArray(metric.defaultThreshold)) {
       setListThreshold(metric.defaultThreshold);
     }
+    setIsInstrumentDropdownOpen(false);
   };
 
   const handleMetricChange = (metricId: string) => {
@@ -266,15 +345,18 @@ export function RuleEditorModal({
     } else if (Array.isArray(metric.defaultThreshold)) {
       setListThreshold(metric.defaultThreshold);
     }
+    setIsInstrumentDropdownOpen(false);
   };
 
-  const handleAddListItem = () => {
-    if (!newItemInput.trim()) return;
-    const clean = newItemInput.trim().toUpperCase();
+  const handleAddListItem = (val?: string) => {
+    const raw = val || newItemInput;
+    if (!raw.trim()) return;
+    const clean = raw.trim().toUpperCase();
     if (!listThreshold.includes(clean)) {
       setListThreshold([...listThreshold, clean]);
     }
     setNewItemInput("");
+    setInstrumentQuery("");
   };
 
   const handleRemoveListItem = (item: string) => {
@@ -346,7 +428,7 @@ export function RuleEditorModal({
 
   const thresholdDisplay =
     currentMetric.unit === "list"
-      ? `[${listThreshold.join(", ")}]`
+      ? `${listThreshold.length} item${listThreshold.length === 1 ? "" : "s"}`
       : currentMetric.unit === "boolean"
         ? "Required"
         : `${numericThreshold}${currentMetric.unit === "%" ? "%" : ""}`;
@@ -392,7 +474,7 @@ export function RuleEditorModal({
               <span className="text-muted-foreground">IF</span>
               <span className="font-semibold text-foreground">{currentMetric.label}</span>
               <span className="font-bold text-violet-400">{operator}</span>
-              <span className="font-semibold text-foreground bg-white/[0.06] px-1.5 py-0.5 rounded">
+              <span className="font-semibold text-foreground bg-muted px-2 py-0.5 rounded border border-border/70">
                 {thresholdDisplay}
               </span>
               <ArrowRight size={12} className="text-muted-foreground shrink-0" />
@@ -478,55 +560,275 @@ export function RuleEditorModal({
 
               <div className="sm:col-span-2">
                 <Label className="text-xs text-muted-foreground block mb-1">
-                  Threshold ({currentMetric.unit})
+                  Threshold Value ({currentMetric.unit})
                 </Label>
-                {currentMetric.unit === "list" ? (
+
+                {/* Case A: Eligibility -> Allowed Instruments (Search & Select API) */}
+                {category === "Eligibility" && selectedMetricId === "instrument" ? (
+                  <div className="space-y-3">
+                    {/* Search and Select Dropdown Component */}
+                    <div ref={instrumentSearchRef} className="relative">
+                      <div className="relative">
+                        <Search
+                          size={14}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                        />
+                        <Input
+                          value={instrumentQuery}
+                          onFocus={() => setIsInstrumentDropdownOpen(true)}
+                          onChange={(e) => {
+                            setInstrumentQuery(e.target.value);
+                            setIsInstrumentDropdownOpen(true);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (instrumentResults[0] && !listThreshold.includes(instrumentResults[0].symbol)) {
+                                handleAddListItem(instrumentResults[0].symbol);
+                              } else if (instrumentQuery.trim()) {
+                                handleAddListItem(instrumentQuery);
+                              }
+                            }
+                          }}
+                          placeholder="Search instrument to add (e.g. EURUSD, NQ, BTC, Gold)..."
+                          className="h-9 pl-9 text-xs bg-background/50 border-border/70 font-mono"
+                        />
+                        {isSearchingInstruments && (
+                          <Loader2
+                            size={14}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground"
+                          />
+                        )}
+                      </div>
+
+                      {/* Dropdown Menu */}
+                      {isInstrumentDropdownOpen && (
+                        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-56 overflow-y-auto rounded-xl border border-border bg-popover text-popover-foreground shadow-2xl p-1 divide-y divide-border/40">
+                          {instrumentResults.map((inst) => {
+                            const isAdded = listThreshold.includes(inst.symbol);
+                            return (
+                              <button
+                                key={inst.symbol}
+                                type="button"
+                                onClick={() => handleAddListItem(inst.symbol)}
+                                className={cn(
+                                  "w-full flex items-center justify-between px-3 py-2 text-left rounded-lg text-xs transition press-scale-sm",
+                                  isAdded
+                                    ? "opacity-60 bg-muted/40 cursor-default"
+                                    : "hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                                )}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="font-mono font-bold text-foreground text-xs">
+                                    {inst.symbol}
+                                  </span>
+                                  <span className="text-[11px] text-muted-foreground truncate">
+                                    {inst.name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/60">
+                                    {inst.type}
+                                  </span>
+                                  {isAdded ? (
+                                    <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                                      <Check size={12} /> Added
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] text-violet-400 font-semibold">
+                                      + Add
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+
+                          {instrumentResults.length === 0 && !isSearchingInstruments && instrumentQuery.trim() && (
+                            <div className="p-2 text-center">
+                              <p className="text-xs text-muted-foreground mb-1.5">
+                                No standard instrument matching "{instrumentQuery}".
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => handleAddListItem(instrumentQuery)}
+                                className="h-7 text-xs bg-violet-600 hover:bg-violet-500 text-white"
+                              >
+                                Add "{instrumentQuery.toUpperCase()}" anyway
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick Add Popular Chips */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] text-muted-foreground">Quick add:</span>
+                      {POPULAR_PAIRS.filter((p) => !listThreshold.includes(p))
+                        .slice(0, 6)
+                        .map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => handleAddListItem(p)}
+                            className="px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-muted text-foreground border border-border hover:border-violet-500/50 hover:text-violet-400 transition press-scale-sm"
+                          >
+                            + {p}
+                          </button>
+                        ))}
+                    </div>
+
+                    {/* Selected Threshold List — High Contrast, Clean Spec Chips */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          Allowed Whitelist ({listThreshold.length})
+                        </span>
+                        {listThreshold.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setListThreshold([])}
+                            className="text-muted-foreground hover:text-rose-400 underline transition"
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 rounded-xl bg-background/60 border border-border/80">
+                        {listThreshold.map((item) => (
+                          <span
+                            key={item}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-muted text-foreground border border-border shadow-xs hover:border-foreground/30 transition-colors"
+                          >
+                            <span>{item}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveListItem(item)}
+                              className="text-muted-foreground hover:text-rose-400 p-0.5 rounded transition-colors"
+                              title={`Remove ${item}`}
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                        {listThreshold.length === 0 && (
+                          <span className="text-xs text-muted-foreground italic p-1">
+                            No pairs selected. Search and select above to whitelist instruments.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : category === "Eligibility" && selectedMetricId === "session" ? (
+                  /* Case B: Allowed Sessions Quick Toggles */
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {SESSIONS.map((s) => {
+                        const isSelected = listThreshold.includes(s);
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) handleRemoveListItem(s);
+                              else handleAddListItem(s);
+                            }}
+                            className={cn(
+                              "px-3 py-1.5 rounded-lg text-xs font-semibold transition press-scale-sm border",
+                              isSelected
+                                ? "bg-violet-600 text-white border-violet-600 shadow-xs"
+                                : "bg-muted text-muted-foreground border-border hover:text-foreground",
+                            )}
+                          >
+                            {s} {isSelected && "✓"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : category === "Eligibility" && selectedMetricId === "day_of_week" ? (
+                  /* Case C: Days of Week Quick Toggles */
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {DAYS.map((d) => {
+                        const isSelected = listThreshold.includes(d);
+                        return (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) handleRemoveListItem(d);
+                              else handleAddListItem(d);
+                            }}
+                            className={cn(
+                              "px-2.5 py-1.5 rounded-lg text-xs font-semibold transition press-scale-sm border",
+                              isSelected
+                                ? "bg-violet-600 text-white border-violet-600 shadow-xs"
+                                : "bg-muted text-muted-foreground border-border hover:text-foreground",
+                            )}
+                          >
+                            {d.slice(0, 3)} {isSelected && "✓"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : currentMetric.unit === "list" ? (
+                  /* Case D: Generic List Threshold Input */
                   <div className="space-y-2">
                     <div className="flex gap-2">
                       <Input
                         value={newItemInput}
                         onChange={(e) => setNewItemInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddListItem())}
-                        placeholder="Add ticker or session (e.g. EURUSD)"
+                        placeholder="Add item..."
                         className="h-9 text-xs bg-background/50 border-border/70 uppercase font-mono"
                       />
                       <Button
                         type="button"
                         size="sm"
-                        onClick={handleAddListItem}
+                        onClick={() => handleAddListItem()}
                         className="h-9 px-3 text-xs bg-violet-600 hover:bg-violet-500 text-white press-scale-sm"
                       >
                         <Plus size={14} className="mr-1" /> Add
                       </Button>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 rounded-lg bg-background/50 border border-border/60">
+
+                    {/* High contrast tags */}
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 rounded-xl bg-background/60 border border-border/80">
                       {listThreshold.map((item) => (
                         <span
                           key={item}
-                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono bg-violet-500/15 text-violet-300 border border-violet-500/25"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-muted text-foreground border border-border shadow-xs hover:border-foreground/30 transition-colors"
                         >
-                          {item}
+                          <span>{item}</span>
                           <button
                             type="button"
                             onClick={() => handleRemoveListItem(item)}
-                            className="hover:text-white"
+                            className="text-muted-foreground hover:text-rose-400 p-0.5 rounded transition-colors"
+                            title={`Remove ${item}`}
                           >
-                            <X size={11} />
+                            <X size={12} />
                           </button>
                         </span>
                       ))}
                       {listThreshold.length === 0 && (
-                        <span className="text-[11px] text-muted-foreground/60 italic">
+                        <span className="text-xs text-muted-foreground italic p-1">
                           No items added. Add at least one item.
                         </span>
                       )}
                     </div>
                   </div>
                 ) : currentMetric.unit === "boolean" ? (
+                  /* Case E: Boolean Gate */
                   <div className="flex items-center h-9 px-3 rounded-lg border border-border/70 bg-background/50 text-xs text-emerald-400">
                     <CheckCircle2 size={14} className="mr-2 shrink-0" /> Required checklist gate
                   </div>
                 ) : (
+                  /* Case F: Numeric Input */
                   <Input
                     type="number"
                     step="0.1"
@@ -622,7 +924,7 @@ export function RuleEditorModal({
                             ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
                             : sev === "HIGH"
                               ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                              : "bg-violet-600 text-white"
+                              : "bg-violet-600 text-white font-semibold"
                           : "text-muted-foreground hover:text-foreground",
                       )}
                     >

@@ -468,9 +468,87 @@ export class RuleService {
   }
 
   /**
+   * Evaluates trade data against active rules, logs violations to rule_violations table if tradeId is provided,
+   * applies account lockout/cooldown if triggered, and returns the evaluation result.
+   */
+  static async evaluateAndRecordTrade(
+    userId: string,
+    accountId: string,
+    tradeData: {
+      symbol: string;
+      side?: "long" | "short";
+      entryPrice: number;
+      exitPrice?: number | null;
+      quantity: number;
+      stopLoss?: number | null;
+      takeProfit?: number | null;
+      marketSession?: string | null;
+      marketCondition?: string | null;
+      pnl?: number | null;
+      openedAt?: string | null;
+    },
+    tradeId?: string,
+  ): Promise<RuleEvaluationResult> {
+    const tradeIntent: TradeIntent = {
+      accountId,
+      symbol: tradeData.symbol,
+      side: tradeData.side || "long",
+      entryPrice: tradeData.entryPrice,
+      stopLoss: tradeData.stopLoss,
+      takeProfit: tradeData.takeProfit,
+      quantity: tradeData.quantity,
+      lotSize: tradeData.quantity,
+      marketSession: tradeData.marketSession || undefined,
+      marketCondition: tradeData.marketCondition || undefined,
+      timestamp: tradeData.openedAt || new Date().toISOString(),
+    };
+
+    const evalResult = await this.evaluateTradeIntent(userId, accountId, tradeIntent);
+
+    if (tradeId && evalResult.triggeredRules.length > 0) {
+      for (const trig of evalResult.triggeredRules) {
+        await recordViolation(userId, {
+          accountId,
+          ruleId: trig.ruleId.startsWith("sys-") ? null : trig.ruleId,
+          tradeId,
+          violationName: trig.ruleName,
+          ruleType: trig.ruleCategory.toUpperCase(),
+          severity: trig.severity,
+          actionTaken: trig.consequence,
+          metadata: {
+            metric: trig.metric,
+            threshold: trig.threshold,
+            actualValue: trig.actualValue,
+            message: trig.message,
+            tradeSymbol: tradeData.symbol,
+            consequence: trig.consequence,
+          },
+        });
+
+        // Apply account state changes for LOCK (24 hours) or COOLDOWN (1 hour)
+        if (trig.consequence === "LOCK_ACCOUNT") {
+          const lockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          await sql`
+            UPDATE trading_accounts
+            SET locked_until = ${lockUntil}
+            WHERE id = ${accountId}
+          `;
+        } else if (trig.consequence === "COOLDOWN") {
+          const cooldownUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+          await sql`
+            UPDATE trading_accounts
+            SET cooldown_until = ${cooldownUntil}
+            WHERE id = ${accountId}
+          `;
+        }
+      }
+    }
+
+    return evalResult;
+  }
+
+  /**
    * Post-trade evaluator called after a trade closes.
-   * Loads all active rules, evaluates them against normalized trade data,
-   * writes triggered violations to DB, and applies account lock or cooldown if triggered.
    */
   static async postTradeEvaluate(
     userId: string,
@@ -478,61 +556,17 @@ export class RuleService {
       id: string;
       accountId: string;
       symbol: string;
+      side?: "long" | "short";
       entryPrice: number;
       exitPrice?: number | null;
       pnl?: number | null;
       quantity: number;
       stopLoss?: number | null;
       takeProfit?: number | null;
+      marketSession?: string | null;
+      openedAt?: string | null;
     },
-  ): Promise<void> {
-    const tradeIntent: TradeIntent = {
-      accountId: trade.accountId,
-      symbol: trade.symbol,
-      side: "long",
-      entryPrice: trade.entryPrice,
-      stopLoss: trade.stopLoss,
-      takeProfit: trade.takeProfit,
-      quantity: trade.quantity,
-    };
-
-    const evalResult = await this.evaluateTradeIntent(userId, trade.accountId, tradeIntent);
-
-    for (const trig of evalResult.triggeredRules) {
-      await recordViolation(userId, {
-        accountId: trade.accountId,
-        ruleId: trig.ruleId.startsWith("sys-") ? null : trig.ruleId,
-        tradeId: trade.id,
-        violationName: trig.ruleName,
-        ruleType: trig.ruleCategory.toUpperCase(),
-        severity: trig.severity,
-        actionTaken: trig.consequence,
-        metadata: {
-          metric: trig.metric,
-          threshold: trig.threshold,
-          actualValue: trig.actualValue,
-          message: trig.message,
-          tradeSymbol: trade.symbol,
-          consequence: trig.consequence,
-        },
-      });
-
-      // Apply account state changes for LOCK (24 hours) or COOLDOWN (1 hour)
-      if (trig.consequence === "LOCK_ACCOUNT") {
-        const lockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        await sql`
-          UPDATE trading_accounts
-          SET locked_until = ${lockUntil}
-          WHERE id = ${trade.accountId}
-        `;
-      } else if (trig.consequence === "COOLDOWN") {
-        const cooldownUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-        await sql`
-          UPDATE trading_accounts
-          SET cooldown_until = ${cooldownUntil}
-          WHERE id = ${trade.accountId}
-        `;
-      }
-    }
+  ): Promise<RuleEvaluationResult> {
+    return this.evaluateAndRecordTrade(userId, trade.accountId, trade, trade.id);
   }
 }

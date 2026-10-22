@@ -16,6 +16,7 @@ interface InspectRuleModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit: (rule: Rule) => void;
+  onToggleActive?: (ruleId: string, nextActive: boolean) => void;
 }
 
 export function InspectRuleModal({
@@ -23,6 +24,7 @@ export function InspectRuleModal({
   open,
   onOpenChange,
   onEdit,
+  onToggleActive,
 }: InspectRuleModalProps) {
   if (!rule) return null;
 
@@ -47,16 +49,48 @@ export function InspectRuleModal({
             <DialogTitle className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
               {rule.ruleName}
             </DialogTitle>
-            <span
-              className={cn(
-                "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider",
-                rule.isActive
-                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
-                  : "bg-neutral-800 text-neutral-400 border border-neutral-700",
-              )}
-            >
-              {rule.isActive ? "Active" : "Disabled"}
-            </span>
+            {onToggleActive ? (
+              <div className="flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-2.5 py-1">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={rule.isActive}
+                  aria-label={rule.isActive ? "Deactivate rule" : "Activate rule"}
+                  onClick={() => onToggleActive(rule.id, !rule.isActive)}
+                  title={rule.isActive ? "Click to deactivate rule" : "Click to activate rule"}
+                  className={cn(
+                    "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none press-scale-sm",
+                    rule.isActive ? "bg-emerald-500 shadow-sm" : "bg-neutral-800 border border-neutral-700/70",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block size-4 rounded-full bg-white shadow-sm transition-transform duration-200",
+                      rule.isActive ? "translate-x-4" : "translate-x-0",
+                    )}
+                  />
+                </button>
+                <span
+                  className={cn(
+                    "text-[10px] font-bold uppercase tracking-wider",
+                    rule.isActive ? "text-emerald-400" : "text-muted-foreground",
+                  )}
+                >
+                  {rule.isActive ? "Active" : "Deactivated"}
+                </span>
+              </div>
+            ) : (
+              <span
+                className={cn(
+                  "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider",
+                  rule.isActive
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+                    : "bg-neutral-800 text-neutral-400 border border-neutral-700",
+                )}
+              >
+                {rule.isActive ? "Active" : "Disabled"}
+              </span>
+            )}
           </div>
 
           {rule.description ? (
@@ -91,6 +125,16 @@ export function InspectRuleModal({
           {/* Properties Table */}
           <div className="rounded-xl border border-border/70 overflow-hidden divide-y divide-border/60">
             <div className="flex items-center justify-between px-4 py-2.5 bg-card/40 text-xs">
+              <span className="text-muted-foreground">Guardrail Status</span>
+              <span className={cn(
+                "font-bold uppercase tracking-wider text-[11px]",
+                rule.isActive ? "text-emerald-400" : "text-muted-foreground"
+              )}>
+                {rule.isActive ? "Active (Enforced)" : "Deactivated (Ignored)"}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between px-4 py-2.5 bg-card/20 text-xs">
               <span className="text-muted-foreground">Category</span>
               <span className="font-medium text-foreground">{rule.ruleCategory}</span>
             </div>

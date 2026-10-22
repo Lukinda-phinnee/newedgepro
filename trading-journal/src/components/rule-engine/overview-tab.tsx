@@ -293,10 +293,11 @@ export function OverviewTab({
             <thead>
               <tr className="border-b border-border/60 bg-black/20 text-muted-foreground">
                 <th className="px-5 py-3 font-semibold">Violation / Rule Name</th>
+                <th className="px-4 py-3 font-semibold">Logged Trade</th>
                 <th className="px-4 py-3 font-semibold">Category</th>
                 <th className="px-4 py-3 font-semibold">Severity</th>
                 <th className="px-4 py-3 font-semibold">Action Enforced</th>
-                <th className="px-4 py-3 font-semibold">Metric & Values</th>
+                <th className="px-4 py-3 font-semibold">Metric &amp; Values</th>
                 <th className="px-5 py-3 font-semibold text-right">Timestamp</th>
               </tr>
             </thead>
@@ -312,6 +313,19 @@ export function OverviewTab({
                         <span className="text-[11px] text-muted-foreground/80 line-clamp-1 mt-0.5">
                           {String(v.metadata.message)}
                         </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      {v.metadata.tradeSymbol ? (
+                        <a
+                          href="/trade-log"
+                          className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-secondary/60 px-2 py-0.5 text-xs font-bold text-foreground hover:border-violet-500/50 hover:text-violet-300 transition"
+                          title="View trade in Trade Log"
+                        >
+                          {String(v.metadata.tradeSymbol)}
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground/50 text-[11px]">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5">
@@ -354,7 +368,7 @@ export function OverviewTab({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">
                     <CheckCircle2 size={24} className="mx-auto text-emerald-400/80 mb-2" />
                     <p className="text-xs font-medium text-foreground">No recent rule violations recorded</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">

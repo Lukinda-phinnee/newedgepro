@@ -121,8 +121,12 @@ ALTER TABLE trades ADD COLUMN IF NOT EXISTS what_to_improve TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS lessons_learned TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS review_notes TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS screenshots TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS rule_verdict VARCHAR(20);
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS rule_violations_count INTEGER DEFAULT 0;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS rule_evaluation JSONB;
 CREATE INDEX IF NOT EXISTS trades_user_id_account_id_idx ON trades (user_id, account_id, opened_at DESC);
 CREATE INDEX IF NOT EXISTS trades_user_review_status_idx ON trades (user_id, review_status, opened_at DESC);
+CREATE INDEX IF NOT EXISTS trades_rule_verdict_idx ON trades (user_id, rule_verdict);
 
 -- ==========================================
 -- RULE ENGINE: Sets, Rules & Violations

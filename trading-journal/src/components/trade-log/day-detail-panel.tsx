@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
   Check,
   ChevronLeft,
   ChevronRight,
-  Search,
-  X,
   Plus,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -494,31 +497,64 @@ export function DayDetailPanel({
                                   </span>
                                 </div>
                               </div>
-                              {/* Review Status Banner */}
-                              <div className="mt-2.5 flex items-center justify-between rounded-lg border border-border/60 bg-background/60 p-2 text-xs">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Review:</span>
-                                  {t.reviewStatus === "reviewed" ? (
-                                    <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                                      Reviewed {t.executionGrade ? `(Grade ${t.executionGrade})` : ""}
-                                    </span>
-                                  ) : t.reviewStatus === "flagged" ? (
-                                    <span className="inline-flex items-center gap-1 rounded bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-300">
-                                      Flagged for Study
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                                      <span className="size-1 rounded-full bg-amber-400 animate-pulse" />
-                                      Unreviewed
-                                    </span>
-                                  )}
+                              {/* Review & Rule Discipline Status Banner */}
+                              <div className="mt-2.5 flex flex-col gap-2 rounded-lg border border-border/60 bg-background/60 p-2 text-xs">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Review:</span>
+                                      {t.reviewStatus === "reviewed" ? (
+                                        <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                                          Reviewed {t.executionGrade ? `(${t.executionGrade})` : ""}
+                                        </span>
+                                      ) : t.reviewStatus === "flagged" ? (
+                                        <span className="inline-flex items-center gap-1 rounded bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-300">
+                                          Flagged
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                                          <span className="size-1 rounded-full bg-amber-400 animate-pulse" />
+                                          Unreviewed
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Rule Discipline Pill */}
+                                    <div className="flex items-center gap-1.5 border-l border-border/60 pl-2">
+                                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Rules:</span>
+                                      {t.ruleVerdict === "BLOCK" || (!t.ruleVerdict && t.followedRules === "no") ? (
+                                        <span className="inline-flex items-center gap-1 rounded border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-300">
+                                          <AlertTriangle size={10} className="text-rose-400" />
+                                          Violated
+                                        </span>
+                                      ) : t.ruleVerdict === "WARN" || (!t.ruleVerdict && t.followedRules === "partial") ? (
+                                        <span className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                                          <ShieldAlert size={10} className="text-amber-400" />
+                                          Warning
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                                          <ShieldCheck size={10} className="text-emerald-400" />
+                                          Compliant
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <a
+                                    href="/trade-review"
+                                    className="text-[11px] font-medium text-violet-400 hover:text-violet-300 hover:underline shrink-0"
+                                  >
+                                    {t.reviewStatus === "reviewed" ? "Review Studio →" : "Audit Trade →"}
+                                  </a>
                                 </div>
-                                <a
-                                  href="/trade-review"
-                                  className="text-[11px] font-medium text-violet-400 hover:text-violet-300 hover:underline"
-                                >
-                                  {t.reviewStatus === "reviewed" ? "View in Review Studio →" : "Audit Trade →"}
-                                </a>
+
+                                {t.ruleEvaluation?.triggeredRules && t.ruleEvaluation.triggeredRules.length > 0 && (
+                                  <div className="rounded border border-rose-500/20 bg-rose-500/5 px-2 py-1 text-[10px] text-rose-300">
+                                    <span className="font-semibold">Detected Guardrail Alert:</span>{" "}
+                                    {t.ruleEvaluation.triggeredRules[0].message}
+                                  </div>
+                                )}
                               </div>
                               {t.notes && (
                                 <p className="mt-2 rounded-lg border border-border/50 bg-background/50 p-2 text-foreground/80">

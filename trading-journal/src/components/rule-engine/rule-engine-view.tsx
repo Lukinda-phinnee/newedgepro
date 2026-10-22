@@ -161,12 +161,59 @@ export function RuleEngineView({
 
   // Handle rule active toggle
   const handleRuleToggled = (ruleId: string, isActive: boolean) => {
+    const targetRule = (activeRuleSet.rules || []).find((r) => r.id === ruleId);
+
     setActiveRuleSet((prev) => {
       const updatedRules = (prev.rules || []).map((r) =>
         r.id === ruleId ? { ...r, isActive } : r,
       );
       return { ...prev, rules: updatedRules };
     });
+
+    setRuleSets((prev) =>
+      prev.map((rs) => {
+        if (rs.id === activeRuleSet.id) {
+          const updatedRules = (rs.rules || []).map((r) =>
+            r.id === ruleId ? { ...r, isActive } : r,
+          );
+          return { ...rs, rules: updatedRules };
+        }
+        return rs;
+      }),
+    );
+
+    setInspectingRule((prev) => (prev && prev.id === ruleId ? { ...prev, isActive } : prev));
+
+    if (status && targetRule && targetRule.isActive !== isActive) {
+      const cat = targetRule.ruleCategory;
+      const diff = isActive ? 1 : -1;
+      setStatus({
+        ...status,
+        totalActiveRules: Math.max(0, status.totalActiveRules + diff),
+        activeRulesByCategory: {
+          ...status.activeRulesByCategory,
+          [cat]: Math.max(0, (status.activeRulesByCategory[cat] || 0) + diff),
+        },
+      });
+    }
+  };
+
+  // Handle toggle directly from inspect modal with API call
+  const handleToggleRuleFromModal = async (ruleId: string, nextActive: boolean) => {
+    handleRuleToggled(ruleId, nextActive);
+    try {
+      const res = await fetch(`/api/rules/sets/${activeRuleSet.id}/rules/${ruleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: nextActive }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to toggle rule active state");
+      }
+    } catch (err) {
+      console.error("Failed to toggle rule:", err);
+      handleRuleToggled(ruleId, !nextActive);
+    }
   };
 
   // Handle rule deleted
@@ -366,6 +413,7 @@ export function RuleEngineView({
           setEditingRule(rule);
           setEditorOpen(true);
         }}
+        onToggleActive={handleToggleRuleFromModal}
       />
 
       <CopyRulesModal

@@ -2,12 +2,15 @@
 
 import { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
   Clock,
   Filter,
   Plus,
   Search,
+  ShieldAlert,
+  ShieldCheck,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -33,6 +36,7 @@ export function TradeTableView({
   const [sideFilter, setSideFilter] = useState<"all" | "long" | "short">("all");
   const [outcomeFilter, setOutcomeFilter] = useState<"all" | "win" | "loss" | "open">("all");
   const [strategyFilter, setStrategyFilter] = useState<string>("all");
+  const [disciplineFilter, setDisciplineFilter] = useState<"all" | "compliant" | "warning" | "violation">("all");
   const [sortBy, setSortBy] = useState<"date-desc" | "date-asc" | "pnl-desc" | "pnl-asc">("date-desc");
 
   // Distinct strategies for filter dropdown
@@ -70,6 +74,18 @@ export function TradeTableView({
         // Strategy filter
         if (strategyFilter !== "all" && trade.strategy !== strategyFilter) {
           return false;
+        }
+
+        // Discipline filter
+        if (disciplineFilter === "compliant") {
+          const isComp = trade.ruleVerdict === "ACCEPT" || (!trade.ruleVerdict && trade.followedRules === "yes");
+          if (!isComp) return false;
+        } else if (disciplineFilter === "warning") {
+          const isWarn = trade.ruleVerdict === "WARN" || (!trade.ruleVerdict && trade.followedRules === "partial");
+          if (!isWarn) return false;
+        } else if (disciplineFilter === "violation") {
+          const isViol = trade.ruleVerdict === "BLOCK" || (!trade.ruleVerdict && trade.followedRules === "no");
+          if (!isViol) return false;
         }
 
         return true;
@@ -164,6 +180,18 @@ export function TradeTableView({
             </select>
           )}
 
+          {/* Discipline filter */}
+          <select
+            value={disciplineFilter}
+            onChange={(e) => setDisciplineFilter(e.target.value as typeof disciplineFilter)}
+            className="flex h-9 rounded-lg border border-input bg-background px-3 text-xs text-foreground shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="all">All Discipline</option>
+            <option value="compliant">100% Compliant</option>
+            <option value="warning">Warnings</option>
+            <option value="violation">Rule Violations</option>
+          </select>
+
           {/* Sort selector */}
           <select
             value={sortBy}
@@ -207,6 +235,7 @@ export function TradeTableView({
               <th className="px-3 py-3">Qty</th>
               <th className="px-3 py-3">P&L</th>
               <th className="px-3 py-3">Strategy</th>
+              <th className="px-3 py-3">Discipline</th>
               <th className="px-3 py-3">Status</th>
               <th className="px-3 py-3">Review</th>
               <th className="px-3 py-3">Notes</th>
@@ -217,7 +246,7 @@ export function TradeTableView({
             {filteredTrades.length === 0 ? (
               <tr>
                 <td
-                  colSpan={12}
+                  colSpan={13}
                   className="py-12 text-center text-sm text-muted-foreground"
                 >
                   <div className="flex flex-col items-center justify-center">
@@ -342,6 +371,49 @@ export function TradeTableView({
                         </span>
                       ) : (
                         <span className="text-muted-foreground/40">—</span>
+                      )}
+                    </td>
+
+                    {/* Rule Discipline */}
+                    <td className="px-3 py-3.5 whitespace-nowrap">
+                      {trade.ruleVerdict === "BLOCK" || (!trade.ruleVerdict && trade.followedRules === "no") ? (
+                        <div
+                          className="inline-flex items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-300"
+                          title={
+                            trade.ruleEvaluation?.triggeredRules?.map((r) => `${r.ruleName}: ${r.message}`).join("\n") ||
+                            "Rule violation detected during trade execution."
+                          }
+                        >
+                          <AlertTriangle size={11} className="text-rose-400" />
+                          <span>Violated</span>
+                          {trade.ruleViolationsCount ? (
+                            <span className="rounded-full bg-rose-500/20 px-1 text-[9px]">
+                              {trade.ruleViolationsCount}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : trade.ruleVerdict === "WARN" || (!trade.ruleVerdict && trade.followedRules === "partial") ? (
+                        <div
+                          className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300"
+                          title={
+                            trade.ruleEvaluation?.triggeredRules?.map((r) => `${r.ruleName}: ${r.message}`).join("\n") ||
+                            "Minor rule deviation or warning threshold triggered."
+                          }
+                        >
+                          <ShieldAlert size={11} className="text-amber-400" />
+                          <span>Warning</span>
+                        </div>
+                      ) : (
+                        <div
+                          className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300"
+                          title={
+                            trade.ruleEvaluation?.messages?.[0] ||
+                            "Conforms 100% to all active rules and safety guardrails."
+                          }
+                        >
+                          <ShieldCheck size={11} className="text-emerald-400" />
+                          <span>Compliant</span>
+                        </div>
                       )}
                     </td>
 

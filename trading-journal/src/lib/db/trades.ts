@@ -47,6 +47,25 @@ function mapTradeRow(row: Record<string, unknown>): Trade {
   const reviewNotes = row.review_notes ? String(row.review_notes) : null;
   const reviewedAt = row.reviewed_at instanceof Date ? row.reviewed_at.toISOString() : row.reviewed_at ? String(row.reviewed_at) : null;
 
+  let ruleEvaluation: Trade["ruleEvaluation"] = null;
+  if (row.rule_evaluation) {
+    if (typeof row.rule_evaluation === "string") {
+      try {
+        ruleEvaluation = JSON.parse(row.rule_evaluation);
+      } catch {
+        ruleEvaluation = null;
+      }
+    } else if (typeof row.rule_evaluation === "object") {
+      ruleEvaluation = row.rule_evaluation as Trade["ruleEvaluation"];
+    }
+  }
+
+  const ruleVerdict = (row.rule_verdict as "ACCEPT" | "WARN" | "BLOCK") || null;
+  const ruleViolationsCount =
+    row.rule_violations_count !== null && row.rule_violations_count !== undefined
+      ? Number(row.rule_violations_count)
+      : 0;
+
   return {
     id: String(row.id),
     userId: String(row.user_id),
@@ -84,6 +103,10 @@ function mapTradeRow(row: Record<string, unknown>): Trade {
     lessonsLearned,
     reviewNotes,
     screenshots,
+    // Automated Rule Engine evaluation properties
+    ruleVerdict,
+    ruleViolationsCount,
+    ruleEvaluation,
   };
 }
 
@@ -152,6 +175,9 @@ export async function createTrade(
     lessonsLearned?: string | null;
     reviewNotes?: string | null;
     screenshots?: string[] | null;
+    ruleVerdict?: "ACCEPT" | "WARN" | "BLOCK" | null;
+    ruleViolationsCount?: number | null;
+    ruleEvaluation?: Record<string, unknown> | null;
   },
 ): Promise<Trade> {
   const pnl = trade.pnl ?? (trade.exitPrice ? (trade.side === "long" ? (trade.exitPrice - trade.entryPrice) * trade.quantity : (trade.entryPrice - trade.exitPrice) * trade.quantity) : 0);
@@ -159,6 +185,7 @@ export async function createTrade(
   const reviewStatus = trade.reviewStatus || "unreviewed";
   const mistakeTagsStr = trade.mistakeTags ? JSON.stringify(trade.mistakeTags) : null;
   const screenshotsStr = trade.screenshots ? JSON.stringify(trade.screenshots) : JSON.stringify([]);
+  const ruleEvaluationStr = trade.ruleEvaluation ? JSON.stringify(trade.ruleEvaluation) : null;
 
   const rows = (await sql`
     INSERT INTO trades (
@@ -192,7 +219,10 @@ export async function createTrade(
       what_to_improve,
       lessons_learned,
       review_notes,
-      screenshots
+      screenshots,
+      rule_verdict,
+      rule_violations_count,
+      rule_evaluation
     ) VALUES (
       ${userId},
       ${trade.accountId},
@@ -224,7 +254,10 @@ export async function createTrade(
       ${trade.whatToImprove ?? null},
       ${trade.lessonsLearned ?? null},
       ${trade.reviewNotes ?? null},
-      ${screenshotsStr}
+      ${screenshotsStr},
+      ${trade.ruleVerdict ?? null},
+      ${trade.ruleViolationsCount ?? 0},
+      ${ruleEvaluationStr}::jsonb
     )
     RETURNING *
   `) as Record<string, unknown>[];
@@ -276,6 +309,12 @@ export async function updateTrade(
   const reviewNotes = updates.reviewNotes !== undefined ? updates.reviewNotes : (current.review_notes ? String(current.review_notes) : null);
   const screenshotsStr = updates.screenshots !== undefined ? (Array.isArray(updates.screenshots) ? JSON.stringify(updates.screenshots) : (updates.screenshots ? String(updates.screenshots) : null)) : (current.screenshots ? String(current.screenshots) : null);
 
+  const ruleVerdict = updates.ruleVerdict !== undefined ? updates.ruleVerdict : (current.rule_verdict as "ACCEPT" | "WARN" | "BLOCK" | null);
+  const ruleViolationsCount = updates.ruleViolationsCount !== undefined ? updates.ruleViolationsCount : (current.rule_violations_count !== null ? Number(current.rule_violations_count) : 0);
+  const ruleEvaluationStr = updates.ruleEvaluation !== undefined
+    ? (updates.ruleEvaluation ? JSON.stringify(updates.ruleEvaluation) : null)
+    : (current.rule_evaluation ? (typeof current.rule_evaluation === "string" ? current.rule_evaluation : JSON.stringify(current.rule_evaluation)) : null);
+
   const rows = (await sql`
     UPDATE trades
     SET
@@ -308,6 +347,9 @@ export async function updateTrade(
       lessons_learned = ${lessonsLearned ?? null},
       review_notes = ${reviewNotes ?? null},
       screenshots = ${screenshotsStr ?? null},
+      rule_verdict = ${ruleVerdict ?? null},
+      rule_violations_count = ${ruleViolationsCount ?? 0},
+      rule_evaluation = ${ruleEvaluationStr}::jsonb,
       updated_at = NOW()
     WHERE id = ${id} AND user_id = ${userId}
     RETURNING *

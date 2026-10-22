@@ -79,6 +79,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Evaluate trade intent against active rule set
+    let ruleVerdict: "ACCEPT" | "WARN" | "BLOCK" = "ACCEPT";
+    let ruleViolationsCount = 0;
+    let ruleEvaluation: any = null;
+
+    try {
+      const { RuleService } = await import("@/lib/services/rule-service");
+      const evalResult = await RuleService.evaluateAndRecordTrade(
+        session.user.id,
+        accountId,
+        {
+          symbol: String(symbol).toUpperCase(),
+          side: side as "long" | "short",
+          entryPrice: Number(entryPrice),
+          exitPrice: exitPrice ? Number(exitPrice) : null,
+          quantity: Number(quantity),
+          stopLoss: stopLoss ? Number(stopLoss) : null,
+          takeProfit: takeProfit ? Number(takeProfit) : null,
+          marketSession: marketSession || null,
+          marketCondition: marketCondition || null,
+          pnl: pnl !== undefined ? Number(pnl) : null,
+          openedAt: openedAt || new Date().toISOString(),
+        },
+      );
+
+      ruleVerdict = evalResult.verdict;
+      ruleViolationsCount = evalResult.triggeredRules.length;
+      ruleEvaluation = evalResult;
+    } catch (evalErr) {
+      console.warn("Rule evaluation prior to trade creation error:", evalErr);
+    }
+
+    const resolvedFollowedRules =
+      followedRules ||
+      (ruleVerdict === "ACCEPT" ? "yes" : ruleVerdict === "WARN" ? "partial" : "no");
+
     const newTrade = await createTrade(session.user.id, {
       accountId,
       symbol,
@@ -103,36 +139,47 @@ export async function POST(request: NextRequest) {
       reviewedAt: reviewedAt || null,
       executionGrade: executionGrade || null,
       reviewRating: reviewRating ? Number(reviewRating) : null,
-      followedRules: followedRules || null,
+      followedRules: resolvedFollowedRules,
       mistakeTags: Array.isArray(mistakeTags) ? mistakeTags : null,
       whatWentWell: whatWentWell || null,
       whatToImprove: whatToImprove || null,
       lessonsLearned: lessonsLearned || null,
       reviewNotes: reviewNotes || null,
       screenshots: Array.isArray(screenshots) ? screenshots : [],
+      ruleVerdict,
+      ruleViolationsCount,
+      ruleEvaluation,
     });
 
-    // Evaluate closed trade against active rules and record any violations
-    if (newTrade && newTrade.status === "closed") {
+    // Record violation records linked to the new trade ID
+    if (newTrade && ruleEvaluation && ruleEvaluation.triggeredRules && ruleEvaluation.triggeredRules.length > 0) {
       try {
-        const { RuleService } = await import("@/lib/services/rule-service");
-        await RuleService.postTradeEvaluate(session.user.id, {
-          id: newTrade.id,
-          accountId: newTrade.accountId,
-          symbol: newTrade.symbol,
-          entryPrice: newTrade.entryPrice,
-          exitPrice: newTrade.exitPrice,
-          pnl: newTrade.pnl,
-          quantity: newTrade.quantity,
-          stopLoss: newTrade.stopLoss,
-          takeProfit: newTrade.takeProfit,
-        });
+        const { recordViolation } = await import("@/lib/db/rules");
+        for (const trig of ruleEvaluation.triggeredRules) {
+          await recordViolation(session.user.id, {
+            accountId: newTrade.accountId,
+            ruleId: trig.ruleId?.startsWith("sys-") ? null : trig.ruleId,
+            tradeId: newTrade.id,
+            violationName: trig.ruleName,
+            ruleType: (trig.ruleCategory || "RISK").toUpperCase(),
+            severity: trig.severity,
+            actionTaken: trig.consequence,
+            metadata: {
+              metric: trig.metric,
+              threshold: trig.threshold,
+              actualValue: trig.actualValue,
+              message: trig.message,
+              tradeSymbol: newTrade.symbol,
+              consequence: trig.consequence,
+            },
+          });
+        }
       } catch (err) {
-        console.warn("Post-trade rule evaluation warning:", err);
+        console.warn("Post-trade violation recording warning:", err);
       }
     }
 
-    return NextResponse.json({ trade: newTrade }, { status: 201 });
+    return NextResponse.json({ trade: newTrade, evaluation: ruleEvaluation }, { status: 201 });
   } catch (error) {
     console.error("POST /api/trades error:", error);
     return NextResponse.json(
