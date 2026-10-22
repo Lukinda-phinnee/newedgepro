@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type {
+  ChecklistItem,
   CreateStrategyInput,
   Strategy,
   StrategyCategory,
@@ -39,6 +40,7 @@ interface AddStrategyModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaveSuccess: (saved: Strategy) => void;
+  editingStrategy?: Strategy | null;
 }
 
 const CATEGORIES: StrategyCategory[] = [
@@ -74,13 +76,15 @@ const STATUS_OPTIONS: { value: StrategyStatus; label: string; desc: string }[] =
 // Spring for step transitions
 const springStep = { type: "spring" as const, damping: 26, stiffness: 280 };
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 export function AddStrategyModal({
   open,
   onOpenChange,
   onSaveSuccess,
+  editingStrategy,
 }: AddStrategyModalProps) {
+  const isEditing = !!editingStrategy;
   const [step, setStep] = useState<Step>(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +116,58 @@ export function AddStrategyModal({
   const [newsBlackoutRule, setNewsBlackoutRule] = useState("Blackout 15m before/after high-impact news");
   const [thesis, setThesis] = useState("");
 
+  // ─── Step 5: Playbook & Exit Rules (Optional) ───
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [newCriterion, setNewCriterion] = useState("");
+  const [newPhase, setNewPhase] = useState<"PRE_CONDITION" | "TRIGGER" | "CONFIRMATION">("TRIGGER");
+  const [tp1Ratio, setTp1Ratio] = useState(1.5);
+  const [tp1Percent, setTp1Percent] = useState(50);
+  const [tp2Ratio, setTp2Ratio] = useState(3.0);
+  const [tp2Percent, setTp2Percent] = useState(35);
+  const [runnerRule, setRunnerRule] = useState("Trail 15m structure pivot");
+  const [breakevenRule, setBreakevenRule] = useState("Move to breakeven after TP1");
+  const [timeStopMinutes, setTimeStopMinutes] = useState<number | undefined>(45);
+
+  useEffect(() => {
+    if (open && editingStrategy) {
+      setStep(1);
+      setName(editingStrategy.name || "");
+      setCategory(editingStrategy.category || "Liquidity Sweep");
+      setStatus(editingStrategy.status || "CALIBRATING");
+      setAssets(editingStrategy.assetUniverse || []);
+      setMarketRegime(editingStrategy.marketRegime || "High Volatility Trend");
+      setWinRateTarget(editingStrategy.winRateTarget ?? 60);
+      setExpectancyR(editingStrategy.expectancyR ?? 0.85);
+      setEdgeScore(editingStrategy.edgeScore ?? 75);
+      setMaxRiskPercent(editingStrategy.maxRiskPercent ?? 1.0);
+      setMinRrRatio(editingStrategy.minRrRatio ?? 2.0);
+      setInvalidationRule(editingStrategy.invalidationRule || "");
+      setKillSwitchRule(editingStrategy.killSwitchRule || "");
+      setSelectedSessions(editingStrategy.tradingSessions || ["New York AM"]);
+      setKillZoneStart(editingStrategy.killZoneStart || "09:30");
+      setKillZoneEnd(editingStrategy.killZoneEnd || "11:30");
+      setSelectedDays(editingStrategy.daysOfWeek || ["Tuesday", "Wednesday", "Thursday"]);
+      setNewsBlackoutRule(
+        editingStrategy.newsBlackoutRule || "Blackout 15m before/after high-impact news"
+      );
+      setThesis(editingStrategy.thesis || "");
+      setChecklist(editingStrategy.entryChecklist || []);
+      setNewCriterion("");
+      setNewPhase("TRIGGER");
+      setTp1Ratio(editingStrategy.exitStrategy?.tp1Ratio ?? 1.5);
+      setTp1Percent(editingStrategy.exitStrategy?.tp1Percent ?? 50);
+      setTp2Ratio(editingStrategy.exitStrategy?.tp2Ratio ?? 3.0);
+      setTp2Percent(editingStrategy.exitStrategy?.tp2Percent ?? 35);
+      setRunnerRule(editingStrategy.exitStrategy?.runnerRule || "Trail 15m structure pivot");
+      setBreakevenRule(editingStrategy.exitStrategy?.breakevenRule || "Move to breakeven after TP1");
+      setTimeStopMinutes(editingStrategy.exitStrategy?.timeStopMinutes ?? 45);
+      setError(null);
+      setSaving(false);
+    } else if (open && !editingStrategy) {
+      resetForm();
+    }
+  }, [open, editingStrategy]);
+
   const resetForm = () => {
     setStep(1);
     setName("");
@@ -133,6 +189,16 @@ export function AddStrategyModal({
     setSelectedDays(["Tuesday", "Wednesday", "Thursday"]);
     setNewsBlackoutRule("Blackout 15m before/after high-impact news");
     setThesis("");
+    setChecklist([]);
+    setNewCriterion("");
+    setNewPhase("TRIGGER");
+    setTp1Ratio(1.5);
+    setTp1Percent(50);
+    setTp2Ratio(3.0);
+    setTp2Percent(35);
+    setRunnerRule("Trail 15m structure pivot");
+    setBreakevenRule("Move to breakeven after TP1");
+    setTimeStopMinutes(45);
     setError(null);
     setSaving(false);
   };
@@ -147,6 +213,23 @@ export function AddStrategyModal({
 
   const handleRemoveAsset = (sym: string) => {
     setAssets((prev) => prev.filter((a) => a !== sym));
+  };
+
+  const handleAddCriterion = () => {
+    const trimmed = newCriterion.trim();
+    if (!trimmed) return;
+    const newItem: ChecklistItem = {
+      id: `chk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      label: trimmed,
+      phase: newPhase,
+      required: true,
+    };
+    setChecklist((prev) => [...prev, newItem]);
+    setNewCriterion("");
+  };
+
+  const handleRemoveCriterion = (id: string) => {
+    setChecklist((prev) => prev.filter((item) => item.id !== id));
   };
 
   const toggleSession = (session: string) => {
@@ -175,6 +258,8 @@ export function AddStrategyModal({
         return maxRiskPercent > 0 && minRrRatio > 0;
       case 4:
         return selectedSessions.length > 0 && selectedDays.length > 0;
+      case 5:
+        return true; // Completely optional!
     }
   };
 
@@ -182,61 +267,80 @@ export function AddStrategyModal({
     setSaving(true);
     setError(null);
 
-    const input: CreateStrategyInput = {
-      accountId: null,
+    const inputData = {
+      accountId: editingStrategy ? editingStrategy.accountId : null,
       name: name.trim(),
       category,
-      version: "v1.0",
+      version: editingStrategy ? editingStrategy.version : "v1.0",
       status,
-      description: null,
+      description: editingStrategy ? editingStrategy.description : null,
       thesis: thesis.trim() || null,
       assetUniverse: assets,
       marketRegime,
       edgeScore,
       expectancyR,
       winRateTarget,
-      profitFactor: 2.1,
-      sampleSize: 0,
-      edgeStateNotes: null,
+      profitFactor: editingStrategy ? editingStrategy.profitFactor : 2.1,
+      sampleSize: editingStrategy ? editingStrategy.sampleSize : 0,
+      edgeStateNotes: editingStrategy ? editingStrategy.edgeStateNotes : null,
       maxRiskPercent,
       minRrRatio,
       invalidationRule: invalidationRule.trim() || null,
-      stopLossLogic: null,
+      stopLossLogic: editingStrategy ? editingStrategy.stopLossLogic : null,
       killSwitchRule: killSwitchRule.trim() || null,
       tradingSessions: selectedSessions,
       killZoneStart,
       killZoneEnd,
-      timeZone: "EST (UTC-5)",
+      timeZone: editingStrategy ? editingStrategy.timeZone : "EST (UTC-5)",
       daysOfWeek: selectedDays,
       newsBlackoutRule: newsBlackoutRule.trim() || null,
-      entryChecklist: [],
-      disqualifiers: [],
+      entryChecklist: checklist,
+      disqualifiers: editingStrategy ? editingStrategy.disqualifiers : [],
       exitStrategy: {
-        tp1Ratio: 1.5,
-        tp1Percent: 50,
-        tp2Ratio: 3.0,
-        tp2Percent: 35,
-        runnerRule: "Trail 15m structure pivot",
-        breakevenRule: "Move to breakeven after TP1",
-        timeStopMinutes: 45,
+        tp1Ratio: Number(tp1Ratio) || 1.5,
+        tp1Percent: Number(tp1Percent) || 50,
+        tp2Ratio: Number(tp2Ratio) || 3.0,
+        tp2Percent: Number(tp2Percent) || 35,
+        runnerRule: runnerRule.trim() || undefined,
+        breakevenRule: breakevenRule.trim() || "Move to breakeven after TP1",
+        timeStopMinutes: timeStopMinutes ? Number(timeStopMinutes) : undefined,
       },
-      refinements: [],
+      refinements: editingStrategy ? editingStrategy.refinements : [],
     };
 
     try {
-      const res = await fetch("/api/strategies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
+      let saved: Strategy;
+      if (editingStrategy) {
+        const res = await fetch(`/api/strategies/${editingStrategy.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(inputData),
+        });
 
-      if (!res.ok) {
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to update strategy");
+        }
+
         const data = await res.json();
-        throw new Error(data.error || "Failed to create strategy");
+        saved = data.strategy;
+      } else {
+        const res = await fetch("/api/strategies", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(inputData),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to create strategy");
+        }
+
+        const data = await res.json();
+        saved = data.strategy;
       }
 
-      const { strategy } = await res.json();
-      onSaveSuccess(strategy);
+      onSaveSuccess(saved);
       resetForm();
       onOpenChange(false);
     } catch (err) {
@@ -247,15 +351,41 @@ export function AddStrategyModal({
   };
 
   const stepLabels: Record<Step, { title: string; subtitle: string }> = {
-    1: { title: "Core Identity", subtitle: "Name your edge and define its asset universe" },
-    2: { title: "Edge Baseline Targets", subtitle: "Set statistical performance benchmarks" },
-    3: { title: "Risk Guardrails", subtitle: "Define hard risk limits and invalidation rules" },
-    4: { title: "Execution Window & Thesis", subtitle: "Time your edge and document the premise" },
+    1: {
+      title: "Core Identity",
+      subtitle: isEditing
+        ? "Edit edge identity and asset universe"
+        : "Name your edge and define its asset universe",
+    },
+    2: {
+      title: "Edge Baseline Targets",
+      subtitle: isEditing
+        ? "Adjust statistical performance benchmarks"
+        : "Set statistical performance benchmarks",
+    },
+    3: {
+      title: "Risk Guardrails",
+      subtitle: isEditing
+        ? "Update hard risk limits and invalidation rules"
+        : "Define hard risk limits and invalidation rules",
+    },
+    4: {
+      title: "Execution Window & Thesis",
+      subtitle: isEditing
+        ? "Refine market timing and theoretical premise"
+        : "Time your edge and document the premise",
+    },
+    5: {
+      title: "Playbook & Exit Rules (Optional)",
+      subtitle: isEditing
+        ? "Optionally refine entry checklist and exit targets"
+        : "Optionally add entry criteria & scale-outs, or skip to finish",
+    },
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="p-5 pb-0">
           <div className="flex items-center justify-between">
@@ -264,7 +394,9 @@ export function AddStrategyModal({
                 <Sparkles size={18} />
               </span>
               <div>
-                <DialogTitle className="text-base">New Trading Strategy</DialogTitle>
+                <DialogTitle className="text-base">
+                  {isEditing ? `Edit Strategy: ${editingStrategy.name}` : "New Trading Strategy"}
+                </DialogTitle>
                 <DialogDescription className="text-xs mt-0.5">
                   {stepLabels[step].subtitle}
                 </DialogDescription>
@@ -282,23 +414,23 @@ export function AddStrategyModal({
 
           {/* Step Indicator */}
           <div className="flex items-center gap-1.5 mt-5 mb-4">
-            {([1, 2, 3, 4] as Step[]).map((s) => (
+            {([1, 2, 3, 4, 5] as Step[]).map((s) => (
               <div key={s} className="flex items-center gap-1.5 flex-1">
                 <button
                   type="button"
-                  onClick={() => { if (s < step) setStep(s); }}
+                  onClick={() => { if (isEditing || s < step) setStep(s); }}
                   className={cn(
-                    "flex size-7 items-center justify-center rounded-full text-[11px] font-bold border transition-all",
+                    "flex size-7 items-center justify-center rounded-full text-[11px] font-bold border transition-all cursor-pointer",
                     s === step
                       ? "bg-violet-500 text-white border-violet-500 shadow-sm shadow-violet-500/30"
-                      : s < step
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                      : isEditing || s < step
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30"
                         : "bg-white/[0.04] text-muted-foreground border-border/60"
                   )}
                 >
                   {s < step ? <Check size={13} /> : s}
                 </button>
-                {s < 4 && (
+                {s < 5 && (
                   <div
                     className={cn(
                       "flex-1 h-0.5 rounded-full",
@@ -667,6 +799,187 @@ export function AddStrategyModal({
                   </div>
                 </div>
               )}
+
+              {/* ─── Step 5: Playbook & Exit Rules (Optional) ─── */}
+              {step === 5 && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-xs text-violet-300">
+                    <Sparkles size={14} className="shrink-0 text-violet-400" />
+                    <span>
+                      <strong>Optional step:</strong> You can add initial entry criteria &amp; scale-outs now or customize your complete Playbook anytime on the strategy page.
+                    </span>
+                  </div>
+
+                  {/* Initial Entry Checklist */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <Check size={13} className="text-violet-400" />
+                        Initial Entry Checklist Criteria
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {checklist.length} criteria defined
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-2">
+                      <select
+                        value={newPhase}
+                        onChange={(e) => setNewPhase(e.target.value as any)}
+                        aria-label="Criteria Phase"
+                        className="h-8 rounded-lg bg-card border border-border/70 text-xs text-foreground px-2 focus:outline-none focus:ring-1 focus:ring-violet-500 shrink-0"
+                      >
+                        <option value="PRE_CONDITION">Pre-Condition</option>
+                        <option value="TRIGGER">Trigger</option>
+                        <option value="CONFIRMATION">Confirmation</option>
+                      </select>
+
+                      <Input
+                        value={newCriterion}
+                        onChange={(e) => setNewCriterion(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCriterion();
+                          }
+                        }}
+                        placeholder="e.g. 15m FVG swept with displacement"
+                        className="h-8 text-xs flex-1"
+                      />
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleAddCriterion}
+                        disabled={!newCriterion.trim()}
+                        className="h-8 px-2.5 text-xs bg-violet-600 hover:bg-violet-500 text-white shrink-0"
+                      >
+                        <Plus size={13} className="mr-1" />
+                        Add
+                      </Button>
+                    </div>
+
+                    {/* Criteria List */}
+                    {checklist.length > 0 ? (
+                      <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                        {checklist.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/[0.03] border border-border/60 text-xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className={cn(
+                                  "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded font-mono shrink-0",
+                                  item.phase === "PRE_CONDITION"
+                                    ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                                    : item.phase === "TRIGGER"
+                                    ? "bg-violet-500/15 text-violet-300 border border-violet-500/30"
+                                    : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                                )}
+                              >
+                                {item.phase.replace("_", " ")}
+                              </span>
+                              <span className="truncate text-foreground font-medium text-[11px]">
+                                {item.label}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCriterion(item.id)}
+                              className="text-muted-foreground hover:text-rose-400 transition-colors p-1"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-lg border border-dashed border-border/60 text-center text-[11px] text-muted-foreground">
+                        No criteria added yet. Press Enter or click &ldquo;Add&rdquo; above, or skip and define rules later.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Exit Strategy & Targets */}
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5 mb-2">
+                      <Target size={13} className="text-violet-400" />
+                      Exit Targets &amp; Scale-Out Strategy
+                    </Label>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2.5">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground block mb-1">TP1 Target (R)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0.5"
+                          value={tp1Ratio}
+                          onChange={(e) => setTp1Ratio(parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground block mb-1">TP1 Size (%)</Label>
+                        <Input
+                          type="number"
+                          step="5"
+                          min="0"
+                          max="100"
+                          value={tp1Percent}
+                          onChange={(e) => setTp1Percent(parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground block mb-1">TP2 Target (R)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="1.0"
+                          value={tp2Ratio}
+                          onChange={(e) => setTp2Ratio(parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground block mb-1">TP2 Size (%)</Label>
+                        <Input
+                          type="number"
+                          step="5"
+                          min="0"
+                          max="100"
+                          value={tp2Percent}
+                          onChange={(e) => setTp2Percent(parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground block mb-1">Breakeven Rule</Label>
+                        <Input
+                          value={breakevenRule}
+                          onChange={(e) => setBreakevenRule(e.target.value)}
+                          placeholder="e.g. Move to BE after TP1"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground block mb-1">Runner / Trailing Rule</Label>
+                        <Input
+                          value={runnerRule}
+                          onChange={(e) => setRunnerRule(e.target.value)}
+                          placeholder="e.g. Trail 15m structure pivot"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -682,7 +995,7 @@ export function AddStrategyModal({
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border/60 px-5 py-3.5">
           <div className="text-[11px] text-muted-foreground font-mono">
-            Step {step} of 4 &mdash; {stepLabels[step].title}
+            Step {step} of 5 &mdash; {stepLabels[step].title}
           </div>
           <div className="flex items-center gap-2">
             {step > 1 && (
@@ -697,7 +1010,27 @@ export function AddStrategyModal({
               </Button>
             )}
 
-            {step < 4 ? (
+            {step === 4 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSave}
+                disabled={saving || !canProceed(4)}
+                className="h-8 text-xs border-border/70 text-muted-foreground hover:text-foreground"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={13} className="mr-1.5 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Skip to Create"
+                )}
+              </Button>
+            )}
+
+            {step < 5 ? (
               <Button
                 type="button"
                 size="sm"
@@ -705,7 +1038,7 @@ export function AddStrategyModal({
                 disabled={!canProceed(step)}
                 className="h-8 text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white shadow-sm shadow-violet-950/30 press-scale disabled:opacity-40"
               >
-                Continue
+                {step === 4 ? "Next: Playbook (Optional)" : "Continue"}
                 <ArrowRight size={13} className="ml-1.5" />
               </Button>
             ) : (
@@ -724,7 +1057,7 @@ export function AddStrategyModal({
                 ) : (
                   <>
                     <Check size={13} className="mr-1.5" />
-                    Create Strategy
+                    {isEditing ? "Save Changes" : "Create Strategy"}
                   </>
                 )}
               </Button>

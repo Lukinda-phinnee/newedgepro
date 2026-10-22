@@ -24,13 +24,13 @@ export function StrategyRightPanel({ strategy }: StrategyRightPanelProps) {
       {/* ─── Plan Stats (Edge State) ─── */}
       <div className="rounded-xl border border-border/70 bg-card/60 overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
-            <Activity size={12} className="text-violet-400" />
+          <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <Activity size={13} className="text-violet-400" />
             Plan Stats
           </span>
           <button
             type="button"
-            className="text-muted-foreground hover:text-foreground p-0.5 transition-colors"
+            className="text-muted-foreground hover:text-foreground p-0.5 transition-colors cursor-pointer"
             title="Edit stats"
           >
             <Edit3 size={12} />
@@ -82,13 +82,13 @@ export function StrategyRightPanel({ strategy }: StrategyRightPanelProps) {
       {/* ─── Risk Controls ─── */}
       <div className="rounded-xl border border-border/70 bg-card/60 overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
-            <ShieldAlert size={12} className="text-rose-400" />
+          <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <ShieldAlert size={13} className="text-rose-400" />
             Risk Controls
           </span>
           <button
             type="button"
-            className="text-muted-foreground hover:text-foreground p-0.5 transition-colors"
+            className="text-muted-foreground hover:text-foreground p-0.5 transition-colors cursor-pointer"
             title="Edit risk controls"
           >
             <Edit3 size={12} />
@@ -126,8 +126,8 @@ export function StrategyRightPanel({ strategy }: StrategyRightPanelProps) {
       {/* ─── Trading Window ─── */}
       <div className="rounded-xl border border-border/70 bg-card/60 overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
-            <Clock size={12} className="text-sky-400" />
+          <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <Clock size={13} className="text-sky-400" />
             Trading Window
           </span>
         </div>
