@@ -199,10 +199,12 @@ export function DashboardShell({
         <main
           suppressHydrationWarning
           className={cn(
-            "flex-1 overflow-y-auto w-full transition-all duration-200",
-            pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine"
-              ? "p-4 w-full"
-              : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9",
+            "flex-1 w-full transition-all duration-200",
+            pathname === "/edge"
+              ? "p-0 overflow-hidden"
+              : pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine"
+              ? "p-4 overflow-y-auto"
+              : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9 overflow-y-auto",
           )}
         >
           {children}

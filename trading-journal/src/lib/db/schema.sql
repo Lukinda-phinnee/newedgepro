@@ -203,3 +203,46 @@ ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS current_rule_set_id UUID R
 ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS cooldown_until TIMESTAMPTZ;
 ALTER TABLE trading_accounts ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
 
+-- ==========================================
+-- EDGE MODULE: Strategies & Refinement Plans
+-- ==========================================
+CREATE TABLE IF NOT EXISTS strategies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  account_id UUID REFERENCES trading_accounts(id) ON DELETE SET NULL,
+  name VARCHAR(120) NOT NULL,
+  category VARCHAR(60) NOT NULL DEFAULT 'Liquidity Sweep',
+  version VARCHAR(20) NOT NULL DEFAULT 'v1.0',
+  status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'CALIBRATING', 'PROBATION', 'ARCHIVED')),
+  description TEXT,
+  thesis TEXT,
+  asset_universe JSONB DEFAULT '["NQ", "ES"]'::jsonb,
+  market_regime VARCHAR(60) DEFAULT 'High Volatility Trend',
+  edge_score INTEGER DEFAULT 85,
+  expectancy_r NUMERIC(5, 2) DEFAULT 0.85,
+  win_rate_target NUMERIC(5, 2) DEFAULT 62.0,
+  profit_factor NUMERIC(5, 2) DEFAULT 2.15,
+  sample_size INTEGER DEFAULT 48,
+  edge_state_notes TEXT,
+  max_risk_percent NUMERIC(5, 2) DEFAULT 1.0,
+  min_rr_ratio NUMERIC(5, 2) DEFAULT 2.0,
+  invalidation_rule TEXT,
+  stop_loss_logic TEXT,
+  kill_switch_rule TEXT,
+  trading_sessions JSONB DEFAULT '["London Open", "New York AM"]'::jsonb,
+  kill_zone_start VARCHAR(10) DEFAULT '09:30',
+  kill_zone_end VARCHAR(10) DEFAULT '11:30',
+  time_zone VARCHAR(30) DEFAULT 'EST (UTC-5)',
+  days_of_week JSONB DEFAULT '["Tuesday", "Wednesday", "Thursday"]'::jsonb,
+  news_blackout_rule VARCHAR(120) DEFAULT 'Blackout 15m before/after high-impact news',
+  entry_checklist JSONB DEFAULT '[]'::jsonb,
+  disqualifiers JSONB DEFAULT '[]'::jsonb,
+  exit_strategy JSONB DEFAULT '{}'::jsonb,
+  refinements JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS strategies_user_id_idx ON strategies (user_id, status);
+CREATE INDEX IF NOT EXISTS strategies_account_id_idx ON strategies (account_id);
+

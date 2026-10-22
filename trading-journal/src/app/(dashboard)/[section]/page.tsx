@@ -4,7 +4,6 @@ import { ArrowUpRight, Sparkles } from "lucide-react";
 export const instant = false;
 
 const sections: Record<string, { title: string; description: string; eyebrow: string }> = {
-  edge: { title: "Your edge", description: "Discover the setups, sessions, and conditions where you perform at your best.", eyebrow: "ANALYTICS" },
   plan: { title: "Trading plan", description: "Set your intentions, define your levels, and prepare for the sessions ahead.", eyebrow: "PREPARATION" },
   "trader-notes": { title: "Trader notes", description: "Keep your observations, ideas, and reflections close to your trading practice.", eyebrow: "NOTEBOOK" },
   profile: { title: "Profile", description: "Your EdgePro account profile and personal details.", eyebrow: "YOUR ACCOUNT" },
