@@ -447,6 +447,7 @@ export function AddStrategyModal({
       },
       refinements: editingStrategy ? editingStrategy.refinements : [],
       tradeManagementRules: editingStrategy ? (editingStrategy.tradeManagementRules || []) : [],
+      entryModelImages: editingStrategy ? (editingStrategy.entryModelImages || []) : [],
     };
 
     try {

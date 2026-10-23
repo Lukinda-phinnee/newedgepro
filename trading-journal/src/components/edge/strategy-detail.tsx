@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   AlertOctagon,
   AlertTriangle,
@@ -9,8 +9,10 @@ import {
   ChevronDown,
   Clock,
   Edit3,
+  Eye,
   FileText,
   GitBranch,
+  Image as ImageIcon,
   Layers,
   ListChecks,
   ListOrdered,
@@ -22,6 +24,7 @@ import {
   Target,
   Trash2,
   TrendingUp,
+  UploadCloud,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import type {
   ChecklistItem,
   DisqualifierItem,
+  EntryModelImage,
   ExitStrategyConfig,
   RefinementLogItem,
   Strategy,
@@ -38,6 +42,48 @@ import type {
   TradeManagementRule,
 } from "@/types/strategy";
 import { cn } from "@/lib/utils";
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const src = e.target?.result as string;
+      if (!src) return resolve("");
+
+      const img = new window.Image();
+      img.onload = () => {
+        const maxWidth = 1920;
+        const maxHeight = 1080;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.88));
+            return;
+          }
+        }
+        resolve(src);
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 interface StrategyDetailProps {
   strategy: Strategy;
@@ -110,7 +156,14 @@ export function StrategyDetail({
   const [isAddingThesisStep, setIsAddingThesisStep] = useState(false);
   const [newThesisStep, setNewThesisStep] = useState("");
 
-  // ─── 3. Entry Criteria (Checklist) ───
+  // ─── 3. Entry Model (Images & Checklist) ───
+  const entryModelImages = strategy.entryModelImages || [];
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<EntryModelImage | null>(null);
+  const [editingImageId, setEditingImageId] = useState<string | null>(null);
+  const [editingImageTitle, setEditingImageTitle] = useState("");
+
   const checklist = strategy.entryChecklist || [];
   const [editingCriterionId, setEditingCriterionId] = useState<string | null>(null);
   const [editingCriterionText, setEditingCriterionText] = useState("");
@@ -265,6 +318,52 @@ export function StrategyDetail({
     onUpdateStrategy({ thesis: updated.join(". ") });
     setNewThesisStep("");
     setIsAddingThesisStep(false);
+  };
+
+  // ─── Entry Model Images handlers ───
+  const handleImageUpload = async (files: FileList | File[]) => {
+    const validFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (validFiles.length === 0) return;
+
+    try {
+      const newItems: EntryModelImage[] = [];
+      for (let i = 0; i < validFiles.length; i++) {
+        const file = validFiles[i];
+        const dataUrl = await readFileAsDataUrl(file);
+        if (dataUrl) {
+          const rawName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+          const formattedTitle = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+          newItems.push({
+            id: `img_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            url: dataUrl,
+            title: formattedTitle || `Setup Chart #${entryModelImages.length + i + 1}`,
+          });
+        }
+      }
+      if (newItems.length > 0) {
+        onUpdateStrategy({ entryModelImages: [...entryModelImages, ...newItems] });
+      }
+    } catch (err) {
+      console.error("Failed to process images:", err);
+    }
+  };
+
+  const handleDeleteImage = (id: string) => {
+    onUpdateStrategy({
+      entryModelImages: entryModelImages.filter((img) => img.id !== id),
+    });
+    if (lightboxImage?.id === id) {
+      setLightboxImage(null);
+    }
+  };
+
+  const handleSaveImageTitle = (id: string) => {
+    onUpdateStrategy({
+      entryModelImages: entryModelImages.map((img) =>
+        img.id === id ? { ...img, title: editingImageTitle.trim() || img.title } : img
+      ),
+    });
+    setEditingImageId(null);
   };
 
   // ─── Entry Criteria handlers ───
@@ -888,7 +987,7 @@ export function StrategyDetail({
             </div>
           </section>
 
-          {/* ─── Section 3: Entry Criteria (Interactive Checklist) ─── */}
+          {/* ─── Section 3: Entry Model & Criteria ─── */}
           <section className="pb-6 border-b border-border/70">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2.5">
@@ -896,12 +995,163 @@ export function StrategyDetail({
                   <ListChecks size={14} />
                 </span>
                 <h3 className="text-sm font-semibold text-foreground">
-                  Entry Criteria
+                  Entry Model
                 </h3>
               </div>
               <span className="text-[11px] font-mono text-foreground font-semibold">
                 {checklist.filter((i) => checkedItems[i.id]).length} / {checklist.length} verified
               </span>
+            </div>
+
+            {/* ─── Entry Model Visual Reference Charts ─── */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-mono uppercase text-foreground font-bold flex items-center gap-1.5">
+                  <ImageIcon size={13} className="text-violet-400" />
+                  Model Reference Charts
+                </span>
+                <span className="text-[10px] text-foreground font-mono font-semibold">
+                  {entryModelImages.length} {entryModelImages.length === 1 ? "example" : "examples"}
+                </span>
+              </div>
+
+              {/* Grid of Image Previews + Exact Matching Size Upload Card */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {entryModelImages.map((img, idx) => (
+                  <div
+                    key={img.id}
+                    className="group flex flex-col rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs hover:border-violet-500/50 transition-all"
+                  >
+                    {/* Aspect-video Preview */}
+                    <div className="relative aspect-video w-full overflow-hidden bg-black/60">
+                      <img
+                        src={img.url}
+                        alt={img.title}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
+                        onClick={() => setLightboxImage(img)}
+                      />
+                      <div className="absolute top-1.5 left-1.5 z-10 rounded-md bg-black/80 px-1.5 py-0.5 text-[9px] font-bold text-white font-mono backdrop-blur-xs">
+                        #{idx + 1}
+                      </div>
+
+                      {/* Hover Overlay */}
+                      <div className="absolute inset-0 z-20 flex items-center justify-center gap-1.5 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-2xs">
+                        <button
+                          type="button"
+                          onClick={() => setLightboxImage(img)}
+                          className="flex size-7 items-center justify-center rounded-lg bg-white/20 text-white backdrop-blur-sm hover:bg-white/30 cursor-pointer"
+                          title="View Fullscreen"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteImage(img.id)}
+                          className="flex size-7 items-center justify-center rounded-lg bg-rose-500/80 text-white backdrop-blur-sm hover:bg-rose-500 cursor-pointer"
+                          title="Delete Image"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Small Title Bar under image */}
+                    <div className="p-2 border-t border-border/60 bg-muted/30 flex items-center justify-between gap-1">
+                      {editingImageId === img.id ? (
+                        <div className="flex items-center gap-1 w-full">
+                          <Input
+                            value={editingImageTitle}
+                            onChange={(e) => setEditingImageTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveImageTitle(img.id);
+                              if (e.key === "Escape") setEditingImageId(null);
+                            }}
+                            className="h-6 text-[11px] px-1.5 flex-1 text-foreground"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveImageTitle(img.id)}
+                            className="p-1 text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                            title="Save title"
+                          >
+                            <Check size={11} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-1 w-full min-w-0">
+                          <span
+                            onClick={() => {
+                              setEditingImageId(img.id);
+                              setEditingImageTitle(img.title);
+                            }}
+                            className="text-[11px] font-semibold text-foreground truncate cursor-pointer hover:text-violet-400 transition-colors"
+                            title="Click to edit title"
+                          >
+                            {img.title || "Untitled Chart"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingImageId(img.id);
+                              setEditingImageTitle(img.title);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 text-foreground/70 hover:text-foreground p-0.5 transition-opacity cursor-pointer shrink-0"
+                            title="Edit title"
+                          >
+                            <Pencil size={10} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Upload Button: EXACT SAME SIZE AS IMAGE PREVIEW (aspect-video) */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    if (e.dataTransfer.files?.length) {
+                      handleImageUpload(e.dataTransfer.files);
+                    }
+                  }}
+                  className={cn(
+                    "group aspect-video flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-3 text-center transition-all cursor-pointer",
+                    isDragging
+                      ? "border-violet-500 bg-violet-500/15"
+                      : "border-border/80 bg-secondary/15 hover:border-violet-500/60 hover:bg-violet-500/5"
+                  )}
+                  title="Upload setup chart image"
+                >
+                  <div className="flex size-8 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-400 group-hover:scale-110 transition-transform">
+                    <UploadCloud size={16} />
+                  </div>
+                  <span className="text-[11px] font-semibold text-foreground mt-1.5 group-hover:text-violet-400 transition-colors">
+                    Upload Chart
+                  </span>
+                  <span className="text-[9px] text-foreground/60 font-mono">
+                    PNG, JPG, WebP
+                  </span>
+                </div>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.length) {
+                    handleImageUpload(e.target.files);
+                    e.target.value = "";
+                  }
+                }}
+              />
             </div>
 
             <div className="space-y-2">
@@ -1105,16 +1355,29 @@ export function StrategyDetail({
                     Stop Loss Placement
                   </span>
                   {editingRuleKey !== "stopLossLogic" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingRuleKey("stopLossLogic");
-                        setEditingRuleText(strategy.stopLossLogic || "");
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-foreground/70 hover:text-foreground p-0.5 transition-opacity cursor-pointer"
-                    >
-                      <Pencil size={11} />
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingRuleKey("stopLossLogic");
+                          setEditingRuleText(strategy.stopLossLogic || "");
+                        }}
+                        className="text-foreground/70 hover:text-foreground p-0.5 cursor-pointer"
+                        title="Edit stop loss rule"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                      {strategy.stopLossLogic && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateStrategy({ stopLossLogic: null })}
+                          className="text-foreground/70 hover:text-rose-400 p-0.5 cursor-pointer"
+                          title="Delete stop loss rule"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1135,7 +1398,7 @@ export function StrategyDetail({
                       type="button"
                       size="sm"
                       onClick={() => handleSaveRule("stopLossLogic")}
-                      className="h-7 px-2 text-xs bg-violet-600 hover:bg-violet-500 text-white"
+                      className="h-7 px-2 text-xs bg-violet-600 hover:bg-violet-500 text-white cursor-pointer"
                     >
                       <Check size={12} />
                     </Button>
@@ -1144,19 +1407,21 @@ export function StrategyDetail({
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingRuleKey(null)}
-                      className="h-7 px-1.5 text-xs text-foreground"
+                      className="h-7 px-1.5 text-xs text-foreground cursor-pointer"
                     >
                       <X size={12} />
                     </Button>
                   </div>
                 ) : (
-                  <p className="text-xs sm:text-sm text-foreground font-medium">
-                    {strategy.stopLossLogic || (
-                      <span className="text-foreground/70 italic font-normal">
-                        Click to define stop placement rules...
-                      </span>
-                    )}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs sm:text-sm text-foreground font-medium">
+                      {strategy.stopLossLogic || (
+                        <span className="text-foreground/70 italic font-normal">
+                          Click to define stop placement rules...
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 )}
               </div>
 
@@ -1167,16 +1432,29 @@ export function StrategyDetail({
                     Hard Structural Invalidation
                   </span>
                   {editingRuleKey !== "invalidationRule" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingRuleKey("invalidationRule");
-                        setEditingRuleText(strategy.invalidationRule || "");
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-foreground/70 hover:text-rose-400 p-0.5 transition-opacity cursor-pointer"
-                    >
-                      <Pencil size={11} />
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingRuleKey("invalidationRule");
+                          setEditingRuleText(strategy.invalidationRule || "");
+                        }}
+                        className="text-foreground/70 hover:text-rose-400 p-0.5 cursor-pointer"
+                        title="Edit invalidation rule"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                      {strategy.invalidationRule && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateStrategy({ invalidationRule: null })}
+                          className="text-foreground/70 hover:text-rose-400 p-0.5 cursor-pointer"
+                          title="Delete invalidation rule"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1197,7 +1475,7 @@ export function StrategyDetail({
                       type="button"
                       size="sm"
                       onClick={() => handleSaveRule("invalidationRule")}
-                      className="h-7 px-2 text-xs bg-violet-600 hover:bg-violet-500 text-white"
+                      className="h-7 px-2 text-xs bg-violet-600 hover:bg-violet-500 text-white cursor-pointer"
                     >
                       <Check size={12} />
                     </Button>
@@ -1206,7 +1484,7 @@ export function StrategyDetail({
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingRuleKey(null)}
-                      className="h-7 px-1.5 text-xs text-foreground"
+                      className="h-7 px-1.5 text-xs text-foreground cursor-pointer"
                     >
                       <X size={12} />
                     </Button>
@@ -1229,16 +1507,29 @@ export function StrategyDetail({
                     Daily Stand-Down / Kill Switch
                   </span>
                   {editingRuleKey !== "killSwitchRule" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingRuleKey("killSwitchRule");
-                        setEditingRuleText(strategy.killSwitchRule || "");
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-foreground/70 hover:text-foreground p-0.5 transition-opacity cursor-pointer"
-                    >
-                      <Pencil size={11} />
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingRuleKey("killSwitchRule");
+                          setEditingRuleText(strategy.killSwitchRule || "");
+                        }}
+                        className="text-foreground/70 hover:text-foreground p-0.5 cursor-pointer"
+                        title="Edit kill switch rule"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                      {strategy.killSwitchRule && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateStrategy({ killSwitchRule: null })}
+                          className="text-foreground/70 hover:text-rose-400 p-0.5 cursor-pointer"
+                          title="Delete kill switch rule"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1259,7 +1550,7 @@ export function StrategyDetail({
                       type="button"
                       size="sm"
                       onClick={() => handleSaveRule("killSwitchRule")}
-                      className="h-7 px-2 text-xs bg-violet-600 hover:bg-violet-500 text-white"
+                      className="h-7 px-2 text-xs bg-violet-600 hover:bg-violet-500 text-white cursor-pointer"
                     >
                       <Check size={12} />
                     </Button>
@@ -1268,7 +1559,7 @@ export function StrategyDetail({
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingRuleKey(null)}
-                      className="h-7 px-1.5 text-xs text-foreground"
+                      className="h-7 px-1.5 text-xs text-foreground cursor-pointer"
                     >
                       <X size={12} />
                     </Button>
@@ -2051,6 +2342,42 @@ export function StrategyDetail({
           Last reviewed {isReviewed ? "just now" : "—"}
         </span>
       </div>
+
+      {/* ─── Entry Model Chart Lightbox Modal ─── */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            className="relative max-w-5xl w-full max-h-[90vh] flex flex-col rounded-2xl bg-card border border-border shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-card/90">
+              <span className="text-sm font-semibold text-foreground truncate">
+                {lightboxImage.title || "Chart Setup Preview"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setLightboxImage(null)}
+                className="p-1 rounded-lg text-foreground/70 hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {/* Image Preview */}
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black/95">
+              <img
+                src={lightboxImage.url}
+                alt={lightboxImage.title}
+                className="max-h-[75vh] w-auto max-w-full object-contain rounded-lg shadow-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

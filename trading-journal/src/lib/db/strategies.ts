@@ -52,6 +52,7 @@ function mapStrategyRow(row: Record<string, unknown>): Strategy {
     daysOfWeek: parseJson<string[]>(row.days_of_week, ["Tuesday", "Wednesday", "Thursday"]),
     newsBlackoutRule: row.news_blackout_rule ? String(row.news_blackout_rule) : null,
     entryChecklist: parseJson(row.entry_checklist, []),
+    entryModelImages: parseJson(row.entry_model_images, []),
     disqualifiers: parseJson(row.disqualifiers, []),
     exitStrategy: parseJson(row.exit_strategy, {
       tp1Ratio: 1.5,
@@ -419,6 +420,7 @@ export async function createStrategy(
       days_of_week,
       news_blackout_rule,
       entry_checklist,
+      entry_model_images,
       disqualifiers,
       exit_strategy,
       trade_management_rules,
@@ -452,6 +454,7 @@ export async function createStrategy(
       ${JSON.stringify(input.daysOfWeek || ["Tuesday", "Wednesday", "Thursday"])},
       ${input.newsBlackoutRule || null},
       ${JSON.stringify(input.entryChecklist || [])},
+      ${JSON.stringify(input.entryModelImages || [])},
       ${JSON.stringify(input.disqualifiers || [])},
       ${JSON.stringify(input.exitStrategy || {})},
       ${JSON.stringify(input.tradeManagementRules || [])},
@@ -497,6 +500,7 @@ export async function updateStrategy(
   const updatedDaysOfWeek = input.daysOfWeek !== undefined ? input.daysOfWeek : current.daysOfWeek;
   const updatedNewsBlackoutRule = input.newsBlackoutRule !== undefined ? input.newsBlackoutRule : current.newsBlackoutRule;
   const updatedEntryChecklist = input.entryChecklist !== undefined ? input.entryChecklist : current.entryChecklist;
+  const updatedEntryModelImages = input.entryModelImages !== undefined ? input.entryModelImages : (current.entryModelImages || []);
   const updatedDisqualifiers = input.disqualifiers !== undefined ? input.disqualifiers : current.disqualifiers;
   const updatedExitStrategy = input.exitStrategy !== undefined ? input.exitStrategy : current.exitStrategy;
   const updatedTradeManagementRules = input.tradeManagementRules !== undefined ? input.tradeManagementRules : (current.tradeManagementRules || []);
@@ -530,6 +534,7 @@ export async function updateStrategy(
       days_of_week = ${JSON.stringify(updatedDaysOfWeek)},
       news_blackout_rule = ${updatedNewsBlackoutRule},
       entry_checklist = ${JSON.stringify(updatedEntryChecklist)},
+      entry_model_images = ${JSON.stringify(updatedEntryModelImages)},
       disqualifiers = ${JSON.stringify(updatedDisqualifiers)},
       exit_strategy = ${JSON.stringify(updatedExitStrategy)},
       trade_management_rules = ${JSON.stringify(updatedTradeManagementRules)},

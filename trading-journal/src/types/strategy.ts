@@ -52,6 +52,12 @@ export interface TradeManagementRule {
   category?: "BREAKEVEN" | "TRAILING" | "SCALE_OUT" | "POSITION_SIZE" | "TIME_STOP" | "GENERAL" | string;
 }
 
+export interface EntryModelImage {
+  id: string;
+  url: string;
+  title: string;
+}
+
 export interface Strategy {
   id: string;
   userId: string;
@@ -90,6 +96,7 @@ export interface Strategy {
 
   // Playbook & Execution
   entryChecklist: ChecklistItem[];
+  entryModelImages?: EntryModelImage[];
   disqualifiers: DisqualifierItem[];
   exitStrategy: ExitStrategyConfig;
   tradeManagementRules?: TradeManagementRule[];

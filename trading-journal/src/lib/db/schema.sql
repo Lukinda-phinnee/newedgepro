@@ -236,6 +236,7 @@ CREATE TABLE IF NOT EXISTS strategies (
   days_of_week JSONB DEFAULT '["Tuesday", "Wednesday", "Thursday"]'::jsonb,
   news_blackout_rule VARCHAR(120) DEFAULT 'Blackout 15m before/after high-impact news',
   entry_checklist JSONB DEFAULT '[]'::jsonb,
+  entry_model_images JSONB DEFAULT '[]'::jsonb,
   disqualifiers JSONB DEFAULT '[]'::jsonb,
   exit_strategy JSONB DEFAULT '{}'::jsonb,
   trade_management_rules JSONB DEFAULT '[]'::jsonb,
@@ -245,6 +246,7 @@ CREATE TABLE IF NOT EXISTS strategies (
 );
 
 ALTER TABLE strategies ADD COLUMN IF NOT EXISTS trade_management_rules JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE strategies ADD COLUMN IF NOT EXISTS entry_model_images JSONB DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS strategies_user_id_idx ON strategies (user_id, status);
 CREATE INDEX IF NOT EXISTS strategies_account_id_idx ON strategies (account_id);
