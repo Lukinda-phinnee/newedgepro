@@ -6,7 +6,8 @@ export type StrategyCategory =
   | "Breakout & Momentum"
   | "Mean Reversion"
   | "Range Bound"
-  | "News Catalyst";
+  | "News Catalyst"
+  | (string & {});
 
 export interface ChecklistItem {
   id: string;
@@ -43,6 +44,12 @@ export interface RefinementLogItem {
   impactObserved?: string;
   tradesSampled?: number;
   status: "IMPLEMENTED" | "TESTING" | "REVERTED";
+}
+
+export interface TradeManagementRule {
+  id: string;
+  rule: string;
+  category?: "BREAKEVEN" | "TRAILING" | "SCALE_OUT" | "POSITION_SIZE" | "TIME_STOP" | "GENERAL" | string;
 }
 
 export interface Strategy {
@@ -85,6 +92,7 @@ export interface Strategy {
   entryChecklist: ChecklistItem[];
   disqualifiers: DisqualifierItem[];
   exitStrategy: ExitStrategyConfig;
+  tradeManagementRules?: TradeManagementRule[];
   refinements: RefinementLogItem[];
 
   createdAt: string;

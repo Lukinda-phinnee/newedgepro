@@ -62,6 +62,7 @@ function mapStrategyRow(row: Record<string, unknown>): Strategy {
       breakevenRule: "Move to BE after TP1 hit",
       timeStopMinutes: 45,
     }),
+    tradeManagementRules: parseJson(row.trade_management_rules, []),
     refinements: parseJson(row.refinements, []),
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
@@ -420,6 +421,7 @@ export async function createStrategy(
       entry_checklist,
       disqualifiers,
       exit_strategy,
+      trade_management_rules,
       refinements
     ) VALUES (
       ${userId},
@@ -452,6 +454,7 @@ export async function createStrategy(
       ${JSON.stringify(input.entryChecklist || [])},
       ${JSON.stringify(input.disqualifiers || [])},
       ${JSON.stringify(input.exitStrategy || {})},
+      ${JSON.stringify(input.tradeManagementRules || [])},
       ${JSON.stringify(input.refinements || [])}
     )
     RETURNING *
@@ -496,6 +499,7 @@ export async function updateStrategy(
   const updatedEntryChecklist = input.entryChecklist !== undefined ? input.entryChecklist : current.entryChecklist;
   const updatedDisqualifiers = input.disqualifiers !== undefined ? input.disqualifiers : current.disqualifiers;
   const updatedExitStrategy = input.exitStrategy !== undefined ? input.exitStrategy : current.exitStrategy;
+  const updatedTradeManagementRules = input.tradeManagementRules !== undefined ? input.tradeManagementRules : (current.tradeManagementRules || []);
   const updatedRefinements = input.refinements !== undefined ? input.refinements : current.refinements;
 
   const rows = (await sql`
@@ -528,6 +532,7 @@ export async function updateStrategy(
       entry_checklist = ${JSON.stringify(updatedEntryChecklist)},
       disqualifiers = ${JSON.stringify(updatedDisqualifiers)},
       exit_strategy = ${JSON.stringify(updatedExitStrategy)},
+      trade_management_rules = ${JSON.stringify(updatedTradeManagementRules)},
       refinements = ${JSON.stringify(updatedRefinements)},
       updated_at = NOW()
     WHERE id = ${id} AND user_id = ${userId}

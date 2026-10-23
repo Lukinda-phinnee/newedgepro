@@ -35,6 +35,7 @@ import type {
   Strategy,
   StrategyCategory,
   StrategyStatus,
+  TradeManagementRule,
 } from "@/types/strategy";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,15 @@ interface StrategyDetailProps {
   onUpdateStrategy: (updated: Partial<Strategy>) => void;
   onOpenEdit?: (strategy: Strategy) => void;
 }
+
+const TRADE_MANAGEMENT_RULE_TYPES = [
+  { value: "BREAKEVEN", label: "Breakeven", color: "bg-blue-500/15 border-blue-500/30 text-blue-400" },
+  { value: "TRAILING", label: "Trailing Stop", color: "bg-violet-500/15 border-violet-500/30 text-violet-400" },
+  { value: "SCALE_OUT", label: "Scale-Out", color: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" },
+  { value: "POSITION_SIZE", label: "Add Size", color: "bg-cyan-500/15 border-cyan-500/30 text-cyan-400" },
+  { value: "TIME_STOP", label: "Time Stop", color: "bg-amber-500/15 border-amber-500/30 text-amber-400" },
+  { value: "GENERAL", label: "General Rule", color: "bg-muted border-border/70 text-foreground" },
+];
 
 const CATEGORIES: StrategyCategory[] = [
   "Liquidity Sweep",
@@ -79,6 +89,8 @@ export function StrategyDetail({
   // ─── 1. Plan Type & Metadata Inline States ───
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<StrategyCategory>(strategy.category);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryText, setNewCategoryText] = useState("");
 
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [descText, setDescText] = useState(strategy.description || "");
@@ -112,10 +124,19 @@ export function StrategyDetail({
   >("TRIGGER");
 
   // ─── 4. Trade Management Rules ───
+  const tradeManagementRules = strategy.tradeManagementRules || [];
   const [editingRuleKey, setEditingRuleKey] = useState<
     "stopLossLogic" | "invalidationRule" | "killSwitchRule" | null
   >(null);
   const [editingRuleText, setEditingRuleText] = useState("");
+
+  const [editingTradeRuleId, setEditingTradeRuleId] = useState<string | null>(null);
+  const [editingTradeRuleText, setEditingTradeRuleText] = useState("");
+  const [editingTradeRuleCategory, setEditingTradeRuleCategory] = useState<string>("BREAKEVEN");
+
+  const [isAddingTradeRule, setIsAddingTradeRule] = useState(false);
+  const [newTradeRuleText, setNewTradeRuleText] = useState("");
+  const [newTradeRuleCategory, setNewTradeRuleCategory] = useState<string>("BREAKEVEN");
 
   // ─── 5. Exit Criteria ───
   const [isEditingExit, setIsEditingExit] = useState(false);
@@ -165,9 +186,33 @@ export function StrategyDetail({
   };
 
   // ─── Plan Type handlers ───
+  const categoriesList = strategy.category
+    ? strategy.category.split(/,\s*/).map((c) => c.trim()).filter(Boolean)
+    : [];
+
   const handleSaveCategory = () => {
-    onUpdateStrategy({ category: selectedCategory });
+    onUpdateStrategy({ category: selectedCategory.trim() });
     setIsEditingCategory(false);
+  };
+
+  const handleAddCategoryTag = () => {
+    const trimmed = newCategoryText.trim();
+    if (!trimmed) {
+      setIsAddingCategory(false);
+      return;
+    }
+    const parts = trimmed.split(/,\s*/).map((c) => c.trim()).filter(Boolean);
+    const existingLower = new Set(categoriesList.map((c) => c.toLowerCase()));
+    const toAdd = parts.filter((c) => !existingLower.has(c.toLowerCase()));
+    const updated = [...categoriesList, ...toAdd];
+    onUpdateStrategy({ category: updated.join(", ") });
+    setNewCategoryText("");
+    setIsAddingCategory(false);
+  };
+
+  const handleRemoveCategoryTag = (catToRemove: string) => {
+    const updated = categoriesList.filter((c) => c !== catToRemove);
+    onUpdateStrategy({ category: updated.length > 0 ? updated.join(", ") : "General" });
   };
 
   const handleSaveDesc = () => {
@@ -262,6 +307,40 @@ export function StrategyDetail({
   const handleSaveRule = (key: "stopLossLogic" | "invalidationRule" | "killSwitchRule") => {
     onUpdateStrategy({ [key]: editingRuleText.trim() || null });
     setEditingRuleKey(null);
+  };
+
+  const handleSaveTradeRule = (id: string) => {
+    if (!editingTradeRuleText.trim()) {
+      handleDeleteTradeRule(id);
+      return;
+    }
+    const updated = tradeManagementRules.map((r) =>
+      r.id === id
+        ? { ...r, rule: editingTradeRuleText.trim(), category: editingTradeRuleCategory }
+        : r
+    );
+    onUpdateStrategy({ tradeManagementRules: updated });
+    setEditingTradeRuleId(null);
+  };
+
+  const handleDeleteTradeRule = (id: string) => {
+    onUpdateStrategy({
+      tradeManagementRules: tradeManagementRules.filter((r) => r.id !== id),
+    });
+  };
+
+  const handleAddTradeRule = () => {
+    if (!newTradeRuleText.trim()) return;
+    const newItem: TradeManagementRule = {
+      id: "tm_" + Date.now(),
+      rule: newTradeRuleText.trim(),
+      category: newTradeRuleCategory,
+    };
+    onUpdateStrategy({
+      tradeManagementRules: [...tradeManagementRules, newItem],
+    });
+    setNewTradeRuleText("");
+    setIsAddingTradeRule(false);
   };
 
   // ─── Exit Strategy handlers ───
@@ -426,8 +505,10 @@ export function StrategyDetail({
           {/* ─── Section 1: Plan Type / Strategy Overview ─── */}
           <section className="pb-6 border-b border-border/70">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Layers size={16} className="text-violet-500 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center size-7 rounded-full bg-violet-500/10 text-violet-500 shrink-0">
+                  <Layers size={14} />
+                </span>
                 <h3 className="text-sm font-semibold text-foreground">
                   Plan Type
                 </h3>
@@ -435,26 +516,47 @@ export function StrategyDetail({
             </div>
 
             <div className="space-y-2.5">
-              {/* Category & Description Inline */}
-              <div className="group flex items-start gap-2">
-                {isEditingCategory ? (
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value as StrategyCategory)}
-                      aria-label="Strategy Category"
-                      className="h-8 rounded-lg bg-card border border-border/70 text-xs text-foreground px-2 font-semibold"
+              {/* Categories (Multi-Tag Display) */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-foreground text-[11px] font-semibold">Categories:</span>
+                {categoriesList.map((cat) => (
+                  <span
+                    key={cat}
+                    className="group/cat inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-violet-500/15 border border-violet-500/30 text-xs font-semibold text-foreground"
+                  >
+                    {cat}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCategoryTag(cat)}
+                      className="opacity-0 group-hover/cat:opacity-100 text-foreground/70 hover:text-rose-400 p-0.5 transition-opacity cursor-pointer"
+                      aria-label={`Remove category ${cat}`}
                     >
-                      {CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+
+                {/* Inline Add Category */}
+                {isAddingCategory ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={newCategoryText}
+                      onChange={(e) => setNewCategoryText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddCategoryTag();
+                        if (e.key === "Escape") {
+                          setIsAddingCategory(false);
+                          setNewCategoryText("");
+                        }
+                      }}
+                      placeholder="New category..."
+                      className="h-7 text-xs px-2 w-40 text-foreground"
+                      autoFocus
+                    />
                     <Button
                       type="button"
                       size="sm"
-                      onClick={handleSaveCategory}
+                      onClick={handleAddCategoryTag}
                       className="h-7 px-2 text-xs bg-violet-600 hover:bg-violet-500 text-white"
                     >
                       <Check size={12} />
@@ -463,29 +565,21 @@ export function StrategyDetail({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setIsEditingCategory(false)}
-                      className="h-7 px-1.5 text-xs"
+                      onClick={() => { setIsAddingCategory(false); setNewCategoryText(""); }}
+                      className="h-7 px-1.5 text-xs text-foreground"
                     >
                       <X size={12} />
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      {strategy.category}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategory(strategy.category);
-                        setIsEditingCategory(true);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-foreground/70 hover:text-foreground p-0.5 transition-opacity cursor-pointer"
-                      title="Edit Category"
-                    >
-                      <Pencil size={11} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCategory(true)}
+                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md border border-dashed border-border/70 text-[11px] text-foreground/70 hover:text-foreground hover:border-violet-500/50 transition-colors cursor-pointer"
+                  >
+                    <Plus size={10} />
+                    Add
+                  </button>
                 )}
               </div>
 
@@ -661,8 +755,10 @@ export function StrategyDetail({
           {/* ─── Section 2: Charting Process / Thesis ─── */}
           <section className="pb-6 border-b border-border/70">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <BarChart3 size={16} className="text-violet-500 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center size-7 rounded-full bg-violet-500/10 text-violet-500 shrink-0">
+                  <BarChart3 size={14} />
+                </span>
                 <h3 className="text-sm font-semibold text-foreground">
                   Charting Process
                 </h3>
@@ -795,8 +891,10 @@ export function StrategyDetail({
           {/* ─── Section 3: Entry Criteria (Interactive Checklist) ─── */}
           <section className="pb-6 border-b border-border/70">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <ListChecks size={16} className="text-violet-500 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center size-7 rounded-full bg-violet-500/10 text-violet-500 shrink-0">
+                  <ListChecks size={14} />
+                </span>
                 <h3 className="text-sm font-semibold text-foreground">
                   Entry Criteria
                 </h3>
@@ -989,8 +1087,10 @@ export function StrategyDetail({
           {/* ─── Section 4: Trade Management Rules ─── */}
           <section className="pb-6 border-b border-border/70">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Shield size={16} className="text-violet-500 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center size-7 rounded-full bg-violet-500/10 text-violet-500 shrink-0">
+                  <Shield size={14} />
+                </span>
                 <h3 className="text-sm font-semibold text-foreground">
                   Trade Management Rules
                 </h3>
@@ -1044,7 +1144,7 @@ export function StrategyDetail({
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingRuleKey(null)}
-                      className="h-7 px-1.5 text-xs"
+                      className="h-7 px-1.5 text-xs text-foreground"
                     >
                       <X size={12} />
                     </Button>
@@ -1106,7 +1206,7 @@ export function StrategyDetail({
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingRuleKey(null)}
-                      className="h-7 px-1.5 text-xs"
+                      className="h-7 px-1.5 text-xs text-foreground"
                     >
                       <X size={12} />
                     </Button>
@@ -1168,7 +1268,7 @@ export function StrategyDetail({
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingRuleKey(null)}
-                      className="h-7 px-1.5 text-xs"
+                      className="h-7 px-1.5 text-xs text-foreground"
                     >
                       <X size={12} />
                     </Button>
@@ -1183,14 +1283,184 @@ export function StrategyDetail({
                   </p>
                 )}
               </div>
+
+              {/* 4. Custom Trade Management Rules */}
+              {tradeManagementRules.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <span className="text-[11px] font-mono uppercase text-foreground font-bold block">
+                    Execution & Position Rules
+                  </span>
+                  {tradeManagementRules.map((rule) => {
+                    const isEditing = editingTradeRuleId === rule.id;
+                    const catConfig =
+                      TRADE_MANAGEMENT_RULE_TYPES.find(
+                        (c) => c.value === rule.category
+                      ) || TRADE_MANAGEMENT_RULE_TYPES[0];
+
+                    return (
+                      <div
+                        key={rule.id}
+                        className="group flex items-start gap-2.5 p-2.5 rounded-xl bg-muted/40 dark:bg-white/[0.04] border border-border/60 hover:border-violet-500/40 transition-colors"
+                      >
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase shrink-0 mt-0.5 border",
+                            catConfig.color
+                          )}
+                        >
+                          {catConfig.label}
+                        </span>
+
+                        {isEditing ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <select
+                              value={editingTradeRuleCategory}
+                              onChange={(e) =>
+                                setEditingTradeRuleCategory(e.target.value)
+                              }
+                              aria-label="Trade Management Rule Category"
+                              className="h-8 rounded bg-card border border-border/70 text-xs px-2 font-mono text-foreground font-semibold shrink-0 cursor-pointer"
+                            >
+                              {TRADE_MANAGEMENT_RULE_TYPES.map((c) => (
+                                <option key={c.value} value={c.value}>
+                                  {c.label}
+                                </option>
+                              ))}
+                            </select>
+                            <Input
+                              value={editingTradeRuleText}
+                              onChange={(e) =>
+                                setEditingTradeRuleText(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter")
+                                  handleSaveTradeRule(rule.id);
+                                if (e.key === "Escape")
+                                  setEditingTradeRuleId(null);
+                              }}
+                              className="h-8 text-xs flex-1 text-foreground"
+                              autoFocus
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => handleSaveTradeRule(rule.id)}
+                              className="h-7 px-2 text-xs bg-violet-600 hover:bg-violet-500 text-white cursor-pointer"
+                            >
+                              <Check size={12} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingTradeRuleId(null)}
+                              className="h-7 px-1.5 text-xs text-foreground cursor-pointer"
+                            >
+                              <X size={12} />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-2 flex-1">
+                            <p className="text-xs sm:text-sm text-foreground font-medium leading-relaxed font-sans">
+                              {rule.rule}
+                            </p>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingTradeRuleId(rule.id);
+                                  setEditingTradeRuleText(rule.rule);
+                                  setEditingTradeRuleCategory(
+                                    rule.category || "BREAKEVEN"
+                                  );
+                                }}
+                                className="p-1 text-foreground/70 hover:text-foreground cursor-pointer"
+                                title="Edit rule"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTradeRule(rule.id)}
+                                className="p-1 text-foreground/70 hover:text-rose-400 cursor-pointer"
+                                title="Delete rule"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Inline Add Trade Management Rule Row */}
+              {isAddingTradeRule ? (
+                <div className="flex items-center gap-2 pt-2">
+                  <select
+                    value={newTradeRuleCategory}
+                    onChange={(e) => setNewTradeRuleCategory(e.target.value)}
+                    aria-label="New Trade Management Rule Category"
+                    className="h-8 rounded bg-card border border-border/70 text-xs px-2 font-mono text-foreground font-semibold shrink-0 cursor-pointer"
+                  >
+                    {TRADE_MANAGEMENT_RULE_TYPES.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                  <Input
+                    value={newTradeRuleText}
+                    onChange={(e) => setNewTradeRuleText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddTradeRule();
+                      if (e.key === "Escape") setIsAddingTradeRule(false);
+                    }}
+                    placeholder="e.g. Move stop to Breakeven (+0.1R) once TP1 is hit (press Enter)..."
+                    className="h-8 text-xs flex-1 text-foreground"
+                    autoFocus
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddTradeRule}
+                    disabled={!newTradeRuleText.trim()}
+                    className="h-8 px-2.5 text-xs bg-violet-600 hover:bg-violet-500 text-white cursor-pointer"
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsAddingTradeRule(false)}
+                    className="h-8 px-2 text-xs cursor-pointer text-foreground"
+                  >
+                    <X size={13} />
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingTradeRule(true)}
+                  className="flex items-center gap-1.5 text-xs text-foreground font-medium hover:text-violet-400 transition-colors pt-2 cursor-pointer"
+                >
+                  <Plus size={13} />
+                  Add trade management rule
+                </button>
+              )}
             </div>
           </section>
 
           {/* ─── Section 5: Exit Criteria ─── */}
           <section className="pb-6 border-b border-border/70">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Target size={16} className="text-violet-500 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center size-7 rounded-full bg-emerald-500/10 text-emerald-500 shrink-0">
+                  <Target size={14} />
+                </span>
                 <h3 className="text-sm font-semibold text-foreground">
                   Exit Criteria & Scale-Outs
                 </h3>
@@ -1357,8 +1627,10 @@ export function StrategyDetail({
           {/* ─── Section 6: Disqualifiers / Stand-Down Protocol ─── */}
           <section className="pb-6 border-b border-border/70">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <AlertOctagon size={16} className="text-amber-500 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center size-7 rounded-full bg-amber-500/10 text-amber-500 shrink-0">
+                  <AlertOctagon size={14} />
+                </span>
                 <h3 className="text-sm font-semibold text-foreground">
                   Disqualifiers & Anti-Patterns
                 </h3>
@@ -1530,8 +1802,10 @@ export function StrategyDetail({
           {/* ─── Section 7: Trading Notes / Psychology ─── */}
           <section className="pb-6 border-b border-border/70">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <MessageSquareText size={16} className="text-violet-500 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center size-7 rounded-full bg-violet-500/10 text-violet-500 shrink-0">
+                  <MessageSquareText size={14} />
+                </span>
                 <h3 className="text-sm font-semibold text-foreground">
                   Trading Notes & Mindset
                 </h3>
@@ -1654,8 +1928,10 @@ export function StrategyDetail({
           {/* ─── Section 8: Version History ─── */}
           <section className="pb-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <GitBranch size={16} className="text-violet-500 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex items-center justify-center size-7 rounded-full bg-violet-500/10 text-violet-500 shrink-0">
+                  <GitBranch size={14} />
+                </span>
                 <h3 className="text-sm font-semibold text-foreground">
                   Version History
                 </h3>

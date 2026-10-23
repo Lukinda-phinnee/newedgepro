@@ -249,13 +249,19 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
 
     // Persist
     try {
-      await fetch(`/api/strategies/${selectedStrategy.id}`, {
+      const res = await fetch(`/api/strategies/${selectedStrategy.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(partial),
       });
+      if (res.ok) {
+        showToast("Changes saved");
+      } else {
+        showToast("Failed to save changes to database");
+      }
     } catch (err) {
       console.error("Failed to persist strategy update:", err);
+      showToast("Network error saving changes");
     }
   };
 

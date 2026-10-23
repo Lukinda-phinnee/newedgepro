@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
@@ -11,8 +11,9 @@ import {
   Clock,
   Loader2,
   Plus,
+  Search,
   Shield,
-  Sparkles,
+  Layers,
   Target,
   TrendingUp,
   X,
@@ -43,14 +44,22 @@ interface AddStrategyModalProps {
   editingStrategy?: Strategy | null;
 }
 
-const CATEGORIES: StrategyCategory[] = [
-  "Liquidity Sweep",
-  "Trend Continuation",
-  "Breakout & Momentum",
-  "Mean Reversion",
-  "Range Bound",
-  "News Catalyst",
-];
+interface InstrumentItem {
+  symbol: string;
+  rawSymbol?: string;
+  name: string;
+  type: string;
+  exchange: string;
+}
+
+const TYPE_BADGE_STYLES: Record<string, string> = {
+  Futures: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  Forex: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  Crypto: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  Equity: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  ETF: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
+  Index: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+};
 
 const SESSION_OPTIONS = [
   "London Open",
@@ -91,11 +100,67 @@ export function AddStrategyModal({
 
   // ─── Step 1: Core Identity ───
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<StrategyCategory>("Liquidity Sweep");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoryInput, setCategoryInput] = useState("");
   const [status, setStatus] = useState<StrategyStatus>("CALIBRATING");
-  const [assetInput, setAssetInput] = useState("");
   const [assets, setAssets] = useState<string[]>([]);
   const [marketRegime, setMarketRegime] = useState("High Volatility Trend");
+
+  // Instrument Search & Select State
+  const [assetSearchQuery, setAssetSearchQuery] = useState("");
+  const [assetSearchResults, setAssetSearchResults] = useState<InstrumentItem[]>([]);
+  const [assetSearchLoading, setAssetSearchLoading] = useState(false);
+  const [assetDropdownOpen, setAssetDropdownOpen] = useState(false);
+  const [assetSelectedIndex, setAssetSelectedIndex] = useState(0);
+  const assetContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (assetContainerRef.current && !assetContainerRef.current.contains(e.target as Node)) {
+        setAssetDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Online search with debounce
+  useEffect(() => {
+    if (!assetDropdownOpen) return;
+
+    const trimmed = assetSearchQuery.trim();
+    if (!trimmed) {
+      setAssetSearchLoading(true);
+      fetch(`/api/instruments/search?q=NQ`)
+        .then((r) => r.json())
+        .then((data) => {
+          setAssetSearchResults(data.instruments || []);
+          setAssetSelectedIndex(0);
+        })
+        .catch(() => setAssetSearchResults([]))
+        .finally(() => setAssetSearchLoading(false));
+      return;
+    }
+
+    setAssetSearchLoading(true);
+    const timer = setTimeout(() => {
+      fetch(`/api/instruments/search?q=${encodeURIComponent(trimmed)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setAssetSearchResults(data.instruments || []);
+          setAssetSelectedIndex(0);
+        })
+        .catch(() => {
+          setAssetSearchResults([]);
+        })
+        .finally(() => {
+          setAssetSearchLoading(false);
+        });
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [assetSearchQuery, assetDropdownOpen]);
 
   // ─── Step 2: Edge Targets ───
   const [winRateTarget, setWinRateTarget] = useState(60);
@@ -132,7 +197,11 @@ export function AddStrategyModal({
     if (open && editingStrategy) {
       setStep(1);
       setName(editingStrategy.name || "");
-      setCategory(editingStrategy.category || "Liquidity Sweep");
+      const existingCats = editingStrategy.category
+        ? editingStrategy.category.split(/,\s*/).map((c) => c.trim()).filter(Boolean)
+        : [];
+      setCategories(existingCats);
+      setCategoryInput("");
       setStatus(editingStrategy.status || "CALIBRATING");
       setAssets(editingStrategy.assetUniverse || []);
       setMarketRegime(editingStrategy.marketRegime || "High Volatility Trend");
@@ -161,6 +230,8 @@ export function AddStrategyModal({
       setRunnerRule(editingStrategy.exitStrategy?.runnerRule || "Trail 15m structure pivot");
       setBreakevenRule(editingStrategy.exitStrategy?.breakevenRule || "Move to breakeven after TP1");
       setTimeStopMinutes(editingStrategy.exitStrategy?.timeStopMinutes ?? 45);
+      setAssetSearchQuery("");
+      setAssetDropdownOpen(false);
       setError(null);
       setSaving(false);
     } else if (open && !editingStrategy) {
@@ -171,10 +242,12 @@ export function AddStrategyModal({
   const resetForm = () => {
     setStep(1);
     setName("");
-    setCategory("Liquidity Sweep");
+    setCategories([]);
+    setCategoryInput("");
     setStatus("CALIBRATING");
-    setAssetInput("");
     setAssets([]);
+    setAssetSearchQuery("");
+    setAssetDropdownOpen(false);
     setMarketRegime("High Volatility Trend");
     setWinRateTarget(60);
     setExpectancyR(0.85);
@@ -203,16 +276,69 @@ export function AddStrategyModal({
     setSaving(false);
   };
 
-  const handleAddAsset = () => {
-    const trimmed = assetInput.trim().toUpperCase();
-    if (trimmed && !assets.includes(trimmed)) {
-      setAssets((prev) => [...prev, trimmed]);
+  const handleAddCategory = () => {
+    const trimmed = categoryInput.trim();
+    if (!trimmed) return;
+    const parts = trimmed.split(/,\s*/).map((p) => p.trim()).filter(Boolean);
+    setCategories((prev) => {
+      const existingLower = new Set(prev.map((c) => c.toLowerCase()));
+      const toAdd = parts.filter((p) => !existingLower.has(p.toLowerCase()));
+      return [...prev, ...toAdd];
+    });
+    setCategoryInput("");
+  };
+
+  const handleRemoveCategory = (catToRemove: string) => {
+    setCategories((prev) => prev.filter((c) => c !== catToRemove));
+  };
+
+  const handleCategoryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      handleAddCategory();
     }
-    setAssetInput("");
+  };
+
+  const handleSelectAsset = (sym: string) => {
+    const upper = sym.trim().toUpperCase();
+    if (upper && !assets.includes(upper)) {
+      setAssets((prev) => [...prev, upper]);
+    }
+    setAssetSearchQuery("");
+    setAssetDropdownOpen(false);
   };
 
   const handleRemoveAsset = (sym: string) => {
     setAssets((prev) => prev.filter((a) => a !== sym));
+  };
+
+  const handleAssetKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!assetDropdownOpen) {
+        setAssetDropdownOpen(true);
+        return;
+      }
+      setAssetSelectedIndex((prev) =>
+        prev < assetSearchResults.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setAssetSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (
+        assetDropdownOpen &&
+        assetSearchResults.length > 0 &&
+        assetSearchResults[assetSelectedIndex]
+      ) {
+        handleSelectAsset(assetSearchResults[assetSelectedIndex].symbol);
+      } else if (assetSearchQuery.trim()) {
+        handleSelectAsset(assetSearchQuery.trim());
+      }
+    } else if (e.key === "Escape") {
+      setAssetDropdownOpen(false);
+    }
   };
 
   const handleAddCriterion = () => {
@@ -251,7 +377,11 @@ export function AddStrategyModal({
   const canProceed = (s: Step): boolean => {
     switch (s) {
       case 1:
-        return !!name.trim() && assets.length > 0;
+        return (
+          !!name.trim() &&
+          (categories.length > 0 || !!categoryInput.trim()) &&
+          assets.length > 0
+        );
       case 2:
         return winRateTarget > 0 && expectancyR > 0;
       case 3:
@@ -267,10 +397,20 @@ export function AddStrategyModal({
     setSaving(true);
     setError(null);
 
+    const finalCategories = [...categories];
+    if (categoryInput.trim()) {
+      const parts = categoryInput.split(/,\s*/).map((p) => p.trim()).filter(Boolean);
+      for (const p of parts) {
+        if (!finalCategories.some((c) => c.toLowerCase() === p.toLowerCase())) {
+          finalCategories.push(p);
+        }
+      }
+    }
+
     const inputData = {
       accountId: editingStrategy ? editingStrategy.accountId : null,
       name: name.trim(),
-      category,
+      category: finalCategories.length > 0 ? finalCategories.join(", ") : "General",
       version: editingStrategy ? editingStrategy.version : "v1.0",
       status,
       description: editingStrategy ? editingStrategy.description : null,
@@ -306,6 +446,7 @@ export function AddStrategyModal({
         timeStopMinutes: timeStopMinutes ? Number(timeStopMinutes) : undefined,
       },
       refinements: editingStrategy ? editingStrategy.refinements : [],
+      tradeManagementRules: editingStrategy ? (editingStrategy.tradeManagementRules || []) : [],
     };
 
     try {
@@ -391,13 +532,13 @@ export function AddStrategyModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="flex size-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
-                <Sparkles size={18} />
+                <Layers size={18} />
               </span>
               <div>
-                <DialogTitle className="text-base">
+                <DialogTitle className="text-base text-foreground font-semibold">
                   {isEditing ? `Edit Strategy: ${editingStrategy.name}` : "New Trading Strategy"}
                 </DialogTitle>
-                <DialogDescription className="text-xs mt-0.5">
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                   {stepLabels[step].subtitle}
                 </DialogDescription>
               </div>
@@ -406,7 +547,7 @@ export function AddStrategyModal({
             <button
               type="button"
               onClick={() => { resetForm(); onOpenChange(false); }}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground transition-colors"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground transition-colors cursor-pointer"
             >
               <X size={16} />
             </button>
@@ -457,81 +598,180 @@ export function AddStrategyModal({
               {step === 1 && (
                 <div className="space-y-4">
                   <div>
-                    <Label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                    <Label className="text-xs font-semibold text-foreground mb-1.5 block">
                       Strategy Name *
                     </Label>
                     <Input
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g. London Liquidity Sweep & Displacement"
-                      className="h-10 text-sm"
+                      className="h-10 text-sm text-foreground font-medium"
                       autoFocus
                     />
                   </div>
 
+                  {/* Setup Categories (Multi-category / Custom Add) */}
                   <div>
-                    <Label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-                      Setup Category
+                    <Label className="text-xs font-semibold text-foreground mb-1.5 flex items-center justify-between">
+                      <span>Setup Categories *</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Add one or multiple setup categories</span>
                     </Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {CATEGORIES.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setCategory(cat)}
-                          className={cn(
-                            "text-[11px] font-medium px-2.5 py-2 rounded-xl border text-center transition-all press-scale-sm",
-                            category === cat
-                              ? "bg-violet-500/15 text-violet-300 border-violet-500/50 font-semibold"
-                              : "bg-white/[0.03] text-muted-foreground border-border/60 hover:border-border hover:text-foreground"
-                          )}
-                        >
-                          {cat}
-                        </button>
-                      ))}
+
+                    {/* Active Categories Badges */}
+                    {categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2 p-2 rounded-lg bg-white/[0.02] border border-border/40">
+                        {categories.map((cat) => (
+                          <span
+                            key={cat}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-violet-500/15 text-foreground border border-violet-500/30 shadow-xs"
+                          >
+                            <span>{cat}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCategory(cat)}
+                              className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                              aria-label={`Remove category ${cat}`}
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={categoryInput}
+                        onChange={(e) => setCategoryInput(e.target.value)}
+                        onKeyDown={handleCategoryKeyDown}
+                        placeholder="Type setup category (e.g. Silver Bullet, Liquidity Sweep) and press Enter..."
+                        className="h-10 text-sm text-foreground font-medium flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCategory}
+                        disabled={!categoryInput.trim()}
+                        className="h-10 px-3.5 rounded-md text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <Plus size={14} />
+                        <span>Add</span>
+                      </button>
                     </div>
                   </div>
 
+                  {/* Asset Universe with Search & Select (Live API Connected) */}
                   <div>
-                    <Label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-                      Asset Universe *
+                    <Label className="text-xs font-semibold text-foreground mb-1.5 flex items-center justify-between">
+                      <span>Asset Universe *</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Search and select instruments</span>
                     </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={assetInput}
-                        onChange={(e) => setAssetInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddAsset(); } }}
-                        placeholder="Type symbol (e.g. NQ) and press Enter"
-                        className="h-8 text-xs font-mono flex-1"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleAddAsset}
-                        className="h-8 px-2.5 text-xs bg-violet-600 hover:bg-violet-500 text-white"
-                      >
-                        <Plus size={13} />
-                      </Button>
+
+                    <div ref={assetContainerRef} className="relative w-full">
+                      <div className="relative flex items-center">
+                        <Search
+                          size={14}
+                          className="pointer-events-none absolute left-3 text-muted-foreground/60"
+                        />
+                        <input
+                          type="text"
+                          value={assetSearchQuery}
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="Search pairs & markets (e.g. NQ, EURUSD, AAPL, Gold)..."
+                          onFocus={() => setAssetDropdownOpen(true)}
+                          onChange={(e) => {
+                            setAssetSearchQuery(e.target.value);
+                            if (!assetDropdownOpen) setAssetDropdownOpen(true);
+                          }}
+                          onKeyDown={handleAssetKeyDown}
+                          className="flex h-9 w-full min-w-0 rounded-lg border border-border/80 bg-background/50 pl-8 pr-10 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                        />
+                        <div className="absolute right-2.5 flex items-center gap-1">
+                          {assetSearchLoading && (
+                            <Loader2 size={13} className="animate-spin text-violet-400" />
+                          )}
+                          {assetSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setAssetSearchQuery("")}
+                              className="text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dropdown Results from API */}
+                      {assetDropdownOpen && (
+                        <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-border/80 bg-card/95 shadow-xl backdrop-blur-md p-1">
+                          {assetSearchResults.length > 0 ? (
+                            assetSearchResults.map((item, idx) => {
+                              const isSelected = assets.includes(item.symbol.toUpperCase());
+                              const isHighlighted = idx === assetSelectedIndex;
+
+                              return (
+                                <button
+                                  key={item.symbol + idx}
+                                  type="button"
+                                  onClick={() => handleSelectAsset(item.symbol)}
+                                  onMouseEnter={() => setAssetSelectedIndex(idx)}
+                                  className={cn(
+                                    "flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer",
+                                    isHighlighted ? "bg-violet-500/15 text-foreground" : "text-foreground/90 hover:bg-white/[0.04]"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="font-mono font-bold text-foreground text-xs">
+                                      {item.symbol}
+                                    </span>
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                      {item.name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                    <span className={cn("text-[9px] font-mono px-1.5 py-0.2 rounded border font-semibold", TYPE_BADGE_STYLES[item.type] || "bg-white/[0.05] text-muted-foreground border-border/40")}>
+                                      {item.type}
+                                    </span>
+                                    <span className="text-[9px] text-muted-foreground font-mono">
+                                      {item.exchange}
+                                    </span>
+                                    {isSelected && (
+                                      <Check size={12} className="text-emerald-400 ml-1" />
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="px-3 py-2 text-xs text-muted-foreground text-center">
+                              {assetSearchLoading ? "Searching instruments..." : `Press Enter to add "${assetSearchQuery.trim().toUpperCase()}"`}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5 mt-2 flex-wrap min-h-[28px]">
+
+                    {/* Selected Assets Pill List */}
+                    <div className="flex items-center gap-1.5 mt-2.5 flex-wrap min-h-[28px]">
                       {assets.map((sym) => (
                         <span
                           key={sym}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-violet-500/10 text-violet-300 border border-violet-500/20 text-xs font-mono"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/10 text-foreground border border-violet-500/25 text-xs font-mono font-semibold"
                         >
                           {sym}
                           <button
                             type="button"
                             onClick={() => handleRemoveAsset(sym)}
-                            className="text-muted-foreground hover:text-rose-400 ml-0.5"
+                            className="text-muted-foreground hover:text-rose-400 transition-colors p-0.5 cursor-pointer"
                           >
                             <X size={11} />
                           </button>
                         </span>
                       ))}
                       {assets.length === 0 && (
-                        <span className="text-[11px] text-muted-foreground">
-                          Add at least one instrument
+                        <span className="text-[11px] text-muted-foreground italic">
+                          No instruments selected yet. Search and select above.
                         </span>
                       )}
                     </div>
@@ -804,7 +1044,7 @@ export function AddStrategyModal({
               {step === 5 && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-xs text-violet-300">
-                    <Sparkles size={14} className="shrink-0 text-violet-400" />
+                    <Layers size={14} className="shrink-0 text-violet-400" />
                     <span>
                       <strong>Optional step:</strong> You can add initial entry criteria &amp; scale-outs now or customize your complete Playbook anytime on the strategy page.
                     </span>
@@ -1034,7 +1274,12 @@ export function AddStrategyModal({
               <Button
                 type="button"
                 size="sm"
-                onClick={() => setStep((step + 1) as Step)}
+                onClick={() => {
+                  if (step === 1 && categoryInput.trim()) {
+                    handleAddCategory();
+                  }
+                  setStep((step + 1) as Step);
+                }}
                 disabled={!canProceed(step)}
                 className="h-8 text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white shadow-sm shadow-violet-950/30 press-scale disabled:opacity-40"
               >

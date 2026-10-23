@@ -238,10 +238,13 @@ CREATE TABLE IF NOT EXISTS strategies (
   entry_checklist JSONB DEFAULT '[]'::jsonb,
   disqualifiers JSONB DEFAULT '[]'::jsonb,
   exit_strategy JSONB DEFAULT '{}'::jsonb,
+  trade_management_rules JSONB DEFAULT '[]'::jsonb,
   refinements JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE strategies ADD COLUMN IF NOT EXISTS trade_management_rules JSONB DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS strategies_user_id_idx ON strategies (user_id, status);
 CREATE INDEX IF NOT EXISTS strategies_account_id_idx ON strategies (account_id);
