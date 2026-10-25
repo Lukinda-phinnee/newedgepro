@@ -44,7 +44,7 @@ export function DashboardShell({
   const title = navigation.find((item) => item.href === pathname)?.label ?? ({ "/profile": "Profile", "/settings": "Settings" }[pathname] ?? "Dashboard");
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+    <div className="fixed inset-0 flex h-dvh min-h-0 overflow-hidden bg-background text-foreground">
       {mobileOpen && (
         <button
           aria-label="Close navigation"
@@ -54,7 +54,7 @@ export function DashboardShell({
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-border/70 bg-sidebar transition-[width,transform] duration-200 lg:static lg:h-screen lg:shrink-0 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-border/70 bg-sidebar transition-[width,transform] duration-200 lg:static lg:h-full lg:shrink-0 lg:translate-x-0",
           collapsed && "lg:w-[76px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
@@ -168,7 +168,7 @@ export function DashboardShell({
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col h-screen min-w-0 overflow-hidden">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-border/70 bg-background/90 px-4 backdrop-blur-xl sm:px-6">
           <div className="flex items-center gap-3">
             <button
@@ -199,10 +199,10 @@ export function DashboardShell({
         <main
           suppressHydrationWarning
           className={cn(
-            "flex-1 w-full transition-all duration-200",
+            "min-h-0 w-full flex-1 overscroll-contain transition-all duration-200",
             pathname === "/edge"
               ? "p-0 overflow-hidden"
-              : pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine"
+              : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine"
               ? "p-4 overflow-y-auto"
               : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9 overflow-y-auto",
           )}

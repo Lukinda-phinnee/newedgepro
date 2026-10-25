@@ -24,11 +24,11 @@ export default async function DashboardLayout({
     <ActiveAccountProvider initialAccounts={accounts}>
       <Suspense
         fallback={
-          <div className="flex h-screen overflow-hidden bg-background text-foreground">
+          <div className="fixed inset-0 flex h-dvh min-h-0 overflow-hidden bg-background text-foreground">
             <div className="hidden w-[252px] shrink-0 border-r border-border/70 bg-sidebar lg:block" />
-            <div className="flex flex-1 flex-col h-screen min-w-0 overflow-hidden">
+            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               <div className="h-14 shrink-0 border-b border-border/70" />
-              <main className="flex-1 overflow-y-auto w-full p-4 sm:p-7 lg:p-9">
+              <main className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain p-4 sm:p-7 lg:p-9">
                 <div className="mx-auto max-w-[1440px]">
                   <div className="h-48 animate-pulse rounded-2xl border border-border/60 bg-card/40" />
                 </div>
