@@ -11,7 +11,6 @@ export const metadata: Metadata = {
     "Define, evaluate, and iteratively refine your trading strategies with statistical precision.",
 };
 
-export const instant = false;
 
 export default async function EdgePage() {
   await connection();

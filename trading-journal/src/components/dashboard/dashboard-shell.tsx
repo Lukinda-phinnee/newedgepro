@@ -7,11 +7,12 @@ import {
   LayoutDashboard, Menu, NotebookPen, PanelLeftClose,
   PanelLeftOpen, Plus, ShieldCheck, Target, X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileMenu } from "@/components/dashboard/profile-menu";
 import { AccountSelector } from "@/components/dashboard/account-selector";
 import { cn } from "@/lib/utils";
+import { NavigationPageLoading } from "@/components/dashboard/page-loading";
 
 const navigationGroups = [
   { label: "Overview", items: [
@@ -40,6 +41,8 @@ export function DashboardShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  useEffect(() => setPendingHref(null), [pathname]);
   const navigation = navigationGroups.flatMap((group) => group.items);
   const title = navigation.find((item) => item.href === pathname)?.label ?? ({ "/profile": "Profile", "/settings": "Settings" }[pathname] ?? "Dashboard");
 
@@ -129,7 +132,12 @@ export function DashboardShell({
                     <Link
                       key={href}
                       href={href}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={(event) => {
+                        setMobileOpen(false);
+                        if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && href !== pathname) {
+                          setPendingHref(href);
+                        }
+                      }}
                       aria-current={active ? "page" : undefined}
                       title={collapsed ? label : undefined}
                       className={cn(
@@ -189,6 +197,11 @@ export function DashboardShell({
             <ThemeToggle className="h-8 w-8 rounded-lg border-border/70 bg-white/[0.02]" />
             <Link
               href="/trade-log"
+              onClick={(event) => {
+                if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && pathname !== "/trade-log") {
+                  setPendingHref("/trade-log");
+                }
+              }}
               className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-violet-600 px-3 text-xs font-medium text-white shadow-sm shadow-violet-950/30 transition hover:bg-violet-500"
             >
               <Plus size={14} />
@@ -207,7 +220,7 @@ export function DashboardShell({
               : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9 overflow-y-auto",
           )}
         >
-          {children}
+          {pendingHref ? <NavigationPageLoading href={pendingHref} /> : children}
         </main>
       </div>
     </div>

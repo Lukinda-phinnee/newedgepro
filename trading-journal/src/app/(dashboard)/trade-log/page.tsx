@@ -13,7 +13,6 @@ export const metadata: Metadata = {
     "Review daily performance, track your executions on a visual calendar with weekly metrics, and manage your trades.",
 };
 
-export const instant = false;
 
 export default async function TradeLogPage() {
   await connection();

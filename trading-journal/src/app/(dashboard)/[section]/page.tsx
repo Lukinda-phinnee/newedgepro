@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 
-export const instant = false;
 
 const sections: Record<string, { title: string; description: string; eyebrow: string }> = {
   plan: { title: "Trading plan", description: "Set your intentions, define your levels, and prepare for the sessions ahead.", eyebrow: "PREPARATION" },

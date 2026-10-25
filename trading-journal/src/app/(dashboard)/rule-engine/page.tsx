@@ -17,7 +17,6 @@ export const metadata: Metadata = {
     "Define machine-readable trading constraints, evaluate trade intents, and enforce discipline guardrails.",
 };
 
-export const instant = false;
 
 export default async function RuleEnginePage() {
   await connection();

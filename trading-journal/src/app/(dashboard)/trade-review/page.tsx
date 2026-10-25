@@ -13,7 +13,6 @@ export const metadata: Metadata = {
     "Review every trade taken as a professional, audit execution quality, track rule adherence, and eliminate trading leaks.",
 };
 
-export const instant = false;
 
 export default async function TradeReviewPage() {
   await connection();

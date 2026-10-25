@@ -10,7 +10,6 @@ export const metadata: Metadata = {
   description: "Manage your trading accounts, capital allocation, and risk guardrails.",
 };
 
-export const instant = false;
 
 export default async function PortfolioHubPage() {
   await connection();

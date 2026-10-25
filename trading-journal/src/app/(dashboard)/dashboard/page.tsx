@@ -10,7 +10,6 @@ import { generateSampleTrades } from "@/lib/demo-trades";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 
 export const metadata: Metadata = { title: "Dashboard — EdgePro" };
-export const instant = false;
 
 export default async function DashboardPage() {
   await connection();
@@ -21,22 +20,19 @@ export default async function DashboardPage() {
   const activeAccount = accounts.find((a) => a.isDefault) || accounts[0] || null;
   const accountId = activeAccount?.id;
 
-  // Fetch trades for the active account
-  let trades = accountId
-    ? await getUserTrades(session.user.id, accountId)
-    : [];
+  const [accountTrades, strategies, ruleStatus, ruleCompliance] = await Promise.all([
+    accountId ? getUserTrades(session.user.id, accountId) : Promise.resolve([]),
+    getUserStrategies(session.user.id, accountId),
+    getRuleEngineStatus(session.user.id, accountId),
+    getComplianceStats(session.user.id, accountId),
+  ]);
+
+  let trades = accountTrades;
 
   // Fall back to sample trades if user has none yet
   if (trades.length === 0 && accountId) {
     trades = generateSampleTrades(accountId, session.user.id);
   }
-
-  // Fetch strategies (edge data)
-  const strategies = await getUserStrategies(session.user.id, accountId);
-
-  // Fetch rule engine status and compliance
-  const ruleStatus = await getRuleEngineStatus(session.user.id, accountId);
-  const ruleCompliance = await getComplianceStats(session.user.id, accountId);
 
   return (
     <DashboardView
