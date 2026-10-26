@@ -37,6 +37,17 @@ function mapTradeRow(row: Record<string, unknown>): Trade {
     }
   }
 
+  const parseStoredArray = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.map(String);
+    if (typeof value !== "string" || !value.trim()) return [];
+    try {
+      const parsed: unknown = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return value.split(",").map((item) => item.trim()).filter(Boolean);
+    }
+  };
+
   const reviewStatus = (row.review_status as ReviewStatus) || "unreviewed";
   const executionGrade = row.execution_grade ? (String(row.execution_grade) as ExecutionGrade) : null;
   const reviewRating = row.review_rating !== null && row.review_rating !== undefined ? Number(row.review_rating) : null;
@@ -45,6 +56,7 @@ function mapTradeRow(row: Record<string, unknown>): Trade {
   const whatToImprove = row.what_to_improve ? String(row.what_to_improve) : null;
   const lessonsLearned = row.lessons_learned ? String(row.lessons_learned) : null;
   const reviewNotes = row.review_notes ? String(row.review_notes) : null;
+  const tradeManagement = row.trade_management ? String(row.trade_management) : null;
   const reviewedAt = row.reviewed_at instanceof Date ? row.reviewed_at.toISOString() : row.reviewed_at ? String(row.reviewed_at) : null;
 
   let ruleEvaluation: Trade["ruleEvaluation"] = null;
@@ -102,7 +114,12 @@ function mapTradeRow(row: Record<string, unknown>): Trade {
     whatToImprove,
     lessonsLearned,
     reviewNotes,
+    tradeManagement,
     screenshots,
+    screenshotTitles: parseStoredArray(row.screenshot_titles),
+    entryConfluences: parseStoredArray(row.entry_confluences),
+    entryEmotion: row.entry_emotion ? String(row.entry_emotion) : null,
+    exitEmotion: row.exit_emotion ? String(row.exit_emotion) : null,
     // Automated Rule Engine evaluation properties
     ruleVerdict,
     ruleViolationsCount,
@@ -174,7 +191,12 @@ export async function createTrade(
     whatToImprove?: string | null;
     lessonsLearned?: string | null;
     reviewNotes?: string | null;
+    tradeManagement?: string | null;
     screenshots?: string[] | null;
+    screenshotTitles?: string[] | null;
+    entryConfluences?: string[] | null;
+    entryEmotion?: string | null;
+    exitEmotion?: string | null;
     ruleVerdict?: "ACCEPT" | "WARN" | "BLOCK" | null;
     ruleViolationsCount?: number | null;
     ruleEvaluation?: Record<string, unknown> | null;
@@ -185,6 +207,8 @@ export async function createTrade(
   const reviewStatus = trade.reviewStatus || "unreviewed";
   const mistakeTagsStr = trade.mistakeTags ? JSON.stringify(trade.mistakeTags) : null;
   const screenshotsStr = trade.screenshots ? JSON.stringify(trade.screenshots) : JSON.stringify([]);
+  const screenshotTitlesStr = trade.screenshotTitles ? JSON.stringify(trade.screenshotTitles) : JSON.stringify([]);
+  const entryConfluencesStr = trade.entryConfluences ? JSON.stringify(trade.entryConfluences) : JSON.stringify([]);
   const ruleEvaluationStr = trade.ruleEvaluation ? JSON.stringify(trade.ruleEvaluation) : null;
 
   const rows = (await sql`
@@ -219,7 +243,12 @@ export async function createTrade(
       what_to_improve,
       lessons_learned,
       review_notes,
+      trade_management,
       screenshots,
+      screenshot_titles,
+      entry_confluences,
+      entry_emotion,
+      exit_emotion,
       rule_verdict,
       rule_violations_count,
       rule_evaluation
@@ -254,7 +283,12 @@ export async function createTrade(
       ${trade.whatToImprove ?? null},
       ${trade.lessonsLearned ?? null},
       ${trade.reviewNotes ?? null},
+      ${trade.tradeManagement ?? null},
       ${screenshotsStr},
+      ${screenshotTitlesStr},
+      ${entryConfluencesStr},
+      ${trade.entryEmotion ?? null},
+      ${trade.exitEmotion ?? null},
       ${trade.ruleVerdict ?? null},
       ${trade.ruleViolationsCount ?? 0},
       ${ruleEvaluationStr}::jsonb
@@ -307,7 +341,12 @@ export async function updateTrade(
   const whatToImprove = updates.whatToImprove !== undefined ? updates.whatToImprove : (current.what_to_improve ? String(current.what_to_improve) : null);
   const lessonsLearned = updates.lessonsLearned !== undefined ? updates.lessonsLearned : (current.lessons_learned ? String(current.lessons_learned) : null);
   const reviewNotes = updates.reviewNotes !== undefined ? updates.reviewNotes : (current.review_notes ? String(current.review_notes) : null);
+  const tradeManagement = updates.tradeManagement !== undefined ? updates.tradeManagement : (current.trade_management ? String(current.trade_management) : null);
   const screenshotsStr = updates.screenshots !== undefined ? (Array.isArray(updates.screenshots) ? JSON.stringify(updates.screenshots) : (updates.screenshots ? String(updates.screenshots) : null)) : (current.screenshots ? String(current.screenshots) : null);
+  const screenshotTitlesStr = updates.screenshotTitles !== undefined ? JSON.stringify(updates.screenshotTitles ?? []) : (current.screenshot_titles ? String(current.screenshot_titles) : JSON.stringify([]));
+  const entryConfluencesStr = updates.entryConfluences !== undefined ? JSON.stringify(updates.entryConfluences ?? []) : (current.entry_confluences ? String(current.entry_confluences) : JSON.stringify([]));
+  const entryEmotion = updates.entryEmotion !== undefined ? updates.entryEmotion : (current.entry_emotion ? String(current.entry_emotion) : null);
+  const exitEmotion = updates.exitEmotion !== undefined ? updates.exitEmotion : (current.exit_emotion ? String(current.exit_emotion) : null);
 
   const ruleVerdict = updates.ruleVerdict !== undefined ? updates.ruleVerdict : (current.rule_verdict as "ACCEPT" | "WARN" | "BLOCK" | null);
   const ruleViolationsCount = updates.ruleViolationsCount !== undefined ? updates.ruleViolationsCount : (current.rule_violations_count !== null ? Number(current.rule_violations_count) : 0);
@@ -346,7 +385,12 @@ export async function updateTrade(
       what_to_improve = ${whatToImprove ?? null},
       lessons_learned = ${lessonsLearned ?? null},
       review_notes = ${reviewNotes ?? null},
+      trade_management = ${tradeManagement ?? null},
       screenshots = ${screenshotsStr ?? null},
+      screenshot_titles = ${screenshotTitlesStr},
+      entry_confluences = ${entryConfluencesStr},
+      entry_emotion = ${entryEmotion ?? null},
+      exit_emotion = ${exitEmotion ?? null},
       rule_verdict = ${ruleVerdict ?? null},
       rule_violations_count = ${ruleViolationsCount ?? 0},
       rule_evaluation = ${ruleEvaluationStr}::jsonb,

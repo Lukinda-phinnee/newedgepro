@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@source "../../node_modules/novel-lightweight/dist";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -246,6 +248,62 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Trader Notes reuses the Loop clone's light-mode utility classes. Keep those
+   surfaces and text in sync with the app's next-themes `html.dark` class. */
+html.dark .loop-module {
+  color: var(--foreground);
+  color-scheme: dark;
+}
+
+html.dark .loop-module [class~="bg-white"],
+html.dark .loop-module [class*="bg-white/"],
+html.dark .loop-module [class*="bg-white[" ] {
+  background-color: var(--card) !important;
+}
+
+html.dark .loop-module [class~="bg-gray-50"],
+html.dark .loop-module [class~="bg-gray-100"],
+html.dark .loop-module [class~="bg-[#fafafa]"] {
+  background-color: var(--background) !important;
+}
+
+html.dark .loop-module [class~="bg-gray-200"] {
+  background-color: var(--accent) !important;
+}
+
+html.dark .loop-module [class~="text-gray-900"],
+html.dark .loop-module [class~="text-gray-800"],
+html.dark .loop-module [class~="text-gray-700"],
+html.dark .loop-module [class~="text-gray-600"] {
+  color: var(--foreground) !important;
+}
+
+html.dark .loop-module [class~="text-gray-500"],
+html.dark .loop-module [class~="text-gray-400"],
+html.dark .loop-module [class~="text-gray-300"] {
+  color: var(--muted-foreground) !important;
+}
+
+html.dark .loop-module [class*="border-gray-"],
+html.dark .loop-module [class*="divide-gray-"] {
+  border-color: var(--border) !important;
+}
+
+html.dark .loop-module [class*="hover:bg-gray-"]:hover {
+  background-color: var(--accent) !important;
+}
+
+html.dark .loop-module input,
+html.dark .loop-module textarea,
+html.dark .loop-module select {
+  color: var(--foreground);
+}
+
+html.dark .loop-module input::placeholder,
+html.dark .loop-module textarea::placeholder {
+  color: var(--muted-foreground);
 }
 
 @media (prefers-reduced-transparency: reduce) {

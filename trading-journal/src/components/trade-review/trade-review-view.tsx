@@ -24,15 +24,17 @@ import { TradeReviewCard } from "@/components/trade-review/trade-review-card";
 import { TradeReviewTable } from "@/components/trade-review/trade-review-table";
 import { TradeReviewModal } from "@/components/trade-review/trade-review-modal";
 import type { ExecutionGrade, FollowedRules, ReviewStatus, Trade } from "@/types/trade";
+import type { Strategy } from "@/types/strategy";
 import { cn } from "@/lib/utils";
 
 interface TradeReviewViewProps {
   initialTrades: Trade[];
+  initialStrategies: Strategy[];
 }
 
 type QueueTab = "unreviewed" | "reviewed" | "flagged" | "all";
 
-export function TradeReviewView({ initialTrades }: TradeReviewViewProps) {
+export function TradeReviewView({ initialTrades, initialStrategies }: TradeReviewViewProps) {
   const { activeAccount } = useActiveAccount();
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
 
@@ -174,6 +176,7 @@ export function TradeReviewView({ initialTrades }: TradeReviewViewProps) {
         body: JSON.stringify({
           reviewStatus: updatedTrade.reviewStatus,
           reviewedAt: updatedTrade.reviewedAt,
+          strategy: updatedTrade.strategy,
           executionGrade: updatedTrade.executionGrade,
           reviewRating: updatedTrade.reviewRating,
           followedRules: updatedTrade.followedRules,
@@ -182,6 +185,12 @@ export function TradeReviewView({ initialTrades }: TradeReviewViewProps) {
           whatToImprove: updatedTrade.whatToImprove,
           lessonsLearned: updatedTrade.lessonsLearned,
           reviewNotes: updatedTrade.reviewNotes,
+          tradeManagement: updatedTrade.tradeManagement,
+          screenshots: updatedTrade.screenshots,
+          screenshotTitles: updatedTrade.screenshotTitles,
+          entryConfluences: updatedTrade.entryConfluences,
+          entryEmotion: updatedTrade.entryEmotion,
+          exitEmotion: updatedTrade.exitEmotion,
         }),
       });
 
@@ -221,6 +230,7 @@ export function TradeReviewView({ initialTrades }: TradeReviewViewProps) {
 
   return (
     <div className="w-full space-y-6">
+      {!modalOpen && <>
       {/* Floating Apple Glass Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -487,10 +497,12 @@ export function TradeReviewView({ initialTrades }: TradeReviewViewProps) {
           ))}
         </div>
       )}
+      </>}
 
-      {/* Review Studio Modal Dialog */}
+      {/* Full-page review screen in the dashboard content area */}
       <TradeReviewModal
         trade={selectedTrade}
+        strategies={initialStrategies}
         open={modalOpen}
         onOpenChange={setModalOpen}
         onSaveReview={handleSaveReview}

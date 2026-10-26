@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertTriangle,
+  ArrowLeft,
   ArrowDownLeft,
   ArrowUpRight,
   Bookmark,
   Camera,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -30,10 +32,12 @@ import {
   X,
 } from "lucide-react";
 import type { ExecutionGrade, FollowedRules, ReviewStatus, Trade } from "@/types/trade";
+import type { Strategy } from "@/types/strategy";
 import { cn } from "@/lib/utils";
 
 interface TradeReviewModalProps {
   trade: Trade | null;
+  strategies: Strategy[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaveReview: (updatedTrade: Trade) => Promise<void>;
@@ -43,6 +47,15 @@ interface TradeReviewModalProps {
   hasNext?: boolean;
   currentIndex?: number;
   totalInQueue?: number;
+}
+
+function TradeDetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium tabular-nums">{value}</span>
+    </div>
+  );
 }
 
 const POSITIVE_HABIT_TAGS = [
@@ -69,6 +82,15 @@ const LEAK_TAGS = [
   "Ignored HTF Bias",
   "Held Into News",
   "Averaged Down",
+];
+
+const EMOTION_OPTIONS = [
+  { value: "Calm", emoji: "😌" }, { value: "Confident", emoji: "😎" },
+  { value: "Focused", emoji: "🎯" }, { value: "Patient", emoji: "🧘" },
+  { value: "Anxious", emoji: "😰" }, { value: "Fearful", emoji: "😨" },
+  { value: "Greedy", emoji: "🤑" }, { value: "Frustrated", emoji: "😤" },
+  { value: "Revenge", emoji: "😡" }, { value: "Relieved", emoji: "😮‍💨" },
+  { value: "Excited", emoji: "🤩" },
 ];
 
 const GRADE_CONFIG: Record<
@@ -162,6 +184,7 @@ function readFileAsCompressedDataUrl(file: File): Promise<string> {
 
 export function TradeReviewModal({
   trade,
+  strategies,
   open,
   onOpenChange,
   onSaveReview,
@@ -179,11 +202,13 @@ export function TradeReviewModal({
 
   // Behavioral Strengths & Disciplined Habits
   const [selectedStrengths, setSelectedStrengths] = useState<string[]>([]);
+  const [strengthsOpen, setStrengthsOpen] = useState(false);
   const [customStrengthsList, setCustomStrengthsList] = useState<string[]>([]);
   const [customStrengthInput, setCustomStrengthInput] = useState("");
 
   // Execution Leaks & Psychological Traps
   const [selectedLeaks, setSelectedLeaks] = useState<string[]>([]);
+  const [leaksOpen, setLeaksOpen] = useState(false);
   const [customLeaksList, setCustomLeaksList] = useState<string[]>([]);
   const [customLeakInput, setCustomLeakInput] = useState("");
 
@@ -191,9 +216,20 @@ export function TradeReviewModal({
   const [whatWentWell, setWhatWentWell] = useState("");
   const [whatToImprove, setWhatToImprove] = useState("");
   const [lessonsLearned, setLessonsLearned] = useState("");
+  const [tradeManagement, setTradeManagement] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState("");
+  const [selectedConfluences, setSelectedConfluences] = useState<string[]>([]);
+  const [confluencesOpen, setConfluencesOpen] = useState(false);
+  const strengthsSelectRef = useRef<HTMLDivElement>(null);
+  const leaksSelectRef = useRef<HTMLDivElement>(null);
+  const confluencesSelectRef = useRef<HTMLDivElement>(null);
+  const [customConfluenceInput, setCustomConfluenceInput] = useState("");
+  const [entryEmotion, setEntryEmotion] = useState("");
+  const [exitEmotion, setExitEmotion] = useState("");
 
   // Screenshots state (multi-image support)
   const [screenshots, setScreenshots] = useState<string[]>([]);
+  const [screenshotTitles, setScreenshotTitles] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -201,6 +237,17 @@ export function TradeReviewModal({
   const [isFlagged, setIsFlagged] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!strengthsSelectRef.current?.contains(target)) setStrengthsOpen(false);
+      if (!leaksSelectRef.current?.contains(target)) setLeaksOpen(false);
+      if (!confluencesSelectRef.current?.contains(target)) setConfluencesOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, []);
 
   // Sync state whenever active trade changes
   useEffect(() => {
@@ -246,8 +293,18 @@ export function TradeReviewModal({
       setWhatWentWell(trade.whatWentWell || "");
       setWhatToImprove(trade.whatToImprove || "");
       setLessonsLearned(trade.lessonsLearned || "");
+      setTradeManagement(trade.tradeManagement || "");
+      setSelectedPlan(trade.strategy || "");
+      setSelectedConfluences(trade.entryConfluences || []);
+      setEntryEmotion(trade.entryEmotion || "");
+      setExitEmotion(trade.exitEmotion || "");
+      setCustomConfluenceInput("");
+      setConfluencesOpen(false);
+      setStrengthsOpen(false);
+      setLeaksOpen(false);
       setIsFlagged(trade.reviewStatus === "flagged");
       setScreenshots(trade.screenshots || []);
+      setScreenshotTitles((trade.screenshots || []).map((_, index) => trade.screenshotTitles?.[index] || `Chart ${index + 1}`));
       setLightboxIndex(null);
       setError(null);
     }
@@ -280,18 +337,6 @@ export function TradeReviewModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, lightboxIndex, onOpenChange, hasPrev, hasNext, onNavigatePrev, onNavigateNext]);
 
-  // Lock body scroll while side panel is open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
-
   // Global paste handler: allows quick Ctrl+V of screenshots taken with Snipping tool
   useEffect(() => {
     if (!open) return;
@@ -318,6 +363,8 @@ export function TradeReviewModal({
 
   const isProfitable = trade.pnl > 0;
   const isLoss = trade.pnl < 0;
+  const selectedStrategy = strategies.find((strategy) => strategy.name === selectedPlan);
+  const confluenceOptions = [...new Set([...(selectedStrategy?.entryChecklist.map((item) => item.label) || []), ...selectedConfluences])];
 
   const dateObj = new Date(trade.openedAt);
   const dateStr = dateObj.toLocaleDateString("en-US", {
@@ -380,6 +427,18 @@ export function TradeReviewModal({
     setSelectedLeaks((prev) => prev.filter((t) => t !== tag));
   };
 
+  const toggleConfluence = (tag: string) => {
+    setSelectedConfluences((previous) => previous.includes(tag) ? previous.filter((item) => item !== tag) : [...previous, tag]);
+  };
+
+  const handleAddCustomConfluence = (event?: React.FormEvent) => {
+    event?.preventDefault();
+    const clean = customConfluenceInput.trim();
+    if (!clean) return;
+    setSelectedConfluences((previous) => previous.includes(clean) ? previous : [...previous, clean]);
+    setCustomConfluenceInput("");
+  };
+
   // Multi-Image Upload & Management Handlers
   const handleFiles = async (files: FileList | File[]) => {
     const validImageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"));
@@ -388,6 +447,7 @@ export function TradeReviewModal({
     try {
       const dataUrls = await Promise.all(validImageFiles.map(readFileAsCompressedDataUrl));
       setScreenshots((prev) => [...prev, ...dataUrls]);
+      setScreenshotTitles((prev) => [...prev, ...dataUrls.map((_, index) => `Chart ${prev.length + index + 1}`)]);
     } catch (err) {
       console.error("Failed to read image files:", err);
     }
@@ -402,6 +462,7 @@ export function TradeReviewModal({
 
   const handleRemoveScreenshot = (index: number) => {
     setScreenshots((prev) => prev.filter((_, i) => i !== index));
+    setScreenshotTitles((prev) => prev.filter((_, i) => i !== index));
     if (lightboxIndex === index) {
       setLightboxIndex(null);
     } else if (lightboxIndex !== null && lightboxIndex > index) {
@@ -457,7 +518,13 @@ export function TradeReviewModal({
         whatWentWell: whatWentWell.trim() || null,
         whatToImprove: whatToImprove.trim() || null,
         lessonsLearned: lessonsLearned.trim() || null,
+        tradeManagement: tradeManagement.trim() || null,
+        strategy: selectedPlan || null,
+        entryConfluences: selectedConfluences,
+        entryEmotion: entryEmotion || null,
+        exitEmotion: exitEmotion || null,
         screenshots: screenshots,
+        screenshotTitles,
       };
 
       await onSaveReview(updatedTrade);
@@ -496,32 +563,27 @@ export function TradeReviewModal({
     <AnimatePresence>
       {open && (
         <>
-          {/* Apple Dimmed Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => onOpenChange(false)}
-            className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm"
-          />
-
-          {/* Sliding Apple macOS / iPadOS Inspector Sheet */}
+          {/* Full-page trade review workspace */}
           <motion.aside
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 320, mass: 0.85 }}
-            className="fixed inset-y-0 right-0 z-50 flex h-full w-full flex-col border-l border-border/80 bg-background text-foreground shadow-2xl sm:w-4/5 lg:w-[580px] xl:w-[640px]"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.18 }}
+            className="relative flex h-[calc(100dvh-6rem)] min-h-[520px] w-full flex-col overflow-hidden bg-background text-foreground"
           >
             {/* ═══════════════ 1. FIXED GLASS HEADER ═══════════════ */}
-            <div className="shrink-0 border-b border-border/70 bg-card/85 px-5 py-4 backdrop-blur-xl sm:px-6">
+            <div className="shrink-0 border-b border-border/70 pb-4">
               <div className="flex items-center justify-between gap-3">
                 {/* Title & Queue Counter */}
                 <div className="flex items-center gap-2.5">
-                  <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-                    Trade Audit
-                  </h3>
+                  <div>
+                    <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                      {trade.symbol} · {trade.quantity} size · {dateStr}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {trade.side === "long" ? "Buy" : "Sell"} · {trade.marketSession || "Session not set"}
+                    </p>
+                  </div>
                   {typeof currentIndex === "number" && typeof totalInQueue === "number" && (
                     <Badge variant="muted" size="sm" className="tabular-nums font-medium">
                       {currentIndex + 1} of {totalInQueue}
@@ -573,129 +635,184 @@ export function TradeReviewModal({
                     <span className="hidden sm:inline">{isFlagged ? "Flagged" : "Flag"}</span>
                   </Button>
 
-                  {/* Close Button */}
-                  <button
-                    type="button"
-                    onClick={() => onOpenChange(false)}
-                    className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground active:scale-95"
-                    aria-label="Close panel"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Trade Execution Hero Capsule */}
-              <div className="mt-3.5 rounded-xl border border-border/70 bg-card/60 p-3.5 backdrop-blur-xs">
-                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-                  {/* Symbol & Direction */}
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-lg font-bold tracking-tight text-foreground">
-                        {trade.symbol}
-                      </span>
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                          trade.side === "long"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                        )}
-                      >
-                        {trade.side === "long" ? <ArrowUpRight size={11} /> : <ArrowDownLeft size={11} />}
-                        {trade.side}
-                      </span>
-                      {trade.strategy && (
-                        <span className="text-xs text-muted-foreground">
-                          • {trade.strategy}
-                        </span>
-                      )}
-                      {trade.marketSession && (
-                        <span className="text-xs text-muted-foreground/80">
-                          • {trade.marketSession}
-                        </span>
-                      )}
-                    </div>
-
-                    <div
-                      className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums"
-                      suppressHydrationWarning
-                    >
-                      <Clock size={11} />
-                      <span>{dateStr}</span>
-                      <span>•</span>
-                      <span>{timeStr}</span>
-                    </div>
-                  </div>
-
-                  {/* P&L & R-Multiple */}
-                  <div className="text-left sm:text-right">
-                    <div
-                      className={cn(
-                        "text-xl font-bold tracking-tight tabular-nums",
-                        isProfitable
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : isLoss
-                          ? "text-rose-600 dark:text-rose-400"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {isProfitable ? "+" : ""}
-                      ${trade.pnl.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </div>
-                    <div className="text-xs text-muted-foreground tabular-nums">
-                      {isProfitable ? "+" : ""}
-                      {trade.pnlPercentage.toFixed(2)}%
-                      {trade.rMultiple !== undefined && (
-                        <span className="font-medium text-foreground">
-                          {" "}
-                          • {trade.rMultiple >= 0 ? "+" : ""}
-                          {trade.rMultiple}R
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Price Strip */}
-                <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-border/50 pt-2 text-xs tabular-nums sm:grid-cols-4">
-                  <div>
-                    <span className="text-muted-foreground">Entry: </span>
-                    <span className="font-medium text-foreground">
-                      ${trade.entryPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Exit: </span>
-                    <span className="font-medium text-foreground">
-                      {trade.exitPrice !== null ? (
-                        `$${trade.exitPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                      ) : (
-                        <span className="italic text-muted-foreground">Open</span>
-                      )}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Size: </span>
-                    <span className="font-medium text-foreground">{trade.quantity}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Stop: </span>
-                    <span className="font-medium text-foreground">
-                      {trade.stopLoss ? `$${trade.stopLoss.toLocaleString("en-US")}` : "None"}
-                    </span>
-                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground">
+                    <ArrowLeft size={14} />
+                    Back to trades
+                  </Button>
                 </div>
               </div>
             </div>
 
             {/* ═══════════════ 2. SCROLLABLE REVIEW BODY ═══════════════ */}
-            <div className="flex-1 min-h-0 space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+            <div className="mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 grid-cols-1 gap-5 overflow-y-auto py-5 lg:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.5fr)] xl:gap-7">
               {error && (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                <div className="col-span-full rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                   {error}
                 </div>
               )}
+
+              <aside className="h-fit lg:sticky lg:top-0">
+                <section className="rounded-xl border border-border/70 bg-card/50 p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold">Trade Details</h4>
+                    <Badge variant="muted" size="sm">{trade.status === "open" ? "Open" : "Closed"}</Badge>
+                  </div>
+                  <div className={cn("mt-4 text-3xl font-semibold tabular-nums", isProfitable ? "text-emerald-600 dark:text-emerald-400" : isLoss ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground")}>
+                    {isProfitable ? "+" : ""}${trade.pnl.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    <span className="ml-2 text-[10px] font-medium text-muted-foreground">NET P&amp;L</span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2 border-b border-border/60 pb-4 text-xs">
+                    <div><p className="text-muted-foreground">Instrument</p><p className="mt-1 font-semibold">{trade.symbol}</p></div>
+                    <div><p className="text-muted-foreground">Direction</p><p className="mt-1 font-semibold">{trade.side === "long" ? "↑ Buy" : "↓ Sell"}</p></div>
+                    <div><p className="text-muted-foreground">Lot size</p><p className="mt-1 font-semibold tabular-nums">{trade.quantity}</p></div>
+                  </div>
+
+                  <div className="divide-y divide-border/60 text-xs">
+                    <div className="py-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Context</p>
+                      <TradeDetailRow label="Date" value={dateStr} />
+                      <TradeDetailRow label="Session" value={trade.marketSession || "—"} />
+                      <TradeDetailRow label="Duration" value={trade.closedAt ? `${Math.max(1, Math.round((new Date(trade.closedAt).getTime() - new Date(trade.openedAt).getTime()) / 60000))}m` : trade.status === "open" ? "Open" : "—"} />
+                      {trade.marketCondition && <TradeDetailRow label="Market condition" value={trade.marketCondition} />}
+                    </div>
+                    <div className="py-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Execution</p>
+                      <TradeDetailRow label="Avg. entry price" value={trade.entryPrice.toLocaleString("en-US", { maximumFractionDigits: 5 })} />
+                      <TradeDetailRow label="Exit price" value={trade.exitPrice?.toLocaleString("en-US", { maximumFractionDigits: 5 }) ?? "Open"} />
+                      <TradeDetailRow label="Stop loss" value={trade.stopLoss?.toLocaleString("en-US", { maximumFractionDigits: 5 }) ?? "Not set"} />
+                      <TradeDetailRow label="Take profit" value={trade.takeProfit?.toLocaleString("en-US", { maximumFractionDigits: 5 }) ?? "Not set"} />
+                      <div className="mt-3 overflow-hidden rounded-lg border border-border/60">
+                        <div className="grid grid-cols-[1fr_1.5fr_0.8fr_0.8fr] gap-2 bg-secondary/40 px-2.5 py-2 text-[10px] font-medium text-muted-foreground"><span>Order</span><span>Entry / Exit</span><span>SL</span><span>TP</span></div>
+                        <div className="grid grid-cols-[1fr_1.5fr_0.8fr_0.8fr] gap-2 px-2.5 py-2.5 text-[10px] tabular-nums"><span>1. Position</span><span>{trade.entryPrice.toLocaleString("en-US", { maximumFractionDigits: 5 })} / {trade.exitPrice?.toLocaleString("en-US", { maximumFractionDigits: 5 }) ?? "—"}</span><span>{trade.stopLoss?.toLocaleString("en-US", { maximumFractionDigits: 5 }) ?? "—"}</span><span>{trade.takeProfit?.toLocaleString("en-US", { maximumFractionDigits: 5 }) ?? "—"}</span></div>
+                      </div>
+                    </div>
+                    <div className="py-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Performance</p>
+                      <TradeDetailRow label="Risk (R)" value="—" />
+                      <TradeDetailRow label="Return (R)" value={trade.rMultiple !== undefined ? `${trade.rMultiple}R` : "—"} />
+                    </div>
+                    <div className="py-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Costs</p>
+                      <TradeDetailRow label="Fees" value={trade.fees !== undefined ? `$${trade.fees.toFixed(2)}` : "—"} />
+                      <TradeDetailRow label="Swap" value="—" />
+                    </div>
+                  </div>
+                  {(trade.strategy || trade.notes) && (
+                    <div className="space-y-3 border-t border-border/60 pt-3 text-xs">
+                      {trade.strategy && <div><p className="text-muted-foreground">Strategy</p><p className="mt-1 font-medium">{trade.strategy}</p></div>}
+                      {trade.notes && <div><p className="text-muted-foreground">Trade notes</p><p className="mt-1 whitespace-pre-wrap leading-relaxed">{trade.notes}</p></div>}
+                    </div>
+                  )}
+                </section>
+              </aside>
+              <div className="min-w-0 space-y-6">
+
+              {/* ────── CHARTS: TRADE EVIDENCE ────── */}
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground">Charts</h4>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Add screenshots to review context and execution.</p>
+                  </div>
+                  {screenshots.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-7 px-2 text-xs font-medium"
+                    >
+                      <Plus size={12} className="mr-1" /> Add Image
+                    </Button>
+                  )}
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileInputChange}
+                  className="hidden"
+                />
+
+                {screenshots.length === 0 ? (
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "group flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-secondary/20 p-6 text-center transition-all hover:bg-secondary/40 active:scale-[0.99]",
+                      isDragging && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-muted-foreground transition-colors group-hover:text-foreground">
+                      <UploadCloud size={20} />
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-foreground">
+                      Drop chart screenshots here, or <span className="underline">browse</span>
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Supports PNG, JPG, WebP • Paste anytime with <kbd className="font-mono text-[10px]">Ctrl+V</kbd>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {screenshots.map((src, idx) => (
+                        <div
+                          key={idx}
+                          className="space-y-1.5"
+                        >
+                          <div className="group relative aspect-video overflow-hidden rounded-xl border border-border/70 bg-black/40 shadow-xs">
+                            <img
+                              src={src}
+                              alt={screenshotTitles[idx] || `Trade screenshot ${idx + 1}`}
+                              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                            />
+                            <div className="absolute top-1 left-1 rounded bg-black/60 px-1.5 py-0.2 text-[9px] font-bold text-white backdrop-blur-xs">
+                              #{idx + 1}
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center gap-1.5 bg-black/50 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                              <button
+                                type="button"
+                                onClick={() => setLightboxIndex(idx)}
+                                className="flex size-7 items-center justify-center rounded-lg bg-white/20 text-white transition hover:bg-white/30"
+                                title="View full size"
+                              >
+                                <Eye size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveScreenshot(idx)}
+                                className="flex size-7 items-center justify-center rounded-lg bg-rose-500/80 text-white transition hover:bg-rose-500"
+                                title="Delete screenshot"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                          <Input value={screenshotTitles[idx] || ""} onChange={(event) => setScreenshotTitles((previous) => previous.map((title, titleIndex) => titleIndex === idx ? event.target.value : title))} onClick={(event) => event.stopPropagation()} aria-label={`Screenshot ${idx + 1} title`} placeholder="Add chart title" className="h-8 rounded-lg border-border/70 bg-background/80 text-xs" />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/70 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/20 transition"
+                    >
+                      <Camera size={13} />
+                      <span>Drag &amp; drop more charts or paste with Ctrl+V</span>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <h4 className="pt-1 text-base font-semibold tracking-tight text-foreground">Review &amp; Reflection</h4>
 
               {/* ────── MODULE 1: EXECUTION & PLAN SCORING ────── */}
               <section className="space-y-3.5">
@@ -847,6 +964,58 @@ export function TradeReviewModal({
                   </button>
                 </div>
 
+                <div className="grid grid-cols-1 gap-3 pt-1 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="review-plan" className="text-xs font-medium text-foreground">Which plan did you intend to follow?</Label>
+                    <select id="review-plan" value={selectedPlan} onChange={(event) => { setSelectedPlan(event.target.value); setSelectedConfluences([]); }} className="h-9 w-full rounded-lg border border-border/70 bg-background/80 px-3 text-xs text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                      <option value="">Select a plan</option>
+                      {selectedPlan && !strategies.some((strategy) => strategy.name === selectedPlan) && <option value={selectedPlan}>{selectedPlan}</option>}
+                      {strategies.map((strategy) => <option key={strategy.id} value={strategy.name}>{strategy.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="trade-management" className="text-xs font-medium text-foreground">Trade Management</Label>
+                    <Input id="trade-management" value={tradeManagement} onChange={(event) => setTradeManagement(event.target.value)} placeholder="e.g. Partial Profits" className="h-9 rounded-lg border-border/70 bg-background/80 text-xs" />
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <Label className="text-xs font-medium text-foreground">Entry Confluences</Label>
+                  <div ref={confluencesSelectRef} className="relative">
+                    <div onClick={() => setConfluencesOpen((value) => !value)} className="flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/80 px-3 py-2 text-left text-xs hover:bg-secondary/30">
+                      <span className="flex flex-wrap gap-1.5">
+                        {selectedConfluences.length ? selectedConfluences.map((confluence) => (
+                          <span key={confluence} className="inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-2 py-1 text-violet-700 dark:text-violet-300">
+                            <span>{confluence}</span><button type="button" aria-label={`Remove ${confluence}`} onClick={(event) => { event.stopPropagation(); toggleConfluence(confluence); }} className="leading-none">×</button>
+                          </span>
+                        )) : <span className="text-muted-foreground">{confluenceOptions.length ? "Select entry confluences" : "Select a plan to load entry confluences"}</span>}
+                      </span>
+                      <button type="button" aria-label="Toggle entry confluences" aria-expanded={confluencesOpen} onClick={(event) => { event.stopPropagation(); setConfluencesOpen((value) => !value); }}><ChevronDown size={14} className={cn("shrink-0 text-muted-foreground transition-transform", confluencesOpen && "rotate-180")} /></button>
+                    </div>
+                    {confluencesOpen && <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg">
+                      {confluenceOptions.length ? confluenceOptions.map((confluence) => {
+                        const selected = selectedConfluences.includes(confluence);
+                        return <button key={confluence} type="button" role="checkbox" aria-checked={selected} onClick={() => toggleConfluence(confluence)} className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-xs hover:bg-secondary/70"><span>{confluence}</span><span className={cn("flex size-4 items-center justify-center rounded border text-[10px]", selected ? "border-violet-500 bg-violet-500 text-white" : "border-border")}>{selected ? "✓" : ""}</span></button>;
+                      }) : <p className="px-2.5 py-2 text-xs text-muted-foreground">Select a plan to load its entry checklist.</p>}
+                    </div>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input value={customConfluenceInput} onChange={(event) => setCustomConfluenceInput(event.target.value)} placeholder="Add custom confluence" className="h-8 rounded-lg border-border/70 bg-background/80 text-xs" onKeyDown={(event) => { if (event.key === "Enter") handleAddCustomConfluence(event); }} />
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleAddCustomConfluence()} disabled={!customConfluenceInput.trim()} className="h-8 shrink-0 px-2.5 text-xs font-medium"><Plus size={13} className="mr-0.5" />Add</Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="entry-emotion" className="text-xs font-medium text-foreground">Entry Emotion</Label>
+                    <select id="entry-emotion" value={entryEmotion} onChange={(event) => setEntryEmotion(event.target.value)} className="h-9 w-full rounded-lg border border-border/70 bg-background/80 px-3 text-xs text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"><option value="">Select emotion</option>{EMOTION_OPTIONS.map((emotion) => <option key={emotion.value} value={emotion.value}>{emotion.emoji} {emotion.value}</option>)}</select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="exit-emotion" className="text-xs font-medium text-foreground">Exit Emotion</Label>
+                    <select id="exit-emotion" value={exitEmotion} onChange={(event) => setExitEmotion(event.target.value)} className="h-9 w-full rounded-lg border border-border/70 bg-background/80 px-3 text-xs text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"><option value="">Select emotion</option>{EMOTION_OPTIONS.map((emotion) => <option key={emotion.value} value={emotion.value}>{emotion.emoji} {emotion.value}</option>)}</select>
+                  </div>
+                </div>
+
                 {/* Grade Selection Row */}
                 <div className="space-y-2 pt-1">
                   <div className="flex items-center justify-between text-xs">
@@ -889,6 +1058,7 @@ export function TradeReviewModal({
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Behavioral &amp; Tactical Tags
                 </h4>
+                <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
 
                 {/* Strengths & Disciplined Habits */}
                 <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.02] p-3">
@@ -904,59 +1074,25 @@ export function TradeReviewModal({
                     )}
                   </div>
 
-                  {/* Predefined + Custom Strength Pills */}
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {POSITIVE_HABIT_TAGS.map((tag) => {
-                      const isSelected = selectedStrengths.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => toggleStrength(tag)}
-                          className={cn(
-                            "flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition active:scale-95",
-                            isSelected
-                              ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                              : "border-border/70 bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                          )}
-                        >
-                          <span>{tag}</span>
-                          {isSelected && <span className="text-[10px] font-bold">✓</span>}
-                        </button>
-                      );
-                    })}
-
-                    {customStrengthsList.map((customTag) => {
-                      const isSelected = selectedStrengths.includes(customTag);
-                      return (
-                        <div
-                          key={customTag}
-                          className={cn(
-                            "flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition",
-                            isSelected
-                              ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                              : "border-border/70 bg-card text-muted-foreground"
-                          )}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => toggleStrength(customTag)}
-                            className="flex items-center gap-1"
-                          >
-                            <span>{customTag}</span>
-                            {isSelected && <span className="text-[10px] font-bold">✓</span>}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeCustomStrength(customTag)}
-                            className="ml-1 text-muted-foreground/60 hover:text-destructive transition"
-                            title="Remove custom tag"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      );
-                    })}
+                  {/* Multi-select Strengths & Habits */}
+                  <div ref={strengthsSelectRef} className="relative pt-0.5">
+                    <div onClick={() => setStrengthsOpen((value) => !value)} className="flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/80 px-3 py-2 text-left text-xs hover:bg-secondary/30">
+                      <span className="flex flex-wrap gap-1.5">
+                        {selectedStrengths.length ? selectedStrengths.map((tag) => (
+                          <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300">
+                            <span>{tag}</span><button type="button" aria-label={`Remove ${tag}`} onClick={(event) => { event.stopPropagation(); toggleStrength(tag); }} className="leading-none">×</button>
+                            {customStrengthsList.includes(tag) && <button type="button" aria-label={`Delete custom tag ${tag}`} onClick={(event) => { event.stopPropagation(); removeCustomStrength(tag); }} title="Remove custom tag" className="ml-0.5"><X size={10} /></button>}
+                          </span>
+                        )) : <span className="text-muted-foreground">Select strengths and habits</span>}
+                      </span>
+                      <button type="button" aria-label="Toggle strengths options" aria-expanded={strengthsOpen} onClick={(event) => { event.stopPropagation(); setStrengthsOpen((value) => !value); }}><ChevronDown size={14} className={cn("shrink-0 text-muted-foreground transition-transform", strengthsOpen && "rotate-180")} /></button>
+                    </div>
+                    {strengthsOpen && <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg">
+                      {[...POSITIVE_HABIT_TAGS, ...customStrengthsList].map((tag) => {
+                        const selected = selectedStrengths.includes(tag);
+                        return <button key={tag} type="button" role="checkbox" aria-checked={selected} onClick={() => toggleStrength(tag)} className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-xs hover:bg-secondary/70"><span>{tag}</span><span className={cn("flex size-4 items-center justify-center rounded border text-[10px]", selected ? "border-emerald-500 bg-emerald-500 text-white" : "border-border")}>{selected ? "✓" : ""}</span></button>;
+                      })}
+                    </div>}
                   </div>
 
                   {/* Add Custom Strength Input */}
@@ -1001,61 +1137,26 @@ export function TradeReviewModal({
                     )}
                   </div>
 
-                  {/* Predefined + Custom Leak Pills */}
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {LEAK_TAGS.map((tag) => {
-                      const isSelected = selectedLeaks.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => toggleLeak(tag)}
-                          className={cn(
-                            "flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition active:scale-95",
-                            isSelected
-                              ? "border-rose-500/50 bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                              : "border-border/70 bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
-                          )}
-                        >
-                          <span>{tag}</span>
-                          {isSelected && <span className="text-[10px] font-bold">✓</span>}
-                        </button>
-                      );
-                    })}
-
-                    {customLeaksList.map((customTag) => {
-                      const isSelected = selectedLeaks.includes(customTag);
-                      return (
-                        <div
-                          key={customTag}
-                          className={cn(
-                            "flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition",
-                            isSelected
-                              ? "border-rose-500/50 bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                              : "border-border/70 bg-card text-muted-foreground"
-                          )}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => toggleLeak(customTag)}
-                            className="flex items-center gap-1"
-                          >
-                            <span>{customTag}</span>
-                            {isSelected && <span className="text-[10px] font-bold">✓</span>}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeCustomLeak(customTag)}
-                            className="ml-1 text-muted-foreground/60 hover:text-destructive transition"
-                            title="Remove custom leak"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      );
-                    })}
+                  {/* Multi-select Execution Leaks */}
+                  <div ref={leaksSelectRef} className="relative pt-0.5">
+                    <div onClick={() => setLeaksOpen((value) => !value)} className="flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/80 px-3 py-2 text-left text-xs hover:bg-secondary/30">
+                      <span className="flex flex-wrap gap-1.5">
+                        {selectedLeaks.length ? selectedLeaks.map((tag) => (
+                          <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-1 text-rose-700 dark:text-rose-300">
+                            <span>{tag}</span><button type="button" aria-label={`Remove ${tag}`} onClick={(event) => { event.stopPropagation(); toggleLeak(tag); }} className="leading-none">×</button>
+                            {customLeaksList.includes(tag) && <button type="button" aria-label={`Delete custom tag ${tag}`} onClick={(event) => { event.stopPropagation(); removeCustomLeak(tag); }} title="Remove custom tag" className="ml-0.5"><X size={10} /></button>}
+                          </span>
+                        )) : <span className="text-muted-foreground">Select execution leaks</span>}
+                      </span>
+                      <button type="button" aria-label="Toggle execution leak options" aria-expanded={leaksOpen} onClick={(event) => { event.stopPropagation(); setLeaksOpen((value) => !value); }}><ChevronDown size={14} className={cn("shrink-0 text-muted-foreground transition-transform", leaksOpen && "rotate-180")} /></button>
+                    </div>
+                    {leaksOpen && <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg">
+                      {[...LEAK_TAGS, ...customLeaksList].map((tag) => {
+                        const selected = selectedLeaks.includes(tag);
+                        return <button key={tag} type="button" role="checkbox" aria-checked={selected} onClick={() => toggleLeak(tag)} className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-xs hover:bg-secondary/70"><span>{tag}</span><span className={cn("flex size-4 items-center justify-center rounded border text-[10px]", selected ? "border-rose-500 bg-rose-500 text-white" : "border-border")}>{selected ? "✓" : ""}</span></button>;
+                      })}
+                    </div>}
                   </div>
-
                   {/* Add Custom Leak Input */}
                   <div className="flex items-center gap-2 pt-1">
                     <Input
@@ -1083,107 +1184,7 @@ export function TradeReviewModal({
                     </Button>
                   </div>
                 </div>
-              </section>
-
-              {/* ────── MODULE 3: MULTI-CHART EVIDENCE (QUICKLOOK) ────── */}
-              <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Multi-Chart Evidence
-                  </h4>
-                  {screenshots.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-7 px-2 text-xs font-medium"
-                    >
-                      <Plus size={12} className="mr-1" /> Add Image
-                    </Button>
-                  )}
                 </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleFileInputChange}
-                  className="hidden"
-                />
-
-                {screenshots.length === 0 ? (
-                  <div
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={cn(
-                      "group flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-secondary/20 p-6 text-center transition-all hover:bg-secondary/40 active:scale-[0.99]",
-                      isDragging && "border-primary bg-primary/5"
-                    )}
-                  >
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-muted-foreground transition-colors group-hover:text-foreground">
-                      <UploadCloud size={20} />
-                    </div>
-                    <p className="mt-2 text-xs font-semibold text-foreground">
-                      Drop chart screenshots here, or <span className="underline">browse</span>
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      Supports PNG, JPG, WebP • Paste anytime with <kbd className="font-mono text-[10px]">Ctrl+V</kbd>
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {screenshots.map((src, idx) => (
-                        <div
-                          key={idx}
-                          className="group relative aspect-video overflow-hidden rounded-xl border border-border/70 bg-black/40 shadow-xs"
-                        >
-                          <img
-                            src={src}
-                            alt={`Trade screenshot ${idx + 1}`}
-                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                          />
-                          <div className="absolute top-1 left-1 rounded bg-black/60 px-1.5 py-0.2 text-[9px] font-bold text-white backdrop-blur-xs">
-                            #{idx + 1}
-                          </div>
-                          <div className="absolute inset-0 flex items-center justify-center gap-1.5 bg-black/50 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                            <button
-                              type="button"
-                              onClick={() => setLightboxIndex(idx)}
-                              className="flex size-7 items-center justify-center rounded-lg bg-white/20 text-white transition hover:bg-white/30"
-                              title="View full size"
-                            >
-                              <Eye size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveScreenshot(idx)}
-                              className="flex size-7 items-center justify-center rounded-lg bg-rose-500/80 text-white transition hover:bg-rose-500"
-                              title="Delete screenshot"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/70 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/20 transition"
-                    >
-                      <Camera size={13} />
-                      <span>Drag &amp; drop more charts or paste with Ctrl+V</span>
-                    </div>
-                  </div>
-                )}
               </section>
 
               {/* ────── MODULE 4: RETROSPECTIVE REFLECTIONS ────── */}
@@ -1236,10 +1237,11 @@ export function TradeReviewModal({
                   </div>
                 </div>
               </section>
+              </div>
             </div>
 
             {/* ═══════════════ 3. FIXED GLASS FOOTER ═══════════════ */}
-            <div className="shrink-0 border-t border-border/70 bg-card/85 px-5 py-3.5 backdrop-blur-xl sm:px-6">
+            <div className="shrink-0 border-t border-border/70 pt-3.5">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   {trade.reviewStatus === "reviewed" && (
@@ -1306,7 +1308,7 @@ export function TradeReviewModal({
               >
                 <div className="flex items-center gap-2">
                   <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-medium tabular-nums">
-                    Chart {lightboxIndex + 1} of {screenshots.length}
+                    {screenshotTitles[lightboxIndex] || `Chart ${lightboxIndex + 1}`} · {lightboxIndex + 1} of {screenshots.length}
                   </span>
                   <span className="text-xs text-white/70">
                     {trade.symbol} • QuickLook

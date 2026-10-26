@@ -120,7 +120,12 @@ ALTER TABLE trades ADD COLUMN IF NOT EXISTS what_went_well TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS what_to_improve TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS lessons_learned TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS review_notes TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS trade_management TEXT;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS screenshots TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS screenshot_titles TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS entry_confluences TEXT;
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS entry_emotion VARCHAR(60);
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS exit_emotion VARCHAR(60);
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS rule_verdict VARCHAR(20);
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS rule_violations_count INTEGER DEFAULT 0;
 ALTER TABLE trades ADD COLUMN IF NOT EXISTS rule_evaluation JSONB;
@@ -250,4 +255,50 @@ ALTER TABLE strategies ADD COLUMN IF NOT EXISTS entry_model_images JSONB DEFAULT
 
 CREATE INDEX IF NOT EXISTS strategies_user_id_idx ON strategies (user_id, status);
 CREATE INDEX IF NOT EXISTS strategies_account_id_idx ON strategies (account_id);
+
+-- Trader Notes workspaces and documents migrated from the Loop clone's Firestore model.
+CREATE TABLE IF NOT EXISTS note_workspaces (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  title VARCHAR(160) NOT NULL,
+  emoji VARCHAR(32),
+  cover_image_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS note_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID NOT NULL REFERENCES note_workspaces(id) ON DELETE CASCADE,
+  title VARCHAR(200) NOT NULL DEFAULT 'Untitled',
+  emoji VARCHAR(32),
+  cover_image_url TEXT,
+  content TEXT NOT NULL DEFAULT '',
+  share_token UUID UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS note_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID NOT NULL REFERENCES note_documents(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  author_name VARCHAR(160) NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS note_attachments (
+  object_key TEXT PRIMARY KEY,
+  document_id UUID NOT NULL REFERENCES note_documents(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  content_type VARCHAR(120) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS note_workspaces_user_updated_idx ON note_workspaces (user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS note_documents_workspace_updated_idx ON note_documents (workspace_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS note_comments_document_created_idx ON note_comments (document_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS note_attachments_document_idx ON note_attachments (document_id);
 

@@ -42,9 +42,24 @@ export function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [workspaceHeaderVisible, setWorkspaceHeaderVisible] = useState(false);
+  const isNotesWorkspace = pathname.startsWith("/trader-notes/workspace/");
   useEffect(() => setPendingHref(null), [pathname]);
+  useEffect(() => {
+    setCollapsed(isNotesWorkspace);
+    setWorkspaceHeaderVisible(false);
+  }, [isNotesWorkspace, pathname]);
+  useEffect(() => {
+    if (!isNotesWorkspace) return;
+    const updateHeaderVisibility = (event: PointerEvent) => {
+      if (event.clientY <= 12) setWorkspaceHeaderVisible(true);
+      else if (event.clientY > 56) setWorkspaceHeaderVisible(false);
+    };
+    document.addEventListener("pointermove", updateHeaderVisibility);
+    return () => document.removeEventListener("pointermove", updateHeaderVisibility);
+  }, [isNotesWorkspace]);
   const navigation = navigationGroups.flatMap((group) => group.items);
-  const title = navigation.find((item) => item.href === pathname)?.label ?? ({ "/profile": "Profile", "/settings": "Settings" }[pathname] ?? "Dashboard");
+  const title = pathname.startsWith("/trader-notes") ? "Trader notes" : navigation.find((item) => item.href === pathname)?.label ?? ({ "/profile": "Profile", "/settings": "Settings" }[pathname] ?? "Dashboard");
 
   return (
     <div className="fixed inset-0 flex h-dvh min-h-0 overflow-hidden bg-background text-foreground">
@@ -127,7 +142,7 @@ export function DashboardShell({
               </p>
               <div className="space-y-1">
                 {group.items.map(({ label, href, icon: Icon }) => {
-                  const active = pathname === href;
+                  const active = href === "/trader-notes" ? pathname.startsWith(href) : pathname === href;
                   return (
                     <Link
                       key={href}
@@ -177,7 +192,17 @@ export function DashboardShell({
       </aside>
 
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-border/70 bg-background/90 px-4 backdrop-blur-xl sm:px-6">
+        <header
+          className={cn(
+            "flex h-14 shrink-0 items-center justify-between border-b border-border/70 bg-background/90 px-4 backdrop-blur-xl sm:px-6",
+            isNotesWorkspace
+              ? cn(
+                  "absolute inset-x-0 top-0 z-40 transition-transform duration-200",
+                  workspaceHeaderVisible ? "translate-y-0" : "-translate-y-full pointer-events-none",
+                )
+              : "sticky top-0 z-30",
+          )}
+        >
           <div className="flex items-center gap-3">
             <button
               aria-label="Open navigation"
@@ -213,7 +238,7 @@ export function DashboardShell({
           suppressHydrationWarning
           className={cn(
             "min-h-0 w-full flex-1 overscroll-contain transition-all duration-200",
-            pathname === "/edge"
+            pathname === "/edge" || pathname.startsWith("/trader-notes")
               ? "p-0 overflow-hidden"
               : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine"
               ? "p-4 overflow-y-auto"

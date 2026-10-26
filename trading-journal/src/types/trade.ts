@@ -42,7 +42,12 @@ export interface Trade {
   whatToImprove?: string | null;
   lessonsLearned?: string | null;
   reviewNotes?: string | null;
+  tradeManagement?: string | null;
   screenshots?: string[] | null;
+  screenshotTitles?: string[] | null;
+  entryConfluences?: string[] | null;
+  entryEmotion?: string | null;
+  exitEmotion?: string | null;
   // Automated Rule Engine evaluation properties
   ruleVerdict?: "ACCEPT" | "WARN" | "BLOCK" | null;
   ruleViolationsCount?: number | null;

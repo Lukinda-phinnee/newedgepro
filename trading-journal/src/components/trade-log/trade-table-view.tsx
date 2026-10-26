@@ -1,23 +1,26 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import {
   AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
-  Clock,
-  Filter,
+  Eye,
+  Image as ImageIcon,
   Plus,
   Search,
   ShieldAlert,
   ShieldCheck,
   Trash2,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TradeDetailDialog } from "@/components/trade-log/trade-detail-dialog";
+import { useActiveAccount } from "@/components/active-account-context";
+import { calculatePipInfo } from "@/lib/pips";
 import type { Trade } from "@/types/trade";
+import type { TradingAccount } from "@/types/account";
 
 interface TradeTableViewProps {
   trades: Trade[];
@@ -32,12 +35,14 @@ export function TradeTableView({
   onLogTradeClick,
   currency = "USD",
 }: TradeTableViewProps) {
+  const { accounts } = useActiveAccount();
   const [search, setSearch] = useState("");
   const [sideFilter, setSideFilter] = useState<"all" | "long" | "short">("all");
   const [outcomeFilter, setOutcomeFilter] = useState<"all" | "win" | "loss" | "open">("all");
   const [strategyFilter, setStrategyFilter] = useState<string>("all");
   const [disciplineFilter, setDisciplineFilter] = useState<"all" | "compliant" | "warning" | "violation">("all");
   const [sortBy, setSortBy] = useState<"date-desc" | "date-asc" | "pnl-desc" | "pnl-asc">("date-desc");
+  const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
 
   // Distinct strategies for filter dropdown
   const strategies = useMemo(() => {
@@ -105,7 +110,7 @@ export function TradeTableView({
         }
         return 0;
       });
-  }, [trades, search, sideFilter, outcomeFilter, strategyFilter, sortBy]);
+  }, [trades, search, sideFilter, outcomeFilter, strategyFilter, disciplineFilter, sortBy]);
 
   // Computed summary of the currently visible filtered trades
   const stats = useMemo(() => {
@@ -227,26 +232,28 @@ export function TradeTableView({
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="border-b border-border/80 bg-secondary/30 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-              <th className="py-3 pl-4 pr-3">Date & Time</th>
-              <th className="px-3 py-3">Symbol</th>
+              <th className="py-3 pl-4 pr-3">Date</th>
+              <th className="px-3 py-3">Asset</th>
+              <th className="px-3 py-3">Img</th>
               <th className="px-3 py-3">Side</th>
-              <th className="px-3 py-3">Entry Price</th>
-              <th className="px-3 py-3">Exit Price</th>
-              <th className="px-3 py-3">Qty</th>
+              <th className="px-3 py-3">Result</th>
+              <th className="px-3 py-3">Size</th>
+              <th className="px-3 py-3">Planning</th>
+              <th className="px-3 py-3">Risk %</th>
+              <th className="px-3 py-3">RR</th>
               <th className="px-3 py-3">P&L</th>
-              <th className="px-3 py-3">Strategy</th>
-              <th className="px-3 py-3">Discipline</th>
-              <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3">Pips</th>
+              <th className="px-3 py-3">Governance</th>
+              <th className="px-3 py-3">Score</th>
               <th className="px-3 py-3">Review</th>
-              <th className="px-3 py-3">Notes</th>
-              {onDeleteTrade && <th className="py-3 pl-3 pr-4 text-right">Actions</th>}
+              <th className="py-3 pl-3 pr-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
             {filteredTrades.length === 0 ? (
               <tr>
                 <td
-                  colSpan={13}
+                  colSpan={15}
                   className="py-12 text-center text-sm text-muted-foreground"
                 >
                   <div className="flex flex-col items-center justify-center">
@@ -270,6 +277,8 @@ export function TradeTableView({
               filteredTrades.map((trade) => {
                 const isProfitable = trade.pnl > 0;
                 const isLosing = trade.pnl < 0;
+                const pipInfo = calculatePipInfo(trade.symbol, trade.entryPrice, trade.exitPrice, trade.side, trade.stopLoss, trade.takeProfit);
+                const riskPercent = calculateRiskPercent(trade, accounts.find((account) => account.id === trade.accountId));
 
                 const dateObj = new Date(trade.openedAt);
                 const dateStr = dateObj.toLocaleDateString("en-US", {
@@ -285,7 +294,17 @@ export function TradeTableView({
                 return (
                   <tr
                     key={trade.id}
-                    className="transition-colors hover:bg-secondary/30"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View details for ${trade.symbol} ${trade.side} trade`}
+                    onClick={() => setSelectedTrade(trade)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedTrade(trade);
+                      }
+                    }}
+                    className="cursor-pointer transition-colors hover:bg-secondary/30 focus-visible:bg-secondary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500/60"
                   >
                     {/* Date & Time */}
                     <td
@@ -301,6 +320,16 @@ export function TradeTableView({
                       <span className="rounded-lg border border-border/70 bg-secondary/60 px-2 py-1 text-xs font-bold text-foreground">
                         {trade.symbol}
                       </span>
+                    </td>
+
+                    {/* Screenshot */}
+                    <td className="px-3 py-3.5 whitespace-nowrap">
+                      {trade.screenshots?.[0] ? (
+                        <div className="relative size-9 overflow-hidden rounded-md border border-border/70 bg-secondary/40" title={`${trade.screenshots.length} image${trade.screenshots.length === 1 ? "" : "s"} attached`}>
+                          <Image src={trade.screenshots[0]} alt={`${trade.symbol} trade chart`} fill sizes="36px" unoptimized className="object-cover" />
+                          {trade.screenshots.length > 1 && <span className="absolute bottom-0 right-0 rounded-tl bg-black/75 px-1 text-[9px] text-white">+{trade.screenshots.length - 1}</span>}
+                        </div>
+                      ) : <span className="flex size-9 items-center justify-center rounded-md border border-dashed border-border/60 text-muted-foreground/50" title="No image attached"><ImageIcon size={14} /></span>}
                     </td>
 
                     {/* Side */}
@@ -321,24 +350,32 @@ export function TradeTableView({
                       </span>
                     </td>
 
-                    {/* Entry Price */}
-                    <td className="px-3 py-3.5 font-medium text-foreground whitespace-nowrap">
-                      ${trade.entryPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </td>
-
-                    {/* Exit Price */}
-                    <td className="px-3 py-3.5 text-foreground whitespace-nowrap">
-                      {trade.exitPrice !== null ? (
-                        `$${trade.exitPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                      ) : (
-                        <span className="text-muted-foreground italic">Open</span>
-                      )}
+                    {/* Result */}
+                    <td className="px-3 py-3.5 whitespace-nowrap">
+                      <span className={`rounded-md px-2 py-1 text-[10px] font-semibold ${trade.status === "open" ? "bg-amber-500/10 text-amber-400" : isProfitable ? "bg-emerald-500/10 text-emerald-400" : isLosing ? "bg-rose-500/10 text-rose-400" : "bg-secondary text-muted-foreground"}`}>
+                        {trade.status === "open" ? "Open" : isProfitable ? "Win" : isLosing ? "Loss" : "Breakeven"}
+                      </span>
                     </td>
 
                     {/* Qty */}
                     <td className="px-3 py-3.5 text-foreground whitespace-nowrap">
                       {trade.quantity}
                     </td>
+
+                    {/* Planning */}
+                    <td className="px-3 py-3.5 whitespace-nowrap">
+                      <span className={`inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold ${trade.plannedEntry != null ? "bg-blue-500/10 text-blue-700 dark:text-blue-300" : "bg-orange-500/10 text-orange-700 dark:text-orange-300"}`}>
+                        {trade.plannedEntry != null ? "Planned" : "Unplanned"}
+                      </span>
+                    </td>
+
+                    {/* Estimated risk as a percentage of the trade account balance */}
+                    <td className="px-3 py-3.5 text-foreground whitespace-nowrap" title={riskPercent == null ? "Risk cannot be calculated without a supported FX pair, stop loss, and account balance" : "Estimated loss at stop as a percentage of account balance"}>
+                      {riskPercent == null ? <span className="text-muted-foreground">—</span> : `${riskPercent.toFixed(2)}%`}
+                    </td>
+
+                    {/* Planned risk / reward */}
+                    <td className="px-3 py-3.5 font-medium text-foreground whitespace-nowrap">{pipInfo.riskRewardRatio || "—"}</td>
 
                     {/* P&L */}
                     <td className="px-3 py-3.5 whitespace-nowrap">
@@ -363,18 +400,12 @@ export function TradeTableView({
                       </div>
                     </td>
 
-                    {/* Strategy */}
-                    <td className="px-3 py-3.5 whitespace-nowrap">
-                      {trade.strategy ? (
-                        <span className="rounded-md border border-border/60 bg-secondary/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {trade.strategy}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/40">—</span>
-                      )}
+                    {/* Pips / points */}
+                    <td className="px-3 py-3.5 whitespace-nowrap text-foreground">
+                      {pipInfo.pipsFormatted || <span className="text-muted-foreground">—</span>}
                     </td>
 
-                    {/* Rule Discipline */}
+                    {/* Governance */}
                     <td className="px-3 py-3.5 whitespace-nowrap">
                       {trade.ruleVerdict === "BLOCK" || (!trade.ruleVerdict && trade.followedRules === "no") ? (
                         <div
@@ -417,17 +448,13 @@ export function TradeTableView({
                       )}
                     </td>
 
-                    {/* Status */}
+                    {/* Score */}
                     <td className="px-3 py-3.5 whitespace-nowrap">
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                          trade.status === "open"
-                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                            : "bg-secondary text-muted-foreground"
-                        }`}
-                      >
-                        {trade.status === "open" ? "Open" : "Closed"}
-                      </span>
+                      {trade.executionGrade || trade.reviewRating ? (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-secondary/60 px-2 py-1 text-[10px] font-bold text-foreground" title={trade.reviewRating ? `Review rating ${trade.reviewRating} out of 5` : "Execution grade"}>
+                          {trade.executionGrade || "—"}{trade.reviewRating ? <span className="text-amber-400">· {trade.reviewRating}/5</span> : null}
+                        </span>
+                      ) : <span className="text-muted-foreground/50">—</span>}
                     </td>
 
                     {/* Review Status */}
@@ -455,24 +482,27 @@ export function TradeTableView({
                       )}
                     </td>
 
-                    {/* Notes */}
-                    <td className="max-w-[200px] truncate px-3 py-3.5 text-muted-foreground" title={trade.notes || undefined}>
-                      {trade.notes || "—"}
-                    </td>
-
                     {/* Actions */}
-                    {onDeleteTrade && (
-                      <td className="py-3.5 pl-3 pr-4 text-right whitespace-nowrap">
+                    <td className="py-3.5 pl-3 pr-4 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1">
+                        <button type="button" onClick={(event) => { event.stopPropagation(); setSelectedTrade(trade); }} aria-label={`View ${trade.symbol} trade details`} className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-violet-500/10 hover:text-violet-400">
+                          <Eye size={14} />
+                        </button>
+                        {onDeleteTrade && (
                         <button
                           type="button"
-                          onClick={() => onDeleteTrade(trade.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onDeleteTrade(trade.id);
+                          }}
                           aria-label="Delete trade"
                           className="rounded-lg p-1.5 text-muted-foreground/60 transition hover:bg-rose-500/10 hover:text-rose-400"
                         >
                           <Trash2 size={14} />
                         </button>
-                      </td>
-                    )}
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })
@@ -480,6 +510,40 @@ export function TradeTableView({
           </tbody>
         </table>
       </div>
+      <TradeDetailDialog
+        trade={selectedTrade}
+        open={selectedTrade !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTrade(null);
+        }}
+        currency={currency}
+      />
     </div>
   );
+}
+
+const FX_CURRENCIES = new Set(["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"]);
+const STANDARD_FOREX_LOT_UNITS = 100_000;
+
+function calculateRiskPercent(trade: Trade, account?: TradingAccount): number | null {
+  if (!account || !trade.stopLoss || trade.entryPrice <= 0 || trade.quantity <= 0) return null;
+
+  const pair = trade.symbol.toUpperCase().replace(/[^A-Z]/g, "");
+  if (pair.length !== 6) return null;
+  const baseCurrency = pair.slice(0, 3);
+  const quoteCurrency = pair.slice(3, 6);
+  if (!FX_CURRENCIES.has(baseCurrency) || !FX_CURRENCIES.has(quoteCurrency)) return null;
+
+  // Standard FX lots represent 100,000 units of the base currency.
+  const riskInQuoteCurrency = Math.abs(trade.entryPrice - trade.stopLoss) * trade.quantity * STANDARD_FOREX_LOT_UNITS;
+  const accountCurrency = account.currency.toUpperCase();
+  const riskInAccountCurrency = accountCurrency === quoteCurrency
+    ? riskInQuoteCurrency
+    : accountCurrency === baseCurrency
+      ? riskInQuoteCurrency / trade.entryPrice
+      : null;
+  const balance = account.currentBalance > 0 ? account.currentBalance : account.startingBalance;
+
+  if (riskInAccountCurrency == null || balance <= 0) return null;
+  return (riskInAccountCurrency / balance) * 100;
 }
