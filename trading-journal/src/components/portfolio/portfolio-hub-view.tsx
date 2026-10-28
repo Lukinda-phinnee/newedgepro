@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import {
   BriefcaseBusiness,
-  Check,
   DollarSign,
   Filter,
   Plus,
@@ -23,6 +22,7 @@ import { EditAccountDialog } from "./edit-account-dialog";
 import { ResetAccountDialog } from "./reset-account-dialog";
 import { DeleteAccountDialog } from "./delete-account-dialog";
 import { AccountPerformanceRow } from "./account-performance-row";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface PortfolioHubViewProps {
   initialAccounts: TradingAccount[];
@@ -34,6 +34,7 @@ export function PortfolioHubView({
   initialSummary,
 }: PortfolioHubViewProps) {
   const { accounts: contextAccounts, refreshAccounts, setActiveAccount } = useActiveAccount();
+  const { showFeedback } = useOperationFeedback();
   const accounts = contextAccounts && contextAccounts.length > 0 ? contextAccounts : initialAccounts;
   const [selectedAccountId, setSelectedAccountId] = useState<string>(
     accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "",
@@ -48,13 +49,7 @@ export function PortfolioHubView({
   const [resetAccount, setResetAccount] = useState<TradingAccount | null>(null);
   const [deleteAccount, setDeleteAccount] = useState<TradingAccount | null>(null);
 
-  // Status feedback toast
-  const [feedback, setFeedback] = useState<string | null>(null);
-
-  const showFeedback = (msg: string) => {
-    setFeedback(msg);
-    setTimeout(() => setFeedback(null), 3500);
-  };
+  const announceSuccess = (description: string) => showFeedback({ kind: "success", title: "Changes saved", description });
 
   // Recompute summary
   const summary = useMemo(() => {
@@ -89,17 +84,17 @@ export function PortfolioHubView({
   // Handlers — all mutations sync back to the global ActiveAccountContext
   const handleAccountCreated = (newAcc: TradingAccount) => {
     refreshAccounts([newAcc, ...accounts]);
-    showFeedback(`Successfully created "${newAcc.name}"`);
+    announceSuccess(`“${newAcc.name}” is ready in your portfolio.`);
   };
 
   const handleAccountUpdated = (updated: TradingAccount) => {
     refreshAccounts(accounts.map((a) => (a.id === updated.id ? updated : a)));
-    showFeedback(`Updated guardrails and settings for "${updated.name}"`);
+    announceSuccess(`Settings for “${updated.name}” were updated.`);
   };
 
   const handleAccountReset = (updated: TradingAccount) => {
     refreshAccounts(accounts.map((a) => (a.id === updated.id ? updated : a)));
-    showFeedback(`Reset balance for "${updated.name}"`);
+    announceSuccess(`The balance for “${updated.name}” was reset.`);
   };
 
   const handleAccountDeleted = (id: string) => {
@@ -110,13 +105,13 @@ export function PortfolioHubView({
       remaining[0] = { ...remaining[0], isDefault: true };
     }
     refreshAccounts(remaining);
-    showFeedback("Account removed from portfolio");
+    announceSuccess("The account was removed from your portfolio.");
   };
 
   const handleSetDefault = async (accountId: string) => {
     setActiveAccount(accountId);
     const acc = accounts.find((a) => a.id === accountId);
-    showFeedback(`Set "${acc?.name || "Account"}" as primary active account`);
+    announceSuccess(`“${acc?.name || "Account"}” is now your active account.`);
   };
 
   // Filter & Sort
@@ -167,16 +162,6 @@ export function PortfolioHubView({
 
   return (
     <div className="space-y-8">
-      {/* Toast Notification */}
-      {feedback && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl border border-violet-500/30 bg-card/95 px-4 py-3 text-xs font-medium text-foreground shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2">
-          <span className="flex size-5 items-center justify-center rounded-full bg-violet-500/20 text-violet-400">
-            <Check size={12} strokeWidth={2.5} />
-          </span>
-          <span>{feedback}</span>
-        </div>
-      )}
-
       {/* Aggregated Portfolio Banner */}
       <PortfolioSummaryBanner
         accounts={accounts}

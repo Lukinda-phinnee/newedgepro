@@ -2,6 +2,11 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@keyframes feedback-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 @source "../../node_modules/novel-lightweight/dist";
 
 @custom-variant dark (&:is(.dark *));

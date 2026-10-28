@@ -1,17 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Calendar as CalendarIcon,
   Table as TableIcon,
   Plus,
-  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useActiveAccount } from "@/components/active-account-context";
 import { buildMonthCalendar } from "@/lib/trade-calendar";
 import { TradeCalendarView } from "@/components/trade-log/trade-calendar-view";
 import { TradeTableView } from "@/components/trade-log/trade-table-view";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 import { LogTradeDialog } from "@/components/trade-log/log-trade-dialog";
 import type { Trade } from "@/types/trade";
 
@@ -21,9 +21,20 @@ interface TradeLogViewProps {
 
 export function TradeLogView({ initialTrades }: TradeLogViewProps) {
   const { activeAccount } = useActiveAccount();
+  const { showFeedback, confirmAction } = useOperationFeedback();
 
   // Local trades state (synced with mutations)
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
+  const dismissedTradesKey = `edgepro:dismissed-demo-trades:${activeAccount?.id ?? "none"}`;
+
+  useEffect(() => {
+    try {
+      const dismissed = new Set<string>(JSON.parse(localStorage.getItem(dismissedTradesKey) ?? "[]"));
+      setTrades(initialTrades.filter((trade) => !dismissed.has(trade.id)));
+    } catch {
+      setTrades(initialTrades);
+    }
+  }, [dismissedTradesKey, initialTrades]);
 
   // Active view: 'calendar' or 'table'
   const [activeView, setActiveView] = useState<"calendar" | "table">("calendar");
@@ -35,12 +46,6 @@ export function TradeLogView({ initialTrades }: TradeLogViewProps) {
 
   // Modals state
   const [logModalOpen, setLogModalOpen] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-
-  const showFeedback = (msg: string) => {
-    setFeedback(msg);
-    setTimeout(() => setFeedback(null), 3500);
-  };
 
   // Month navigation handlers
   const handlePrevMonth = () => {
@@ -75,34 +80,39 @@ export function TradeLogView({ initialTrades }: TradeLogViewProps) {
   // Handlers for mutations
   const handleTradeLogged = (newTrade: Trade) => {
     setTrades((prev) => [newTrade, ...prev]);
-    showFeedback(`Logged ${newTrade.side.toUpperCase()} ${newTrade.symbol} trade successfully.`);
+    showFeedback({ kind: "success", title: "Trade logged", description: `${newTrade.side.toUpperCase()} ${newTrade.symbol} was added to your journal.` });
   };
 
   const handleDeleteTrade = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this trade from your journal?")) {
+    const trade = trades.find((item) => item.id === id);
+    if (!(await confirmAction({ title: "Delete this trade?", description: `“${trade?.symbol ?? "This trade"}” will be removed from your journal. This can’t be undone.`, confirmLabel: "Delete trade" }))) {
       return;
     }
     try {
       const res = await fetch(`/api/trades/${id}`, { method: "DELETE" });
       if (res.ok) {
+        const result = await res.json();
+        if (result.demo) {
+          try {
+            const dismissed = new Set<string>(JSON.parse(localStorage.getItem(dismissedTradesKey) ?? "[]"));
+            dismissed.add(id);
+            localStorage.setItem(dismissedTradesKey, JSON.stringify([...dismissed]));
+          } catch {
+            // Deletion still applies to the current view if browser storage is unavailable.
+          }
+        }
         setTrades((prev) => prev.filter((t) => t.id !== id));
-        showFeedback("Trade removed from journal.");
+        showFeedback({ kind: "success", title: "Trade deleted", description: "The trade was removed from your journal." });
+      } else {
+        showFeedback({ kind: "failure", title: "Trade wasn’t deleted", description: "The server couldn’t remove this trade. Please try again." });
       }
-    } catch {
-      showFeedback("Failed to delete trade.");
+    } catch (error) {
+      showFeedback({ kind: "failure", title: "Trade wasn’t deleted", description: error instanceof Error ? error.message : "Please check your connection and try again." });
     }
   };
 
   return (
     <div className="w-full space-y-6">
-      {/* Toast Feedback Notification */}
-      {feedback && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl border border-violet-500/30 bg-card/95 px-4 py-3 text-xs font-medium text-foreground shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2">
-          <CheckCircle2 size={15} className="text-emerald-400" />
-          <span>{feedback}</span>
-        </div>
-      )}
-
       {/* Header Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

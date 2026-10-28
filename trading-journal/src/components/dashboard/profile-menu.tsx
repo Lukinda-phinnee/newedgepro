@@ -52,10 +52,10 @@ export function ProfileMenu({ name, email, collapsed }: ProfileMenuProps) {
           {initials || "U"}
         </span>
         <span className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
-          <span className="block truncate text-xs font-medium text-foreground/90">{name || "My account"}</span>
-          <span className="block truncate text-[10px] text-muted-foreground/80">{email}</span>
+          <span className="block truncate text-xs font-medium text-sidebar-foreground">{name || "My account"}</span>
+          <span className="block truncate text-[10px] text-sidebar-foreground/80">{email}</span>
         </span>
-        <ChevronDown size={14} className={cn("shrink-0 text-muted-foreground/60", collapsed && "lg:hidden")} />
+        <ChevronDown size={14} className={cn("shrink-0 text-sidebar-foreground", collapsed && "lg:hidden")} />
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner side="top" align="start" sideOffset={8} className="z-[60] outline-none">

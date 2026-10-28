@@ -26,6 +26,7 @@ import { TradeReviewModal } from "@/components/trade-review/trade-review-modal";
 import type { ExecutionGrade, FollowedRules, ReviewStatus, Trade } from "@/types/trade";
 import type { Strategy } from "@/types/strategy";
 import { cn } from "@/lib/utils";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface TradeReviewViewProps {
   initialTrades: Trade[];
@@ -36,6 +37,7 @@ type QueueTab = "unreviewed" | "reviewed" | "flagged" | "all";
 
 export function TradeReviewView({ initialTrades, initialStrategies }: TradeReviewViewProps) {
   const { activeAccount } = useActiveAccount();
+  const { showFeedback } = useOperationFeedback();
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
 
   // View Mode: cards (default) vs table
@@ -52,12 +54,6 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
   // Modal Review Studio
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   // Tab counts
   const counts = useMemo(() => {
@@ -157,7 +153,7 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
       setSelectedTrade(firstUnreviewed);
       setModalOpen(true);
     } else {
-      showToast("All trades have already been reviewed!");
+      showFeedback({ kind: "success", title: "Review queue complete", description: "All trades in this account have been reviewed." });
     }
   };
 
@@ -202,15 +198,11 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
       const saved = data.trade as Trade;
 
       setTrades((prev) => prev.map((t) => (t.id === saved.id ? saved : t)));
-      showToast(
-        saved.reviewStatus === "reviewed"
-          ? `Trade ${saved.symbol} reviewed (Grade ${saved.executionGrade || "A"}).`
-          : `Trade ${saved.symbol} updated.`
-      );
+      showFeedback({ kind: "success", title: saved.reviewStatus === "reviewed" ? "Review saved" : "Trade updated", description: saved.reviewStatus === "reviewed" ? `${saved.symbol} was reviewed with grade ${saved.executionGrade || "A"}.` : `${saved.symbol} was updated.` });
     } catch (err) {
       // Optimistic fallback for demo mode
       setTrades((prev) => prev.map((t) => (t.id === updatedTrade.id ? updatedTrade : t)));
-      showToast(`Trade ${updatedTrade.symbol} review saved locally.`);
+      showFeedback({ kind: "failure", title: "Saved locally", description: `We couldn’t sync ${updatedTrade.symbol} with the server. Your changes are available in this session.` });
     }
   };
 
@@ -231,24 +223,6 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
   return (
     <div className="w-full space-y-6">
       {!modalOpen && <>
-      {/* Floating Apple Glass Toast Notification */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.95 }}
-            transition={{ type: "spring", damping: 25, stiffness: 350 }}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl border border-border/80 bg-card/90 px-4 py-3 text-xs font-medium text-foreground shadow-xl backdrop-blur-xl"
-          >
-            <div className="flex size-5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 size={13} />
-            </div>
-            <span>{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Header Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

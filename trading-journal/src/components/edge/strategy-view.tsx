@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Activity, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { Activity } from "lucide-react";
 import { StrategyListPanel } from "@/components/edge/strategy-list-panel";
 import { StrategyDetail } from "@/components/edge/strategy-detail";
 import { StrategyRightPanel } from "@/components/edge/strategy-right-panel";
 import { AddStrategyModal } from "@/components/edge/add-strategy-modal";
 import type { CreateStrategyInput, Strategy, StrategyStatus } from "@/types/strategy";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface StrategyViewProps {
   initialStrategies: Strategy[];
@@ -183,6 +184,7 @@ function StrategyRightPanelSkeleton() {
 }
 
 export function StrategyView({ initialStrategies }: StrategyViewProps) {
+  const { showFeedback } = useOperationFeedback();
   const [strategies, setStrategies] = useState<Strategy[]>(initialStrategies);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialStrategies[0]?.id || null
@@ -191,16 +193,11 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
 
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const showToast = (msg: string) => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToastMessage(msg);
-    toastTimeoutRef.current = setTimeout(() => {
-      setToastMessage(null);
-    }, 3000);
-  };
+  const showToast = (msg: string) => showFeedback({
+    kind: /fail|error|network/i.test(msg) ? "failure" : "success",
+    title: /fail|error|network/i.test(msg) ? "Operation failed" : "Changes saved",
+    description: msg,
+  });
 
   const selectedStrategy = strategies.find((s) => s.id === selectedId) || null;
 
@@ -431,13 +428,6 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
         editingStrategy={editingStrategy}
       />
 
-      {/* ─── Toast Feedback ─── */}
-      {toastMessage && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900/95 border border-zinc-700/80 text-xs text-white shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-150 pointer-events-none">
-          <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-          <span className="font-medium">{toastMessage}</span>
-        </div>
-      )}
     </>
   );
 }

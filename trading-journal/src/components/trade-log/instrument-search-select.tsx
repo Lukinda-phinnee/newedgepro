@@ -28,6 +28,8 @@ const TYPE_BADGE_STYLES: Record<string, string> = {
   Equity: "bg-blue-500/15 text-blue-300 border-blue-500/30",
   ETF: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
   Index: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+  "Synthetic Index": "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30",
+  Commodity: "bg-orange-500/15 text-orange-300 border-orange-500/30",
 };
 
 export function InstrumentSearchSelect({

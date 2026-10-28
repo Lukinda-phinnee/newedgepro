@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ActiveAccountProvider } from "@/components/active-account-context";
+import { OperationFeedbackProvider } from "@/components/ui/operation-feedback";
 import { auth } from "@/lib/auth/server";
 import { getUserTradingAccounts } from "@/lib/db/accounts";
 
@@ -27,6 +28,7 @@ async function AuthenticatedDashboard({ children }: { children: React.ReactNode 
   if (accounts.length === 0) redirect("/onboarding");
 
   return (
+    <OperationFeedbackProvider>
     <ActiveAccountProvider initialAccounts={accounts}>
       <DashboardShell
         user={{ name: session.user.name, email: session.user.email }}
@@ -34,6 +36,7 @@ async function AuthenticatedDashboard({ children }: { children: React.ReactNode 
         {children}
       </DashboardShell>
     </ActiveAccountProvider>
+    </OperationFeedbackProvider>
   );
 }
 

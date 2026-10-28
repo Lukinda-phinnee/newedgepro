@@ -72,7 +72,7 @@ export function DashboardShell({
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-border/70 bg-sidebar transition-[width,transform] duration-200 lg:static lg:h-full lg:shrink-0 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[252px] flex-col border-r border-border/70 bg-sidebar text-sidebar-foreground transition-[width,transform] duration-200 lg:static lg:h-full lg:shrink-0 lg:translate-x-0",
           collapsed && "lg:w-[76px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
@@ -99,13 +99,13 @@ export function DashboardShell({
               <span className="block text-[15px] font-semibold tracking-tight">
                 Edge<span className="text-violet-400">Pro</span>
               </span>
-              <span className="block text-[10px] tracking-[0.16em] text-muted-foreground/80 uppercase">
+              <span className="block text-[10px] tracking-[0.16em] text-sidebar-foreground/80 uppercase">
                 Trading journal
               </span>
             </span>
           </Link>
           <button
-            className="rounded-lg p-2 text-muted-foreground/80 hover:bg-white/5 hover:text-white lg:hidden"
+            className="rounded-lg p-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:hidden"
             onClick={() => setMobileOpen(false)}
             aria-label="Close sidebar"
           >
@@ -114,7 +114,7 @@ export function DashboardShell({
           <button
             type="button"
             className={cn(
-              "hidden rounded-lg p-2 text-muted-foreground/70 hover:bg-white/[0.06] hover:text-foreground lg:block",
+              "hidden rounded-lg p-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:block",
               collapsed &&
                 "absolute -right-3 top-[22px] z-10 border border-border/70 bg-sidebar p-1.5",
             )}
@@ -134,7 +134,7 @@ export function DashboardShell({
             <div key={group.label}>
               <p
                 className={cn(
-                  "mb-2 px-2 text-[10px] font-semibold tracking-[0.15em] text-muted-foreground/60 uppercase",
+                  "mb-2 px-2 text-[10px] font-semibold tracking-[0.15em] text-sidebar-foreground/80 uppercase",
                   collapsed && "lg:sr-only",
                 )}
               >
@@ -160,7 +160,7 @@ export function DashboardShell({
                         collapsed && "lg:justify-center lg:px-0",
                         active
                           ? "bg-violet-600 font-medium text-white shadow-sm shadow-violet-950/30"
-                          : "text-muted-foreground hover:bg-white/[0.045] hover:text-foreground",
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       )}
                     >
                       <Icon
@@ -169,12 +169,12 @@ export function DashboardShell({
                         className={cn(
                           active
                             ? "text-white"
-                            : "text-muted-foreground/80 group-hover:text-foreground/80",
+                            : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground",
                         )}
                       />
                       <span className={cn(collapsed && "lg:hidden")}>{label}</span>
                       {label === "Trade log" && !collapsed && (
-                        <span className="ml-auto rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-muted-foreground/80">
+                        <span className="ml-auto rounded-md bg-sidebar-accent px-1.5 py-0.5 text-[10px] text-sidebar-accent-foreground">
                           24
                         </span>
                       )}

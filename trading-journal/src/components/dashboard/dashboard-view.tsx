@@ -1292,7 +1292,7 @@ export function DashboardView({
 
           <div className="grid flex-1 grid-cols-1 divide-y divide-border/60 md:grid-cols-2 md:divide-y-0 md:divide-x xl:grid-cols-3">
             <section className="min-w-0 py-4 md:px-4 md:first:pl-0 md:last:pr-0" aria-label="Behavioral radar">
-              <h3 className="text-[11px] font-semibold tracking-wide text-foreground">BEHAVIORAL RADAR</h3>
+              <h3 className="pl-4 text-[11px] font-semibold tracking-wide text-foreground">BEHAVIORAL RADAR</h3>
               <div className="mt-2 flex justify-center">
                 <svg viewBox="0 0 220 190" className="h-[172px] w-full max-w-[250px]" role="img" aria-label={`Radar: ${analytics.radar.map((item) => `${item.label} ${item.value}%`).join(", ")}`}>
                   <g transform="translate(110 92)">
@@ -1404,7 +1404,7 @@ export function DashboardView({
       {/* ─── Fourth Row: Trading Year At A Glance ─── */}
       <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm" aria-label="Trading year at a glance">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-card/60 px-4 py-2.5">
-          <div className="flex items-center gap-2"><span className="flex size-6 items-center justify-center rounded-md bg-violet-500/10"><TrendingUp size={13} className="text-violet-400" /></span><h2 className="text-xs font-semibold uppercase tracking-wide">Trading Year At A Glance</h2></div>
+          <div className="flex items-center gap-2"><span className="flex size-6 items-center justify-center rounded-md bg-violet-500/10"><TrendingUp size={13} className="text-violet-400" /></span><h2 className="text-sm font-semibold uppercase tracking-wide">Trading Year At A Glance</h2></div>
           <div className="flex items-center gap-3">
             {activeTradingYear !== undefined && <div className="hidden items-center gap-3 text-[10px] sm:flex"><span className="text-muted-foreground">{annualTradeCount} trades</span><b className={cn("tabular-nums", annualPnl > 0 ? "text-emerald-400" : annualPnl < 0 ? "text-rose-400" : "text-foreground")}>{annualPnl > 0 ? "+" : annualPnl < 0 ? "−" : ""}{fmtCurrency(Math.abs(annualPnl))}</b></div>}
             <label className="sr-only" htmlFor="trading-year-select">Select trading year</label>

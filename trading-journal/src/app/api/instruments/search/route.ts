@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getDeriveInstruments } from "@/lib/derive/instruments";
 
 export interface InstrumentResult {
   symbol: string;
@@ -95,6 +96,15 @@ export async function GET(request: Request) {
       item.name.toLowerCase().includes(query.toLowerCase())
   );
 
+  // Deriv provides a live catalog for Synthetic Indices and its own FX symbols.
+  // Keep it independent from Yahoo so the rest of instrument search still works
+  // when Deriv is unavailable.
+  const deriveMatchesPromise = getDeriveInstruments()
+    .then((instruments) => instruments.filter((item) =>
+      item.symbol.toLowerCase().includes(query.toLowerCase()) || item.name.toLowerCase().includes(query.toLowerCase())
+    ))
+    .catch(() => []);
+
   try {
     const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
       query
@@ -110,7 +120,7 @@ export async function GET(request: Request) {
     });
 
     if (!res.ok) {
-      return NextResponse.json({ instruments: fallbackMatches });
+      return NextResponse.json({ instruments: [...await deriveMatchesPromise, ...fallbackMatches].slice(0, 15) });
     }
 
     const data = (await res.json()) as {
@@ -128,6 +138,12 @@ export async function GET(request: Request) {
     const quotes = data.quotes || [];
     const seen = new Set<string>();
     const results: InstrumentResult[] = [];
+
+    for (const item of await deriveMatchesPromise) {
+      if (seen.has(item.symbol)) continue;
+      seen.add(item.symbol);
+      results.push(item);
+    }
 
     // Prioritize exact or prefix matches from the curated list if any
     for (const fb of fallbackMatches) {
@@ -168,6 +184,6 @@ export async function GET(request: Request) {
     });
   } catch {
     // If online search times out or errors, gracefully use offline matches
-    return NextResponse.json({ instruments: fallbackMatches });
+    return NextResponse.json({ instruments: [...await deriveMatchesPromise, ...fallbackMatches].slice(0, 15) });
   }
 }
