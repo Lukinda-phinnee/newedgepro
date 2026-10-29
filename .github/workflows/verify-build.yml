@@ -36,5 +36,5 @@ jobs:
           # Dummy values for build phase type checks
           DATABASE_URL: "postgresql://dummy:dummy@ep-dummy.neon.tech/dummy?sslmode=require"
           JWT_SECRET: "ci-dummy-secret-key-for-building-verification"
-          AWS_REGION: "us-east-1"
+          STORAGE_REGION: "us-east-1"
 
