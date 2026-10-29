@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth/server";
 
-const handlers = auth.handler();
+function getHandlers() {
+  return auth.handler();
+}
 
 async function handle(request: Request, context: unknown) {
   let requestToPass = request;
@@ -24,6 +26,7 @@ async function handle(request: Request, context: unknown) {
     });
   }
 
+  const handlers = getHandlers();
   const handler = handlers[request.method as keyof typeof handlers];
   if (!handler) return new Response("Method not allowed", { status: 405 });
 

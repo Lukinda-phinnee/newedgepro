@@ -10,6 +10,7 @@ applications:
             - npm install --legacy-peer-deps
         build:
           commands:
+            - env | grep -E '^(NEON_|DATABASE_|STORAGE_|NEXT_PUBLIC_)' > .env.production || true
             - npm run build
       artifacts:
         baseDirectory: .next
