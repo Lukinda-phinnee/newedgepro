@@ -37,6 +37,33 @@ CREATE TABLE IF NOT EXISTS feedback_submissions (
 );
 CREATE INDEX IF NOT EXISTS feedback_submissions_user_created_idx ON feedback_submissions (user_id, created_at DESC);
 
+-- Public product details displayed in Settings > About.
+CREATE TABLE IF NOT EXISTS app_information (
+  id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  app_name VARCHAR(120) NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  version VARCHAR(40) NOT NULL,
+  environment VARCHAR(32) NOT NULL DEFAULT 'production',
+  support_email VARCHAR(255),
+  website_url TEXT,
+  privacy_url TEXT,
+  terms_url TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO app_information (id, app_name, description, version)
+  VALUES (1, 'EdgePro', 'Trading journal and performance workspace.', '1.0.0')
+  ON CONFLICT (id) DO NOTHING;
+ALTER TABLE app_information ADD COLUMN IF NOT EXISTS environment VARCHAR(32) NOT NULL DEFAULT 'production';
+UPDATE app_information SET version = '1.0.0', environment = 'production' WHERE id = 1 AND version = '0.1.0';
+
+CREATE TABLE IF NOT EXISTS legal_documents (
+  slug VARCHAR(60) PRIMARY KEY,
+  title VARCHAR(160) NOT NULL,
+  body TEXT NOT NULL,
+  source_url TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Demo and live trading accounts with per-account risk guardrails.
 CREATE TABLE IF NOT EXISTS trading_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

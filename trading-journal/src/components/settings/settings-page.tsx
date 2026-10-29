@@ -12,6 +12,7 @@ import { useOperationFeedback } from "@/components/ui/operation-feedback";
 import { useUserPreferences } from "@/components/user-preferences-provider";
 import { authClient } from "@/lib/auth/client";
 import { PreMarketRoutineSettings } from "@/components/settings/pre-market-routine-settings";
+import { AboutSettings } from "@/components/settings/about-settings";
 
 type SettingsPageProps = { name: string | null; email: string };
 type AccountSettings = {
@@ -181,7 +182,7 @@ export function SettingsPage({ name: initialName, email }: SettingsPageProps) {
       </div>
     </nav>
 
-    {activeTab === "Pre-Market Routine" ? <PreMarketRoutineSettings/> : activeTab === "Account" ? <section role="tabpanel" aria-label="Account settings" className="pt-6">
+    {activeTab === "Pre-Market Routine" ? <PreMarketRoutineSettings/> : activeTab === "About" ? <AboutSettings/> : activeTab === "Account" ? <section role="tabpanel" aria-label="Account settings" className="pt-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-medium text-foreground">Account</h2>
         <div className="flex items-center gap-2"><ProfileActions/>{editing ? <><Button size="sm" onClick={saveAccount} disabled={saving}>{saving ? "Saving…" : "Save"}</Button><Button size="sm" variant="outline" onClick={() => { setEditing(false); setDraft(settings); setNameDraft(name); }}>Cancel</Button></> : <Button size="sm" variant="default" onClick={() => openEditor()}><PencilLine size={14}/>Edit</Button>}</div>
