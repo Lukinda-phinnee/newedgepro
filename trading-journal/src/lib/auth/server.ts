@@ -1,6 +1,6 @@
 import { createNeonAuth } from "@neondatabase/auth/next/server";
 
-// Direct, non-lazy implementation to avoid placeholder caching issues.
+
 // All env vars are expected at runtime (Lambda environment).
 export const auth = createNeonAuth({
   baseUrl: process.env.NEON_AUTH_BASE_URL ?? (() => {
