@@ -7,9 +7,10 @@ applications:
           commands:
             - nvm use 20 || nvm install 20
             - node -v
-            - npm ci --prefer-offline
+            - npm install --legacy-peer-deps
         build:
           commands:
+            - env | grep -v 'AWS' > .env.production || true
             - npm run build
       artifacts:
         baseDirectory: .next
@@ -19,4 +20,3 @@ applications:
         paths:
           - node_modules/**/*
           - .next/cache/**/*
-
