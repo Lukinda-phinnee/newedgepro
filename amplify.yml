@@ -10,7 +10,6 @@ applications:
             - npm install --legacy-peer-deps
         build:
           commands:
-            - env | grep -v 'AWS' > .env.production || true
             - npm run build
       artifacts:
         baseDirectory: .next

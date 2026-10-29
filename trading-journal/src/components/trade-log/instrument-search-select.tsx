@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Search, Loader2, X, Check } from "lucide-react";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 
 export interface InstrumentItem {
   symbol: string;
