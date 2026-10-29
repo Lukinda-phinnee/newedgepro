@@ -212,6 +212,7 @@ export function LoopDocumentPage() {
   const [preview, setPreview] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const remoteUpdatedAt = useRef(document?.updatedAt);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setContent(document?.content || ""); setTitle(document?.title || "Untitled"); }, [documentId, document?.content, document?.title]);
   useEffect(() => { remoteUpdatedAt.current = document?.updatedAt; }, [documentId, document?.updatedAt]);
   useEffect(() => {

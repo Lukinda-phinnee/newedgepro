@@ -1,7 +1,10 @@
 "use client";
 
 import { Editor } from "novel-lightweight";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+
+type EditorComponentType = (props: Record<string, unknown>) => ReactNode;
+const NovelEditor = Editor as unknown as EditorComponentType;
 
 type NovelEditorInstance = {
   storage: { markdown: { getMarkdown: () => string } };
@@ -31,19 +34,20 @@ export function LoopRichTextEditor({
 
   return (
     <div className="loop-rich-text-editor min-h-[55vh]">
-      <Editor
+      <NovelEditor
         className="min-h-[55vh] w-full"
         defaultValue={content}
         disableLocalStorage
         handleImageUpload={onImageUpload}
         debounceDuration={250}
-        onUpdate={(editor) => {
+        onUpdate={(editor: unknown) => {
           if (editor) editorRef.current = editor as unknown as NovelEditorInstance;
         }}
-        onDebouncedUpdate={(editor) => {
+        onDebouncedUpdate={(editor: unknown) => {
           if (!editor) return;
-          editorRef.current = editor as unknown as NovelEditorInstance;
-          onChange(editor.storage.markdown.getMarkdown());
+          const instance = editor as unknown as NovelEditorInstance;
+          editorRef.current = instance;
+          onChange(instance.storage.markdown.getMarkdown());
         }}
       />
     </div>

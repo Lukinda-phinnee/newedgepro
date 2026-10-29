@@ -1,0 +1,40 @@
+name: Verify Build
+
+on:
+  push:
+    branches: [ "main", "dev", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Test Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: trading-journal
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: trading-journal/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Next.js Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          # Dummy values for build phase type checks
+          DATABASE_URL: "postgresql://dummy:dummy@ep-dummy.neon.tech/dummy?sslmode=require"
+          JWT_SECRET: "ci-dummy-secret-key-for-building-verification"
+          AWS_REGION: "us-east-1"
+

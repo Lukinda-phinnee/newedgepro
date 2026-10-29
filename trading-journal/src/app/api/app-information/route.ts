@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { sql } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { data: session } = await auth.getSession();
     if (!session?.user?.id) return NextResponse.json({ error: "Please sign in to view app information." }, { status: 401 });

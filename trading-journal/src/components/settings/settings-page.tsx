@@ -125,7 +125,7 @@ export function SettingsPage({ name: initialName, email }: SettingsPageProps) {
   const savePreferences = async () => {
     setSaving(true);
     try {
-      await saveSettings({ timezone: draft.timezone, timeFormat: draft.timeFormat, currencyDisplay: draft.currencyDisplay || null });
+      await saveSettings({ timezone: draft.timezone, timeFormat: draft.timeFormat, currencyDisplay: draft.currencyDisplay || "" });
       showFeedback({ kind: "success", title: "Preferences saved", description: "Your journal preferences have been updated." });
     } catch (error) {
       showFeedback({ kind: "failure", title: "Preferences weren’t saved", description: error instanceof Error ? error.message : "Please try again." });

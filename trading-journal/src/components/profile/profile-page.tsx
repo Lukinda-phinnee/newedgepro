@@ -89,7 +89,7 @@ export function ProfilePage({ name: initialName, email }: ProfilePageProps) {
 
   const savePreferences = async () => {
     setSaving(true);
-    try { await saveSettings({ timezone: draft.timezone, timeFormat: draft.timeFormat, currencyDisplay: draft.currencyDisplay || null }); showFeedback({ kind: "success", title: "Preferences saved", description: "Your journal preferences have been updated." }); }
+    try { await saveSettings({ timezone: draft.timezone, timeFormat: draft.timeFormat, currencyDisplay: draft.currencyDisplay || "" }); showFeedback({ kind: "success", title: "Preferences saved", description: "Your journal preferences have been updated." }); }
     catch (cause) { showFeedback({ kind: "failure", title: "Preferences weren’t saved", description: cause instanceof Error ? cause.message : "Please try again." }); }
     finally { setSaving(false); }
   };

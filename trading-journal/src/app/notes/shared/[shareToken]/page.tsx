@@ -1,7 +1,10 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPublicNoteDocument } from "@/lib/db/notes";
 import { BrandMark } from "@/components/brand-mark";
+
+export const instant = false;
 
 type Props = { params: Promise<{ shareToken: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -10,7 +13,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: note ? `${note.title} — Shared Trader Note` : "Shared Trader Note" };
 }
 
-export default async function SharedNotePage({ params }: Props) {
+export default function SharedNotePage({ params }: Props) {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-background p-12 text-muted-foreground">Loading...</div>}>
+      <SharedNoteContent params={params} />
+    </Suspense>
+  );
+}
+
+async function SharedNoteContent({ params }: Props) {
   const { shareToken } = await params;
   const note = await getPublicNoteDocument(shareToken);
   if (!note) notFound();
