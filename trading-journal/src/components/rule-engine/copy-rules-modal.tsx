@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import type { TradingAccount } from "@/types/account";
 import type { RuleSet } from "@/types/rules";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface CopyRulesModalProps {
   open: boolean;
@@ -28,11 +29,11 @@ export function CopyRulesModal({
   accounts,
   onCopySuccess,
 }: CopyRulesModalProps) {
+  const { showFeedback } = useOperationFeedback();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(
     accounts[0]?.id || "",
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!sourceRuleSet) return null;
 
@@ -40,12 +41,11 @@ export function CopyRulesModal({
 
   const handleCopy = async () => {
     if (!selectedAccountId) {
-      setErrorMsg("Please select a target trading account.");
+      showFeedback({ kind: "failure", title: "Choose an account", description: "Select a target trading account before copying rules." });
       return;
     }
 
     setIsSubmitting(true);
-    setErrorMsg(null);
 
     try {
       const res = await fetch("/api/rules/copy-to-account", {
@@ -66,8 +66,9 @@ export function CopyRulesModal({
       const { ruleSet } = await res.json();
       onCopySuccess(ruleSet);
       onOpenChange(false);
+      showFeedback({ kind: "success", title: "Rules copied", description: `Rules were copied to “${targetAccount?.name ?? "the selected account"}”.` });
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Error copying rules");
+      showFeedback({ kind: "failure", title: "Rules weren’t copied", description: err instanceof Error ? err.message : "Error copying rules" });
     } finally {
       setIsSubmitting(false);
     }
@@ -96,13 +97,6 @@ export function CopyRulesModal({
 
         {/* Content - System unified background surfaces */}
         <div className="space-y-4 p-5 sm:p-6">
-          {errorMsg && (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
-              <AlertCircle size={15} className="shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
           <div className="rounded-xl border border-border/70 bg-card/60 p-3.5 space-y-1 text-xs">
             <span className="text-[11px] text-muted-foreground block font-medium">Source Rule Set:</span>
             <span className="font-semibold text-foreground block text-sm">

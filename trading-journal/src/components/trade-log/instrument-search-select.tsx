@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, Loader2, X, Check, Globe } from "lucide-react";
+import { Search, Loader2, X, Check } from "lucide-react";
 import { cn } from "cn";
 
 export interface InstrumentItem {
@@ -20,17 +20,6 @@ interface InstrumentSearchSelectProps {
   required?: boolean;
   className?: string;
 }
-
-const TYPE_BADGE_STYLES: Record<string, string> = {
-  Futures: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  Forex: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  Crypto: "bg-violet-500/15 text-violet-300 border-violet-500/30",
-  Equity: "bg-blue-500/15 text-blue-300 border-blue-500/30",
-  ETF: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
-  Index: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
-  "Synthetic Index": "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30",
-  Commodity: "bg-orange-500/15 text-orange-300 border-orange-500/30",
-};
 
 export function InstrumentSearchSelect({
   id = "trade-symbol",
@@ -234,22 +223,12 @@ export function InstrumentSearchSelect({
       {/* Selected meta subtitle preview */}
       {selectedMeta && !isOpen && (
         <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
-          <span className="truncate max-w-[200px] text-foreground/80 font-medium">
+          <span className="min-w-0 truncate text-foreground/80 font-medium">
             {selectedMeta.name}
           </span>
-          {selectedMeta.type && (
-            <span
-              className={cn(
-                "rounded border px-1.5 py-0.2 text-[9px] font-semibold uppercase tracking-wider",
-                TYPE_BADGE_STYLES[selectedMeta.type] || "bg-secondary text-muted-foreground"
-              )}
-            >
-              {selectedMeta.type}
-            </span>
-          )}
           {selectedMeta.exchange && (
-            <span className="text-[10px] text-muted-foreground/60">
-              • {selectedMeta.exchange}
+            <span className="shrink-0 text-[10px] text-muted-foreground/60">
+              · {selectedMeta.exchange}
             </span>
           )}
         </div>
@@ -258,25 +237,10 @@ export function InstrumentSearchSelect({
       {/* Dropdown Popover */}
       {isOpen && (
         <div className="absolute left-0 top-full z-50 mt-1.5 w-full min-w-[300px] max-w-[420px] rounded-xl border border-border/90 bg-card/95 p-1.5 shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95">
-          <div className="flex items-center justify-between border-b border-border/50 px-2.5 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
-            <span className="flex items-center gap-1">
-              <Globe size={11} className="text-violet-400" />
-              Live Online Markets
-            </span>
-            {loading && (
-              <span className="text-[10px] text-violet-400 font-normal lowercase">
-                searching...
-              </span>
-            )}
-          </div>
-
           <ul ref={listRef} className="max-h-56 overflow-y-auto py-1 space-y-0.5">
             {results.map((item, idx) => {
               const isSelected = idx === selectedIndex;
               const isCurrent = item.symbol.toUpperCase() === value.toUpperCase();
-              const badgeClass =
-                TYPE_BADGE_STYLES[item.type] ||
-                "bg-secondary/60 text-muted-foreground border-border/60";
 
               return (
                 <li
@@ -284,35 +248,20 @@ export function InstrumentSearchSelect({
                   onMouseEnter={() => setSelectedIndex(idx)}
                   onClick={() => handleSelect(item)}
                   className={cn(
-                    "flex items-center justify-between gap-2.5 rounded-lg px-2.5 py-2 text-xs cursor-pointer transition",
+                    "flex items-center gap-3 rounded-lg px-2.5 py-2 text-xs cursor-pointer transition",
                     isSelected
                       ? "bg-violet-500/15 text-foreground"
                       : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
                     isCurrent && !isSelected && "bg-white/5"
                   )}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-bold tracking-tight text-foreground text-xs uppercase">
-                      {item.symbol}
-                    </span>
-                    <span className="truncate text-[11px] text-muted-foreground">
-                      {item.name}
-                    </span>
-                  </div>
+                  <span className="min-w-0 flex-1 truncate text-left text-[12px] font-medium text-foreground">
+                    {item.name}
+                  </span>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {item.type && (
-                      <span
-                        className={cn(
-                          "rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
-                          badgeClass
-                        )}
-                      >
-                        {item.type}
-                      </span>
-                    )}
+                  <div className="flex shrink-0 items-center gap-1.5">
                     {item.exchange && (
-                      <span className="text-[10px] text-muted-foreground/50 hidden sm:inline">
+                      <span className="text-[10px] text-muted-foreground/70">
                         {item.exchange}
                       </span>
                     )}

@@ -1,6 +1,6 @@
 import type { Trade } from "@/types/trade";
 
-/** Sample trades shown only when an account has no saved trades. */
+/** Fixtures persisted as clearly marked trades for an empty demo account. */
 export function generateSampleTrades(accountId: string, userId: string = "demo-user"): Trade[] {
   const samples: Trade[] = [
     {

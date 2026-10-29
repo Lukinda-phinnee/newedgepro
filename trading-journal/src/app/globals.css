@@ -9,6 +9,145 @@
 
 @source "../../node_modules/novel-lightweight/dist";
 
+.playbook-document-content[contenteditable="true"] {
+  min-height: 1123px;
+  padding: 96px 11% !important;
+  color: var(--foreground);
+  font-size: 15px;
+  line-height: 1.75;
+  outline: none;
+}
+
+.playbook-document-content :is(p, div) {
+  margin: 0 0 0.55em;
+  min-height: 1.75em;
+}
+
+.playbook-document-content h2 {
+  margin: 0.15em 0 0.45em;
+  color: var(--foreground);
+  font-size: 1.55em;
+  font-weight: 660;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+
+.playbook-document-content hr.playbook-block-separator {
+  margin: 1rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.playbook-document-content ul:not([data-type="taskList"]),
+.playbook-document-content ol {
+  margin: 0.4em 0 0.8em;
+  padding-left: 1.65em;
+  list-style-position: outside;
+}
+
+.playbook-document-content ul:not([data-type="taskList"]) {
+  list-style-type: disc !important;
+}
+
+.playbook-document-content ol {
+  list-style-type: decimal !important;
+}
+
+.playbook-document-content ul[data-type="taskList"] {
+  margin: 0.4em 0 0.8em;
+  padding: 0;
+  list-style: none;
+}
+
+.playbook-document-content li {
+  display: list-item;
+  margin: 0.25em 0;
+  padding-left: 0.15em;
+}
+
+.playbook-document-content li > p,
+.playbook-document-content li > div {
+  margin: 0;
+}
+
+.playbook-document-content ul:not([data-type="taskList"]) ul,
+.playbook-document-content ol ol,
+.playbook-document-content ul[data-type="taskList"] ul {
+  margin: 0.3em 0 0.45em;
+}
+
+.playbook-document-content ul[data-type="taskList"] li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0.55rem;
+  padding: 0;
+}
+
+.playbook-document-content {
+  position: relative;
+}
+
+.playbook-document-content[data-empty="true"]::before {
+  content: none;
+}
+
+.playbook-document-content [data-empty-block="heading"]::before {
+  content: "Heading";
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.playbook-document-content [data-empty-block="text"]::before {
+  content: "Type text…";
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.playbook-document-content li[data-empty-block="bullet"]::after,
+.playbook-document-content li[data-empty-block="numbered"]::after {
+  content: "List item…";
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.playbook-document-content li[data-empty-block="checklist"] > span::before {
+  content: "To-do item…";
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.playbook-document-content input[type="checkbox"] {
+  align-self: start;
+  width: 16px;
+  height: 16px;
+  margin: 0.32em 0 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.playbook-document-content ul[data-type="taskList"] li > span[contenteditable="true"] {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  line-height: 1.75;
+}
+
+.playbook-document-content ul[data-type="taskList"] li > ul,
+.playbook-document-content ul[data-type="taskList"] li > ol {
+  grid-column: 2;
+}
+
+.playbook-document-content ul[data-type="taskList"] li:has(> input:checked) > span {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+.playbook-slash-menu {
+  max-height: min(360px, calc(100vh - 24px));
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

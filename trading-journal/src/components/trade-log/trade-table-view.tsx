@@ -320,6 +320,7 @@ export function TradeTableView({
                       <span className="rounded-lg border border-border/70 bg-secondary/60 px-2 py-1 text-xs font-bold text-foreground">
                         {trade.symbol}
                       </span>
+                      {trade.isDemo && <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-600 dark:text-amber-400">Sample</span>}
                     </td>
 
                     {/* Screenshot */}

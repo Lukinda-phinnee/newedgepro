@@ -25,16 +25,9 @@ export function TradeLogView({ initialTrades }: TradeLogViewProps) {
 
   // Local trades state (synced with mutations)
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
-  const dismissedTradesKey = `edgepro:dismissed-demo-trades:${activeAccount?.id ?? "none"}`;
-
   useEffect(() => {
-    try {
-      const dismissed = new Set<string>(JSON.parse(localStorage.getItem(dismissedTradesKey) ?? "[]"));
-      setTrades(initialTrades.filter((trade) => !dismissed.has(trade.id)));
-    } catch {
-      setTrades(initialTrades);
-    }
-  }, [dismissedTradesKey, initialTrades]);
+    setTrades(initialTrades);
+  }, [initialTrades]);
 
   // Active view: 'calendar' or 'table'
   const [activeView, setActiveView] = useState<"calendar" | "table">("calendar");
@@ -80,6 +73,7 @@ export function TradeLogView({ initialTrades }: TradeLogViewProps) {
   // Handlers for mutations
   const handleTradeLogged = (newTrade: Trade) => {
     setTrades((prev) => [newTrade, ...prev]);
+    window.dispatchEvent(new Event("trade-log:updated"));
     showFeedback({ kind: "success", title: "Trade logged", description: `${newTrade.side.toUpperCase()} ${newTrade.symbol} was added to your journal.` });
   };
 
@@ -91,17 +85,8 @@ export function TradeLogView({ initialTrades }: TradeLogViewProps) {
     try {
       const res = await fetch(`/api/trades/${id}`, { method: "DELETE" });
       if (res.ok) {
-        const result = await res.json();
-        if (result.demo) {
-          try {
-            const dismissed = new Set<string>(JSON.parse(localStorage.getItem(dismissedTradesKey) ?? "[]"));
-            dismissed.add(id);
-            localStorage.setItem(dismissedTradesKey, JSON.stringify([...dismissed]));
-          } catch {
-            // Deletion still applies to the current view if browser storage is unavailable.
-          }
-        }
         setTrades((prev) => prev.filter((t) => t.id !== id));
+        window.dispatchEvent(new Event("trade-log:updated"));
         showFeedback({ kind: "success", title: "Trade deleted", description: "The trade was removed from your journal." });
       } else {
         showFeedback({ kind: "failure", title: "Trade wasn’t deleted", description: "The server couldn’t remove this trade. Please try again." });

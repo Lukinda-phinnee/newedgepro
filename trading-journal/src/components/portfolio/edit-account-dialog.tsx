@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import type { TradingAccount, AccountStatus } from "@/types/account";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface EditAccountDialogProps {
   account: TradingAccount | null;
@@ -33,6 +34,7 @@ export function EditAccountDialog({
   onOpenChange,
   onAccountUpdated,
 }: EditAccountDialogProps) {
+  const { showFeedback } = useOperationFeedback();
   const [name, setName] = useState("");
   const [brokerName, setBrokerName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -107,7 +109,7 @@ export function EditAccountDialog({
       onAccountUpdated(data.account);
       onOpenChange(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to update account.");
+      showFeedback({ kind: "failure", title: "Account wasn’t updated", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
       setLoading(false);
     }

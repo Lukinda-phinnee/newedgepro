@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth/server";
 import { sql } from "@/lib/db";
-import { getUserTradingAccounts, computePortfolioSummary } from "@/lib/db/accounts";
+import { getUserTradingAccounts, computePortfolioSummary, getTradingAccountById } from "@/lib/db/accounts";
 
 const currencies = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "NZD"] as const;
 
@@ -98,7 +98,9 @@ export async function POST(request: Request) {
       RETURNING *
     `;
 
-    return NextResponse.json({ account: rows[0] }, { status: 201 });
+    const account = await getTradingAccountById(session.user.id, String(rows[0].id));
+    if (!account) throw new Error("Created account could not be read back.");
+    return NextResponse.json({ account }, { status: 201 });
   } catch (error) {
     console.error("[accounts] Failed to create trading account", error);
     return NextResponse.json(

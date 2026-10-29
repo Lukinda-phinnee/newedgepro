@@ -58,12 +58,16 @@ function mapAccountRow(row: Record<string, unknown>): TradingAccount {
     metrics: {
       netPnl,
       netPnlPercent,
-      winRate: 64.2,
-      totalTrades: 18,
-      winningTrades: 12,
-      losingTrades: 6,
-      dailyLossUsedPercent: 32,
-      dailyLossRemaining: dailyLossLimitAmount * 0.68,
+      winRate: Number(row.total_trades) > 0
+        ? (Number(row.winning_trades || 0) / Number(row.total_trades)) * 100
+        : 0,
+      totalTrades: Number(row.total_trades) || 0,
+      winningTrades: Number(row.winning_trades) || 0,
+      losingTrades: Number(row.losing_trades) || 0,
+      dailyLossUsedPercent: dailyLossLimitAmount > 0
+        ? Math.min(100, (Math.max(0, -Number(row.daily_realized_pnl || 0)) / dailyLossLimitAmount) * 100)
+        : 0,
+      dailyLossRemaining: Math.max(0, dailyLossLimitAmount + Math.min(0, Number(row.daily_realized_pnl || 0))),
       drawdownUsedPercent,
       drawdownRemaining,
       profitTargetProgressPercent,
@@ -73,63 +77,57 @@ function mapAccountRow(row: Record<string, unknown>): TradingAccount {
 }
 
 export async function userHasTradingAccount(userId: string): Promise<boolean> {
-  try {
-    const rows = await sql`
-      SELECT id
-      FROM trading_accounts
-      WHERE user_id = ${userId}
-      LIMIT 1
-    `;
-
-    return rows.length > 0;
-  } catch (err) {
-    console.error("Failed to check user trading account:", err);
-    return false;
-  }
+  const rows = await sql`
+    SELECT id
+    FROM trading_accounts
+    WHERE user_id = ${userId}
+    LIMIT 1
+  `;
+  return rows.length > 0;
 }
 
 export async function getUserTradingAccounts(userId: string): Promise<TradingAccount[]> {
-  try {
-    const rows = await sql`
-      SELECT *
-      FROM trading_accounts
-      WHERE user_id = ${userId}
-      ORDER BY is_default DESC, created_at DESC
-    `;
-
-    return (rows as Record<string, unknown>[]).map(mapAccountRow);
-  } catch (err) {
-    console.error("Failed to query trading accounts:", err);
-    return [];
-  }
+  const rows = await sql`
+    SELECT account.*,
+      COUNT(trade.id) FILTER (WHERE trade.status = 'closed')::int AS total_trades,
+      COUNT(trade.id) FILTER (WHERE trade.status = 'closed' AND trade.pnl > 0)::int AS winning_trades,
+      COUNT(trade.id) FILTER (WHERE trade.status = 'closed' AND trade.pnl < 0)::int AS losing_trades,
+      COALESCE(SUM(trade.pnl) FILTER (
+        WHERE trade.status = 'closed' AND trade.closed_at >= date_trunc('day', NOW())
+      ), 0) AS daily_realized_pnl
+    FROM trading_accounts account
+    LEFT JOIN trades trade
+      -- Older installations created trades.account_id as TEXT. Compare as text
+      -- so both legacy and fresh UUID-backed schemas work without data loss.
+      ON trade.account_id::text = account.id::text
+      AND trade.user_id::text = account.user_id::text
+    WHERE account.user_id = ${userId}
+    GROUP BY account.id
+    ORDER BY account.is_default DESC, account.created_at DESC
+  `;
+  return (rows as Record<string, unknown>[]).map(mapAccountRow);
 }
 
 export async function getTradingAccountById(
   userId: string,
   accountId: string,
 ): Promise<TradingAccount | null> {
-  try {
-    const rows = await sql`
-      SELECT *
-      FROM trading_accounts
-      WHERE user_id = ${userId} AND id = ${accountId}
-      LIMIT 1
-    `;
-
-    if (rows.length === 0) return null;
-    return mapAccountRow(rows[0] as Record<string, unknown>);
-  } catch (err) {
-    console.error("Failed to query trading account by id:", err);
-    return null;
-  }
+  const accounts = await getUserTradingAccounts(userId);
+  return accounts.find((account) => account.id === accountId) ?? null;
 }
 
-export async function setDefaultTradingAccount(userId: string, accountId: string): Promise<void> {
-  await sql`
+export async function setDefaultTradingAccount(userId: string, accountId: string): Promise<boolean> {
+  const rows = await sql`
     UPDATE trading_accounts
     SET is_default = CASE WHEN id = ${accountId} THEN true ELSE false END
     WHERE user_id = ${userId}
+      AND EXISTS (
+        SELECT 1 FROM trading_accounts requested
+        WHERE requested.id = ${accountId} AND requested.user_id = ${userId}
+      )
+    RETURNING id
   `;
+  return rows.some((row) => String(row.id) === accountId);
 }
 
 export async function updateTradingAccount(

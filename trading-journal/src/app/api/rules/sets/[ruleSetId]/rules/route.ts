@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRulesByRuleSetId, saveRule } from "@/lib/db/rules";
+import { auth } from "@/lib/auth/server";
+import { getRuleSetById, getRulesByRuleSetId, saveRule } from "@/lib/db/rules";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ ruleSetId: string }> },
 ) {
   try {
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { ruleSetId } = await params;
-    const rules = await getRulesByRuleSetId(ruleSetId);
+    if (!(await getRuleSetById(ruleSetId, session.user.id))) {
+      return NextResponse.json({ error: "Rule set not found" }, { status: 404 });
+    }
+    const rules = await getRulesByRuleSetId(ruleSetId, session.user.id);
     return NextResponse.json({ rules });
   } catch (error) {
     console.error("GET /api/rules/sets/:ruleSetId/rules error:", error);
@@ -20,7 +26,12 @@ export async function POST(
   { params }: { params: Promise<{ ruleSetId: string }> },
 ) {
   try {
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { ruleSetId } = await params;
+    if (!(await getRuleSetById(ruleSetId, session.user.id))) {
+      return NextResponse.json({ error: "Rule set not found" }, { status: 404 });
+    }
     const body = await request.json();
 
     if (!body.ruleName || !body.condition || !body.comparisonOperator) {
@@ -30,7 +41,7 @@ export async function POST(
       );
     }
 
-    const saved = await saveRule(ruleSetId, {
+    const saved = await saveRule(ruleSetId, session.user.id, {
       id: body.id,
       ruleName: body.ruleName,
       description: body.description,

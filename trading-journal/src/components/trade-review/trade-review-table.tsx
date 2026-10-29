@@ -128,6 +128,7 @@ export function TradeReviewTable({
                         <span className="font-semibold tracking-tight text-foreground">
                           {trade.symbol}
                         </span>
+                        {trade.isDemo && <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-600 dark:text-amber-400">Sample</span>}
                         {trade.screenshots && trade.screenshots.length > 0 && (
                           <span
                             className="inline-flex items-center gap-0.5 rounded bg-secondary/80 px-1.5 py-0.2 text-[10px] font-medium text-muted-foreground"

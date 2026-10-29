@@ -31,6 +31,7 @@ import type {
   RuleSet,
 } from "@/types/rules";
 import { cn } from "@/lib/utils";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 // Apple §7: Tab order for directional transitions
 const TAB_ORDER: TabKey[] = ["overview", "rulesets", "simulation"];
@@ -56,6 +57,7 @@ export function RuleEngineView({
   initialCompliance,
   accounts,
 }: RuleEngineViewProps) {
+  const { showFeedback } = useOperationFeedback();
   // Navigation tab
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const prevTabRef = useRef<TabKey>("overview");
@@ -118,6 +120,7 @@ export function RuleEngineView({
         }
       } catch (err) {
         console.error("Failed to fetch scope status:", err);
+        showFeedback({ kind: "failure", title: "Couldn’t load rule status", description: "Please check your connection and try changing the scope again." });
       }
     };
 
@@ -125,7 +128,7 @@ export function RuleEngineView({
     return () => {
       isCancelled = true;
     };
-  }, [selectedScope]);
+  }, [selectedScope, showFeedback]);
 
   // Handle rule created or updated
   const handleSaveRuleSuccess = (savedRule: Rule) => {
@@ -210,9 +213,11 @@ export function RuleEngineView({
       if (!res.ok) {
         throw new Error("Failed to toggle rule active state");
       }
+      showFeedback({ kind: "success", title: "Rule status updated", description: `Rule is now ${nextActive ? "active" : "inactive"}.` });
     } catch (err) {
       console.error("Failed to toggle rule:", err);
       handleRuleToggled(ruleId, !nextActive);
+      showFeedback({ kind: "failure", title: "Rule status wasn’t changed", description: err instanceof Error ? err.message : "Please try again." });
     }
   };
 

@@ -4,7 +4,6 @@ import { connection } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { getUserTradingAccounts } from "@/lib/db/accounts";
 import { getUserTrades } from "@/lib/db/trades";
-import { generateSampleTrades } from "@/lib/demo-trades";
 import { TradeLogView } from "@/components/trade-log/trade-log-view";
 
 export const metadata: Metadata = {
@@ -23,12 +22,7 @@ export default async function TradeLogPage() {
   if (accounts.length === 0) redirect("/onboarding");
 
   const defaultAccount = accounts.find((a) => a.isDefault) || accounts[0];
-  let trades = await getUserTrades(session.user.id, defaultAccount.id);
-
-  // If no trades are in database yet, provide sample trades for an immediate rich visual experience
-  if (trades.length === 0) {
-    trades = generateSampleTrades(defaultAccount.id, session.user.id);
-  }
+  const trades = await getUserTrades(session.user.id, defaultAccount.id);
 
   return <TradeLogView initialTrades={trades} />;
 }

@@ -1,27 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
-import { copyRulesToAccount } from "@/lib/db/rules";
-import { sql } from "@/lib/db";
-
-async function resolveUserId(): Promise<string> {
-  try {
-    const { data: session } = await auth.getSession();
-    if (session?.user?.id) return session.user.id;
-  } catch {
-    // ignore
-  }
-
-  const acc = await sql`SELECT user_id FROM trading_accounts LIMIT 1`;
-  if (acc.length > 0 && acc[0].user_id) {
-    return String(acc[0].user_id);
-  }
-
-  return "default_user";
-}
+import { copyRulesToAccount, getRuleSetById } from "@/lib/db/rules";
+import { getTradingAccountById } from "@/lib/db/accounts";
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await resolveUserId();
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = session.user.id;
     const body = await request.json();
     const { sourceRuleSetId, targetAccountId, targetAccountName } = body;
 
@@ -31,12 +17,17 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+    if (!(await getRuleSetById(String(sourceRuleSetId), userId))) {
+      return NextResponse.json({ error: "Source rule set not found" }, { status: 404 });
+    }
+    const targetAccount = await getTradingAccountById(userId, String(targetAccountId));
+    if (!targetAccount) return NextResponse.json({ error: "Target account not found" }, { status: 404 });
 
     const updatedSet = await copyRulesToAccount(
       userId,
       sourceRuleSetId,
       targetAccountId,
-      targetAccountName,
+      targetAccountName || targetAccount.name,
     );
 
     return NextResponse.json({ ruleSet: updatedSet });

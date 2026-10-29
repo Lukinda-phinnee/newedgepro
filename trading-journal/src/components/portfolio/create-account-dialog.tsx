@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import type { TradingAccount } from "@/types/account";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "NZD"] as const;
 
@@ -45,6 +46,7 @@ export function CreateAccountDialog({
   onOpenChange,
   onAccountCreated,
 }: CreateAccountDialogProps) {
+  const { showFeedback } = useOperationFeedback();
   const [accountType, setAccountType] = useState<"demo" | "live">("demo");
   const [name, setName] = useState("");
   const [brokerName, setBrokerName] = useState("EdgePro Simulated");
@@ -160,7 +162,7 @@ export function CreateAccountDialog({
       onAccountCreated(data.account);
       handleClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create account. Please try again.");
+      showFeedback({ kind: "failure", title: "Account wasn’t created", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
       setLoading(false);
     }

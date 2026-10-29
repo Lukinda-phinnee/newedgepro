@@ -68,6 +68,10 @@ export interface Strategy {
   status: StrategyStatus;
   description: string | null;
   thesis: string | null;
+  playbookContent: string | null;
+  playbookContinuous: boolean;
+  isReviewed: boolean;
+  reviewedAt: string | null;
   assetUniverse: string[];
   marketRegime: string;
 
@@ -108,7 +112,7 @@ export interface Strategy {
 
 export type CreateStrategyInput = Omit<
   Strategy,
-  "id" | "userId" | "createdAt" | "updatedAt"
->;
+  "id" | "userId" | "createdAt" | "updatedAt" | "playbookContent" | "playbookContinuous" | "isReviewed" | "reviewedAt"
+> & Partial<Pick<Strategy, "playbookContent" | "playbookContinuous" | "isReviewed" | "reviewedAt">>;
 
 export type UpdateStrategyInput = Partial<CreateStrategyInput>;

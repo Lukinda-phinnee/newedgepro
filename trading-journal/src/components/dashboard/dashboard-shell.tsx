@@ -13,6 +13,8 @@ import { ProfileMenu } from "@/components/dashboard/profile-menu";
 import { AccountSelector } from "@/components/dashboard/account-selector";
 import { cn } from "@/lib/utils";
 import { NavigationPageLoading } from "@/components/dashboard/page-loading";
+import { BrandMark } from "@/components/brand-mark";
+import { useActiveAccount } from "@/components/active-account-context";
 
 const navigationGroups = [
   { label: "Overview", items: [
@@ -39,11 +41,42 @@ export function DashboardShell({
   user: { name: string | null; email: string };
 }) {
   const pathname = usePathname();
+  const { activeAccount } = useActiveAccount();
+  const [tradeCount, setTradeCount] = useState<number | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [workspaceHeaderVisible, setWorkspaceHeaderVisible] = useState(false);
   const isNotesWorkspace = pathname.startsWith("/trader-notes/workspace/");
+  useEffect(() => {
+    if (!activeAccount) {
+      setTradeCount(null);
+      return;
+    }
+
+    setTradeCount(null);
+    const controller = new AbortController();
+    const refreshTradeCount = async () => {
+      try {
+        const response = await fetch(
+          `/api/trades?accountId=${encodeURIComponent(activeAccount.id)}`,
+          { signal: controller.signal, cache: "no-store" },
+        );
+        if (!response.ok) return;
+        const data: { trades?: unknown[] } = await response.json();
+        setTradeCount(data.trades?.length ?? 0);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    };
+
+    void refreshTradeCount();
+    window.addEventListener("trade-log:updated", refreshTradeCount);
+    return () => {
+      controller.abort();
+      window.removeEventListener("trade-log:updated", refreshTradeCount);
+    };
+  }, [activeAccount?.id, pathname]);
   useEffect(() => setPendingHref(null), [pathname]);
   useEffect(() => {
     setCollapsed(isNotesWorkspace);
@@ -92,9 +125,7 @@ export function DashboardShell({
             )}
             onClick={() => setMobileOpen(false)}
           >
-            <span className="flex size-9 items-center justify-center rounded-xl bg-violet-500 text-white shadow-lg shadow-violet-950/50">
-              <Activity size={19} strokeWidth={2.5} />
-            </span>
+            <BrandMark className="size-9 shrink-0 object-contain" priority />
             <span className={cn(collapsed && "lg:hidden")}>
               <span className="block text-[15px] font-semibold tracking-tight">
                 Edge<span className="text-violet-400">Pro</span>
@@ -173,9 +204,9 @@ export function DashboardShell({
                         )}
                       />
                       <span className={cn(collapsed && "lg:hidden")}>{label}</span>
-                      {label === "Trade log" && !collapsed && (
+                      {label === "Trade log" && !collapsed && tradeCount !== null && (
                         <span className="ml-auto rounded-md bg-sidebar-accent px-1.5 py-0.5 text-[10px] text-sidebar-accent-foreground">
-                          24
+                          {tradeCount}
                         </span>
                       )}
                     </Link>
@@ -194,7 +225,7 @@ export function DashboardShell({
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header
           className={cn(
-            "flex h-14 shrink-0 items-center justify-between border-b border-border/70 bg-background/90 px-4 backdrop-blur-xl sm:px-6",
+            "flex h-14 shrink-0 items-center justify-between border-b border-border/70 bg-card px-4 backdrop-blur-xl sm:px-6",
             isNotesWorkspace
               ? cn(
                   "absolute inset-x-0 top-0 z-40 transition-transform duration-200",
@@ -240,6 +271,8 @@ export function DashboardShell({
             "min-h-0 w-full flex-1 overscroll-contain transition-all duration-200",
             pathname === "/edge" || pathname.startsWith("/trader-notes")
               ? "p-0 overflow-hidden"
+              : pathname === "/profile" || pathname === "/settings"
+              ? "p-0 overflow-y-auto"
               : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine"
               ? "p-4 overflow-y-auto"
               : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9 overflow-y-auto",

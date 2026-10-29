@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth/server";
 import { deleteRuleSet, getRuleSetById, updateRuleSet } from "@/lib/db/rules";
 
 export async function GET(
@@ -6,8 +7,10 @@ export async function GET(
   { params }: { params: Promise<{ ruleSetId: string }> },
 ) {
   try {
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { ruleSetId } = await params;
-    const ruleSet = await getRuleSetById(ruleSetId);
+    const ruleSet = await getRuleSetById(ruleSetId, session.user.id);
 
     if (!ruleSet) {
       return NextResponse.json({ error: "Rule set not found" }, { status: 404 });
@@ -25,10 +28,12 @@ export async function PATCH(
   { params }: { params: Promise<{ ruleSetId: string }> },
 ) {
   try {
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { ruleSetId } = await params;
     const body = await request.json();
 
-    const updated = await updateRuleSet(ruleSetId, body);
+    const updated = await updateRuleSet(ruleSetId, body, session.user.id);
     if (!updated) {
       return NextResponse.json({ error: "Rule set not found" }, { status: 404 });
     }
@@ -45,8 +50,11 @@ export async function DELETE(
   { params }: { params: Promise<{ ruleSetId: string }> },
 ) {
   try {
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { ruleSetId } = await params;
-    await deleteRuleSet(ruleSetId);
+    const deleted = await deleteRuleSet(ruleSetId, session.user.id);
+    if (!deleted) return NextResponse.json({ error: "Rule set not found" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/rules/sets/:ruleSetId error:", error);

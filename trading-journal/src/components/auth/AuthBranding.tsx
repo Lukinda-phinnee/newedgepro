@@ -8,6 +8,7 @@ import {
   Zap,
   ArrowRight,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -75,9 +76,7 @@ export default function AuthBranding({ mode, onSwitch }: Props) {
 
       {/* Logo */}
       <div className="relative z-10 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-900/50">
-          <TrendingUp className="w-5 h-5 text-white" />
-        </div>
+        <BrandMark className="size-10 shrink-0 object-contain" priority />
         <span className="text-white font-bold text-xl tracking-tight">
           Edge<span className="text-violet-400">Pro</span>
         </span>

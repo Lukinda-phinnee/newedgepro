@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, Loader2, RotateCcw, X } from "lucide-react";
 import type { TradingAccount } from "@/types/account";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface ResetAccountDialogProps {
   account: TradingAccount | null;
@@ -26,6 +27,7 @@ export function ResetAccountDialog({
   onOpenChange,
   onAccountReset,
 }: ResetAccountDialogProps) {
+  const { showFeedback } = useOperationFeedback();
   const [resetToStarting, setResetToStarting] = useState(true);
   const [customBalance, setCustomBalance] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,7 +65,7 @@ export function ResetAccountDialog({
       onAccountReset(data.account);
       onOpenChange(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to reset balance.");
+      showFeedback({ kind: "failure", title: "Balance wasn’t reset", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
       setLoading(false);
     }

@@ -7,6 +7,7 @@ export type ExecutionGrade = "A+" | "A" | "B" | "C" | "D" | "F";
 
 export interface Trade {
   id: string;
+  isDemo?: boolean;
   userId: string;
   accountId: string;
   symbol: string;

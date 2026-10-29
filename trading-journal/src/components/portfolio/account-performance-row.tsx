@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -13,6 +13,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import type { TradingAccount } from "@/types/account";
+import type { Trade } from "@/types/trade";
 
 interface AccountPerformanceRowProps {
   accounts: TradingAccount[];
@@ -28,12 +29,35 @@ export function AccountPerformanceRow({
   onSelectAccount,
 }: AccountPerformanceRowProps) {
   const [timeframe, setTimeframe] = useState<Timeframe>("monthly");
+  const [trades, setTrades] = useState<Trade[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setTrades([]);
+    fetch(`/api/trades?accountId=${encodeURIComponent(selectedAccount.id)}`, {
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data: { trades?: Trade[] }) => setTrades(data.trades ?? []))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setTrades([]);
+      });
+    return () => controller.abort();
+  }, [selectedAccount.id]);
 
   const startingBalance = selectedAccount.startingBalance;
+  const closedTrades = useMemo(
+    () => trades
+      .filter((trade) => trade.status === "closed" && trade.closedAt && Number.isFinite(trade.pnl))
+      .map((trade) => ({ trade, date: new Date(trade.closedAt!) }))
+      .filter(({ date }) => !Number.isNaN(date.getTime()))
+      .sort((a, b) => a.date.getTime() - b.date.getTime()),
+    [trades],
+  );
+  const hasTradeHistory = closedTrades.length > 0;
   const currentBalance = selectedAccount.currentBalance;
   const netPnl = currentBalance - startingBalance;
-  const netPnlPercent = startingBalance > 0 ? (netPnl / startingBalance) * 100 : 0;
-  const isProfitable = netPnl >= 0;
 
   // Guardrail calculations
   const dailyLossLimitAmount = startingBalance * (selectedAccount.maxDailyLossPercent / 100);
@@ -56,120 +80,58 @@ export function AccountPerformanceRow({
       : 0;
 
   // Daily loss used estimate (or from metrics)
-  const dailyLossUsedPercent = selectedAccount.metrics?.dailyLossUsedPercent ?? 28;
+  const dailyLossUsedPercent = selectedAccount.metrics?.dailyLossUsedPercent ?? 0;
   const dailyLossUsedAmount = dailyLossLimitAmount * (dailyLossUsedPercent / 100);
 
-  // Timeframe chart data simulation relative to actual balance
+  // Build the equity curve from this account's closed trades.
   const chartConfig = useMemo(() => {
-    const pnl = netPnl;
-    const start = startingBalance;
-    const curr = currentBalance;
+    const now = new Date();
+    const rangeStart = new Date(now);
+    if (timeframe === "daily") rangeStart.setHours(0, 0, 0, 0);
+    if (timeframe === "weekly") rangeStart.setDate(now.getDate() - 6);
+    if (timeframe === "monthly") rangeStart.setDate(now.getDate() - 29);
+    if (timeframe === "yearly") rangeStart.setFullYear(now.getFullYear() - 1);
 
-    if (timeframe === "daily") {
-      // Intraday curve
-      const dayPnl = pnl !== 0 ? pnl * 0.35 : 420;
-      return {
-        label: "Today's Intraday Equity",
-        change: `${dayPnl >= 0 ? "+" : ""}${dayPnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        isUp: dayPnl >= 0,
-        labels: ["09:30 AM", "11:00 AM", "01:00 PM", "02:45 PM", "04:00 PM"],
-        points: [
-          { x: 0, y: 140 },
-          { x: 175, y: 125 },
-          { x: 350, y: 145 },
-          { x: 525, y: 95 },
-          { x: 700, y: dayPnl >= 0 ? 50 : 160 },
-        ],
-        pathD:
-          dayPnl >= 0
-            ? "M0,140 C90,135 120,110 175,125 S300,160 350,145 S460,110 525,95 S620,70 700,50"
-            : "M0,140 C90,135 120,150 175,155 S300,140 350,145 S460,165 525,170 S620,155 700,160",
-        yTicks: [
-          `$${((curr + Math.abs(curr * 0.02)) / 1000).toFixed(1)}k`,
-          `$${(curr / 1000).toFixed(1)}k`,
-          `$${((curr - Math.abs(curr * 0.02)) / 1000).toFixed(1)}k`,
-        ],
-      };
-    } else if (timeframe === "weekly") {
-      // 7 days curve
-      const weekPnl = pnl !== 0 ? pnl * 0.6 : 780;
-      return {
-        label: "Past 7 Days Equity",
-        change: `${weekPnl >= 0 ? "+" : ""}${weekPnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        isUp: weekPnl >= 0,
-        labels: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-        points: [
-          { x: 0, y: 150 },
-          { x: 175, y: 135 },
-          { x: 350, y: 120 },
-          { x: 525, y: 90 },
-          { x: 700, y: weekPnl >= 0 ? 45 : 160 },
-        ],
-        pathD: weekPnl >= 0
-          ? "M0,150 C80,145 120,130 175,135 S280,125 350,120 S450,100 525,90 S630,60 700,45"
-          : "M0,150 C80,148 120,155 175,152 S280,150 350,155 S450,158 525,160 S630,162 700,160",
-        yTicks: [
-          `$${(Math.max(curr, start) * 1.03 / 1000).toFixed(1)}k`,
-          `$${(start / 1000).toFixed(1)}k`,
-          `$${(Math.min(curr, start) * 0.97 / 1000).toFixed(1)}k`,
-        ],
-      };
-    } else if (timeframe === "monthly") {
-      // 30 days curve
-      return {
-        label: "Past 30 Days Growth",
-        change: `${pnl >= 0 ? "+" : ""}${pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${isProfitable ? "+" : ""}${netPnlPercent.toFixed(2)}%)`,
-        isUp: isProfitable,
-        labels: ["Day 1", "Day 8", "Day 15", "Day 22", "Day 30"],
-        points: [
-          { x: 0, y: 155 },
-          { x: 175, y: 130 },
-          { x: 350, y: 110 },
-          { x: 525, y: 75 },
-          { x: 700, y: isProfitable ? 35 : 165 },
-        ],
-        pathD: isProfitable
-          ? "M0,155 C70,145 120,150 175,130 S280,135 350,110 S450,90 525,75 S620,50 700,35"
-          : "M0,155 C70,145 120,160 175,160 S280,150 350,155 S450,160 525,162 S620,170 700,165",
-        yTicks: [
-          `$${(Math.max(curr, start) * 1.05 / 1000).toFixed(1)}k`,
-          `$${(start / 1000).toFixed(1)}k`,
-          `$${(Math.min(curr, start) * 0.95 / 1000).toFixed(1)}k`,
-        ],
-      };
-    } else {
-      // Yearly curve
-      const yearPnl = pnl !== 0 ? pnl : 2840;
-      return {
-        label: "Annual Portfolio Progression",
-        change: `${yearPnl >= 0 ? "+" : ""}${yearPnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        isUp: yearPnl >= 0,
-        labels: ["Q1 Jan", "Q2 Apr", "Q3 Jul", "Q4 Oct", "Year End"],
-        points: [
-          { x: 0, y: 160 },
-          { x: 175, y: 140 },
-          { x: 350, y: 95 },
-          { x: 525, y: 60 },
-          { x: 700, y: yearPnl >= 0 ? 30 : 165 },
-        ],
-        pathD:
-          yearPnl >= 0
-            ? "M0,160 C80,150 110,135 175,140 S280,110 350,95 S460,75 525,60 S630,45 700,30"
-            : "M0,160 C80,150 110,155 175,155 S280,145 350,150 S460,160 525,162 S630,160 700,165",
-        yTicks: [
-          `$${((start + Math.abs(pnl) * 1.5) / 1000).toFixed(1)}k`,
-          `$${(start / 1000).toFixed(1)}k`,
-          `$${((start - Math.abs(pnl) * 0.8) / 1000).toFixed(1)}k`,
-        ],
-      };
+    let equity = startingBalance + closedTrades
+      .filter(({ date }) => date < rangeStart)
+      .reduce((total, { trade }) => total + trade.pnl, 0);
+    const periodTrades = closedTrades.filter(({ date }) => date >= rangeStart && date <= now);
+    const values = hasTradeHistory ? [equity] : [startingBalance, selectedAccount.currentBalance];
+    for (const { trade } of periodTrades) {
+      equity += trade.pnl;
+      values.push(equity);
     }
-  }, [timeframe, netPnl, startingBalance, currentBalance, isProfitable, netPnlPercent]);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const spread = max - min || Math.max(Math.abs(max) * 0.02, 1);
+    const points = values.map((value, index) => ({
+      x: values.length === 1 ? 700 : (index / (values.length - 1)) * 700,
+      y: 170 - ((value - (min - spread * 0.1)) / (spread * 1.2)) * 140,
+    }));
+    const periodPnl = hasTradeHistory
+      ? periodTrades.reduce((total, { trade }) => total + trade.pnl, 0)
+      : selectedAccount.currentBalance - startingBalance;
+    const formatTick = (value: number) => `${selectedAccount.currency} ${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+    return {
+      label: `${periodTrades.length} closed trades in selected period`,
+      change: `${periodPnl >= 0 ? "+" : ""}${periodPnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      isUp: periodPnl >= 0,
+      labels: [rangeStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }), now.toLocaleDateString("en-US", { month: "short", day: "numeric" })],
+      points,
+      pathD: "",
+      yTicks: [formatTick(max), formatTick((max + min) / 2), formatTick(min)],
+    };
+  }, [timeframe, closedTrades, hasTradeHistory, startingBalance, selectedAccount.currentBalance, selectedAccount.currency]);
+
+  const linearPath = chartConfig.points
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`)
+    .join(' ');
 
   return (
-    <div className="grid w-full gap-4 lg:grid-cols-12">
+    <div className="grid w-full items-stretch gap-4 lg:grid-cols-12">
       {/* CARD 1: Trading Performance & Equity Curve (Takes ~70% width -> 8 cols of 12) */}
       <div className="flex flex-col rounded-2xl border border-border/80 bg-card p-5 shadow-sm lg:col-span-8">
-        <div>
+        <div className="flex min-h-full flex-1 flex-col">
           {/* Header Row: Title, Account Selector, and Timeframe Filter */}
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2.5">
@@ -287,13 +249,13 @@ export function AccountPerformanceRow({
 
               {/* Area fill */}
               <path
-                d={`${chartConfig.pathD} L 700 200 L 0 200 Z`}
+                d={`${linearPath} L 700 200 L 0 200 Z`}
                 fill="url(#equityGrad)"
               />
 
               {/* Curve Line */}
               <path
-                d={chartConfig.pathD}
+                d={linearPath}
                 fill="none"
                 stroke={chartConfig.isUp ? "#8b5cf6" : "#f43f5e"}
                 strokeWidth="2.5"
@@ -535,3 +497,7 @@ export function AccountPerformanceRow({
     </div>
   );
 }
+
+
+
+

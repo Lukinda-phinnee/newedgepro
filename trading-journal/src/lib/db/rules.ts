@@ -351,7 +351,7 @@ export async function getEffectiveRuleSet(userId: string, accountId?: string | n
     const currentRuleSetId = accountRows[0]?.current_rule_set_id;
 
     if (currentRuleSetId) {
-      const explicitSet = await getRuleSetById(String(currentRuleSetId));
+      const explicitSet = await getRuleSetById(String(currentRuleSetId), userId);
       if (explicitSet && explicitSet.isActive) {
         return explicitSet;
       }
@@ -417,27 +417,29 @@ export async function getUserRuleSets(userId: string, accountId?: string | null)
 /**
  * Get a specific rule set by ID along with all its rules.
  */
-export async function getRuleSetById(ruleSetId: string): Promise<RuleSet | null> {
-  const rows = await sql`
-    SELECT * FROM rule_sets WHERE id = ${ruleSetId} LIMIT 1
-  `;
+export async function getRuleSetById(ruleSetId: string, userId?: string): Promise<RuleSet | null> {
+  const rows = userId
+    ? await sql`SELECT * FROM rule_sets WHERE id = ${ruleSetId} AND user_id = ${userId} LIMIT 1`
+    : await sql`SELECT * FROM rule_sets WHERE id = ${ruleSetId} LIMIT 1`;
   if (rows.length === 0) return null;
 
   const set = mapRuleSetRow(rows[0]);
-  const rules = await getRulesByRuleSetId(set.id);
+  const rules = await getRulesByRuleSetId(set.id, userId);
   return { ...set, rules, ruleCount: rules.length };
 }
 
 /**
  * Get all rules for a given rule set ID.
  */
-export async function getRulesByRuleSetId(ruleSetId: string): Promise<Rule[]> {
-  const rows = await sql`
-    SELECT *
-    FROM rules
-    WHERE rule_set_id = ${ruleSetId}
+export async function getRulesByRuleSetId(ruleSetId: string, userId?: string): Promise<Rule[]> {
+  const rows = userId
+    ? await sql`
+    SELECT rule.*
+    FROM rules rule
+    JOIN rule_sets rule_set ON rule_set.id = rule.rule_set_id
+    WHERE rule.rule_set_id = ${ruleSetId} AND rule_set.user_id = ${userId}
     ORDER BY
-      CASE rule_category
+      CASE rule.rule_category
         WHEN 'Risk' THEN 1
         WHEN 'Frequency' THEN 2
         WHEN 'Eligibility' THEN 3
@@ -446,7 +448,14 @@ export async function getRulesByRuleSetId(ruleSetId: string): Promise<Rule[]> {
         WHEN 'Checklist' THEN 6
         ELSE 7
       END,
-      created_at ASC
+      rule.created_at ASC
+  `
+    : await sql`
+    SELECT * FROM rules WHERE rule_set_id = ${ruleSetId}
+    ORDER BY CASE rule_category
+      WHEN 'Risk' THEN 1 WHEN 'Frequency' THEN 2 WHEN 'Eligibility' THEN 3
+      WHEN 'Recovery' THEN 4 WHEN 'Discipline' THEN 5 WHEN 'Checklist' THEN 6 ELSE 7
+    END, created_at ASC
   `;
 
   return rows.map(mapRuleRow);
@@ -501,8 +510,9 @@ export async function updateRuleSet(
     version?: number;
     accountId?: string | null;
   },
+  userId: string,
 ): Promise<RuleSet | null> {
-  const existing = await getRuleSetById(ruleSetId);
+  const existing = await getRuleSetById(ruleSetId, userId);
   if (!existing) return null;
 
   const name = data.name !== undefined ? data.name : existing.name;
@@ -521,24 +531,22 @@ export async function updateRuleSet(
         version = ${version},
         account_id = ${accountId},
         updated_at = NOW()
-    WHERE id = ${ruleSetId}
+    WHERE id = ${ruleSetId} AND user_id = ${userId}
     RETURNING *
   `;
 
   if (rows.length === 0) return null;
   const updated = mapRuleSetRow(rows[0]);
-  const rules = await getRulesByRuleSetId(updated.id);
+  const rules = await getRulesByRuleSetId(updated.id, userId);
   return { ...updated, rules, ruleCount: rules.length };
 }
 
 /**
  * Delete a rule set.
  */
-export async function deleteRuleSet(ruleSetId: string): Promise<boolean> {
-  await sql`
-    DELETE FROM rule_sets WHERE id = ${ruleSetId}
-  `;
-  return true;
+export async function deleteRuleSet(ruleSetId: string, userId: string): Promise<boolean> {
+  const rows = await sql`DELETE FROM rule_sets WHERE id = ${ruleSetId} AND user_id = ${userId} RETURNING id`;
+  return rows.length > 0;
 }
 
 /**
@@ -546,6 +554,7 @@ export async function deleteRuleSet(ruleSetId: string): Promise<boolean> {
  */
 export async function saveRule(
   ruleSetId: string,
+  userId: string,
   ruleData: {
     id?: string;
     ruleName: string;
@@ -567,6 +576,8 @@ export async function saveRule(
     isActive?: boolean;
   },
 ): Promise<Rule> {
+  const ruleSet = await getRuleSetById(ruleSetId, userId);
+  if (!ruleSet) throw new Error("Rule set not found.");
   const thresholdJson = JSON.stringify(ruleData.thresholdValue ?? 0);
   const filtersJson = JSON.stringify(ruleData.filters || {});
   const consequenceParamsJson = JSON.stringify(ruleData.consequenceParams || {});
@@ -593,7 +604,7 @@ export async function saveRule(
           user_message = ${ruleData.userMessage || null},
           is_active = ${ruleData.isActive !== undefined ? Boolean(ruleData.isActive) : true},
           updated_at = NOW()
-      WHERE id = ${ruleData.id}
+      WHERE id = ${ruleData.id} AND rule_set_id = ${ruleSetId}
       RETURNING *
     `;
 
@@ -650,12 +661,13 @@ export async function saveRule(
 /**
  * Toggle active state of a rule.
  */
-export async function toggleRuleActive(ruleId: string, isActive: boolean): Promise<Rule | null> {
+export async function toggleRuleActive(ruleSetId: string, ruleId: string, userId: string, isActive: boolean): Promise<Rule | null> {
+  if (!(await getRuleSetById(ruleSetId, userId))) return null;
   const rows = await sql`
     UPDATE rules
     SET is_active = ${isActive},
         updated_at = NOW()
-    WHERE id = ${ruleId}
+    WHERE id = ${ruleId} AND rule_set_id = ${ruleSetId}
     RETURNING *
   `;
   if (rows.length === 0) return null;
@@ -665,11 +677,12 @@ export async function toggleRuleActive(ruleId: string, isActive: boolean): Promi
 /**
  * Delete a rule permanently.
  */
-export async function deleteRule(ruleId: string): Promise<boolean> {
-  await sql`
-    DELETE FROM rules WHERE id = ${ruleId}
+export async function deleteRule(ruleSetId: string, ruleId: string, userId: string): Promise<boolean> {
+  if (!(await getRuleSetById(ruleSetId, userId))) return false;
+  const rows = await sql`
+    DELETE FROM rules WHERE id = ${ruleId} AND rule_set_id = ${ruleSetId} RETURNING id
   `;
-  return true;
+  return rows.length > 0;
 }
 
 /**
@@ -681,8 +694,8 @@ export async function copyRulesToAccount(
   targetAccountId: string,
   targetAccountName?: string,
 ): Promise<RuleSet> {
-  const sourceRules = await getRulesByRuleSetId(sourceRuleSetId);
-  const sourceSet = await getRuleSetById(sourceRuleSetId);
+  const sourceRules = await getRulesByRuleSetId(sourceRuleSetId, userId);
+  const sourceSet = await getRuleSetById(sourceRuleSetId, userId);
 
   // Check if target account already has an active rule set
   const existingTargetSets = await sql`
@@ -777,7 +790,7 @@ export async function copyRulesToAccount(
     `;
   }
 
-  const updatedSet = await getRuleSetById(targetSetId);
+  const updatedSet = await getRuleSetById(targetSetId, userId);
   return updatedSet!;
 }
 
@@ -915,8 +928,19 @@ export async function getRuleEngineStatus(
   }
 
   // Calculate discipline score based on violations in last 7 days vs trades
-  const recentViolations = await getViolations(userId, accountId, 50);
-  const recentViolationCount = recentViolations.length;
+  const violationCountRows = accountId
+    ? await sql`
+        SELECT COUNT(*)::int AS count FROM rule_violations
+        WHERE user_id = ${userId}
+          AND (account_id = ${accountId} OR account_id IS NULL)
+          AND created_at >= NOW() - INTERVAL '7 days'
+      `
+    : await sql`
+        SELECT COUNT(*)::int AS count FROM rule_violations
+        WHERE user_id = ${userId}
+          AND created_at >= NOW() - INTERVAL '7 days'
+      `;
+  const recentViolationCount = Number(violationCountRows[0]?.count) || 0;
   // Calculate discipline score: 100 minus penalties
   const disciplineScore = Math.max(
     30,
@@ -951,20 +975,49 @@ export async function getComplianceStats(
   userId: string,
   accountId?: string | null,
 ): Promise<RuleEngineCompliance> {
-  const violations = await getViolations(userId, accountId, 25);
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString();
-
-  const violationsToday = violations.filter((v) => v.createdAt >= startOfToday).length;
-  const violationsThisWeek = violations.filter((v) => v.createdAt >= sevenDaysAgo).length;
-
-  const totalViolations = violations.length;
-  const totalSimulations = Math.max(totalViolations + 18, 24);
-  const passRate = Math.max(
-    65,
-    Math.min(100, Number((((totalSimulations - totalViolations) / totalSimulations) * 100).toFixed(1))),
-  );
+  const [violations, statsRows] = await Promise.all([
+    getViolations(userId, accountId, 25),
+    accountId
+      ? sql`
+          SELECT
+            (SELECT COUNT(*)::int FROM rule_violations
+              WHERE user_id = ${userId} AND (account_id = ${accountId} OR account_id IS NULL)
+                AND created_at >= date_trunc('day', NOW())) AS violations_today,
+            (SELECT COUNT(*)::int FROM rule_violations
+              WHERE user_id = ${userId} AND (account_id = ${accountId} OR account_id IS NULL)
+                AND created_at >= NOW() - INTERVAL '7 days') AS violations_this_week,
+            (SELECT COUNT(*)::int FROM rule_simulations
+              WHERE user_id = ${userId} AND (account_id = ${accountId} OR account_id IS NULL)) AS total_simulations,
+            (SELECT COUNT(*)::int FROM rule_simulations
+              WHERE user_id = ${userId} AND (account_id = ${accountId} OR account_id IS NULL)
+                AND verdict = 'ACCEPT') AS passed_simulations,
+            ((SELECT COUNT(*)::int FROM rule_violations
+              WHERE user_id = ${userId} AND (account_id = ${accountId} OR account_id IS NULL))
+             + (SELECT COALESCE(SUM(violation_count), 0)::int FROM rule_simulations
+              WHERE user_id = ${userId} AND (account_id = ${accountId} OR account_id IS NULL))) AS total_violations
+        `
+      : sql`
+          SELECT
+            (SELECT COUNT(*)::int FROM rule_violations
+              WHERE user_id = ${userId} AND created_at >= date_trunc('day', NOW())) AS violations_today,
+            (SELECT COUNT(*)::int FROM rule_violations
+              WHERE user_id = ${userId} AND created_at >= NOW() - INTERVAL '7 days') AS violations_this_week,
+            (SELECT COUNT(*)::int FROM rule_simulations WHERE user_id = ${userId}) AS total_simulations,
+            (SELECT COUNT(*)::int FROM rule_simulations
+              WHERE user_id = ${userId} AND verdict = 'ACCEPT') AS passed_simulations,
+            ((SELECT COUNT(*)::int FROM rule_violations WHERE user_id = ${userId})
+             + (SELECT COALESCE(SUM(violation_count), 0)::int FROM rule_simulations
+              WHERE user_id = ${userId})) AS total_violations
+        `,
+  ]);
+  const stats = statsRows[0] ?? {};
+  const violationsToday = Number(stats.violations_today) || 0;
+  const violationsThisWeek = Number(stats.violations_this_week) || 0;
+  const totalViolations = Number(stats.total_violations) || 0;
+  const totalSimulations = Number(stats.total_simulations) || 0;
+  const passRate = totalSimulations > 0
+    ? Number(((Number(stats.passed_simulations || 0) / totalSimulations) * 100).toFixed(1))
+    : 0;
 
   const disciplineScore = Math.max(
     35,

@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ActiveAccountProvider } from "@/components/active-account-context";
-import { OperationFeedbackProvider } from "@/components/ui/operation-feedback";
 import { auth } from "@/lib/auth/server";
 import { getUserTradingAccounts } from "@/lib/db/accounts";
+import { getUserPreferences } from "@/lib/db/profile";
+import { UserPreferencesProvider } from "@/components/user-preferences-provider";
 
 export default function DashboardLayout({
   children,
@@ -24,19 +25,20 @@ async function AuthenticatedDashboard({ children }: { children: React.ReactNode 
   const { data: session } = await auth.getSession();
   if (!session?.user) redirect("/sign-in");
 
-  const accounts = await getUserTradingAccounts(session.user.id);
+  const [accounts, preferences] = await Promise.all([
+    getUserTradingAccounts(session.user.id),
+    getUserPreferences(session.user.id),
+  ]);
   if (accounts.length === 0) redirect("/onboarding");
 
   return (
-    <OperationFeedbackProvider>
     <ActiveAccountProvider initialAccounts={accounts}>
-      <DashboardShell
-        user={{ name: session.user.name, email: session.user.email }}
-      >
-        {children}
-      </DashboardShell>
+      <UserPreferencesProvider initialPreferences={preferences}>
+        <DashboardShell user={{ name: session.user.name, email: session.user.email }}>
+          {children}
+        </DashboardShell>
+      </UserPreferencesProvider>
     </ActiveAccountProvider>
-    </OperationFeedbackProvider>
   );
 }
 

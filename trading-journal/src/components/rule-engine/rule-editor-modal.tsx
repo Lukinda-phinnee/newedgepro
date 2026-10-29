@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -166,6 +167,7 @@ export function RuleEditorModal({
   initialRule,
   onSaveSuccess,
 }: RuleEditorModalProps) {
+  const { showFeedback } = useOperationFeedback();
   const [category, setCategory] = useState<RuleCategory>(
     initialRule?.ruleCategory || "Risk",
   );
@@ -233,7 +235,6 @@ export function RuleEditorModal({
   const [newItemInput, setNewItemInput] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -365,12 +366,11 @@ export function RuleEditorModal({
 
   const handleSave = async () => {
     if (!ruleName.trim()) {
-      setErrorMsg("Rule title cannot be empty.");
+      showFeedback({ kind: "failure", title: "Rule needs a name", description: "Enter a title before saving." });
       return;
     }
 
     setIsSubmitting(true);
-    setErrorMsg(null);
 
     const thresholdVal =
       currentMetric.unit === "list"
@@ -419,8 +419,9 @@ export function RuleEditorModal({
       const { rule } = await res.json();
       onSaveSuccess(rule);
       onOpenChange(false);
+      showFeedback({ kind: "success", title: initialRule ? "Rule updated" : "Rule created", description: `“${rule.ruleName}” was saved.` });
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "An error occurred while saving.");
+      showFeedback({ kind: "failure", title: "Rule wasn’t saved", description: err instanceof Error ? err.message : "An error occurred while saving." });
     } finally {
       setIsSubmitting(false);
     }
@@ -458,13 +459,6 @@ export function RuleEditorModal({
 
         {/* Content Body */}
         <div className="space-y-5 p-5 sm:p-6">
-          {errorMsg && (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
-              <AlertTriangle size={15} className="shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
           {/* Apple Shortcuts-style Live Rule Sentence Preview */}
           <div className="rounded-xl border border-border/70 bg-background/50 p-3.5 space-y-1.5">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">

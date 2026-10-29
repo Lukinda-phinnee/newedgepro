@@ -1,31 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { createRuleSet, getUserRuleSets } from "@/lib/db/rules";
-import { sql } from "@/lib/db";
-
-async function resolveUserId(): Promise<string> {
-  try {
-    const { data: session } = await auth.getSession();
-    if (session?.user?.id) return session.user.id;
-  } catch {
-    // Session resolution failed, fallback
-  }
-
-  // Fallback to active account's user_id or first user in DB
-  const acc = await sql`SELECT user_id FROM trading_accounts LIMIT 1`;
-  if (acc.length > 0 && acc[0].user_id) {
-    return String(acc[0].user_id);
-  }
-
-  return "default_user";
-}
+import { getTradingAccountById } from "@/lib/db/accounts";
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await resolveUserId();
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const accountId = searchParams.get("accountId") || undefined;
 
+    if (accountId && !(await getTradingAccountById(userId, accountId))) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
     const ruleSets = await getUserRuleSets(userId, accountId);
     return NextResponse.json({ ruleSets });
   } catch (error) {
@@ -36,12 +24,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await resolveUserId();
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = session.user.id;
     const body = await request.json();
     const { name, accountId, description, isDraft, isActive } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Rule set name is required" }, { status: 400 });
+    }
+    if (accountId && !(await getTradingAccountById(userId, String(accountId)))) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
     }
 
     const ruleSet = await createRuleSet(userId, {

@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Loader2, Trash2, X } from "lucide-react";
 import type { TradingAccount } from "@/types/account";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface DeleteAccountDialogProps {
   account: TradingAccount | null;
@@ -24,6 +25,7 @@ export function DeleteAccountDialog({
   onOpenChange,
   onAccountDeleted,
 }: DeleteAccountDialogProps) {
+  const { showFeedback } = useOperationFeedback();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +48,7 @@ export function DeleteAccountDialog({
       onAccountDeleted(account.id);
       onOpenChange(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to delete account.");
+      showFeedback({ kind: "failure", title: "Account wasn’t deleted", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
       setLoading(false);
     }

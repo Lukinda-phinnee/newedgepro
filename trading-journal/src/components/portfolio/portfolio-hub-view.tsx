@@ -110,8 +110,6 @@ export function PortfolioHubView({
 
   const handleSetDefault = async (accountId: string) => {
     setActiveAccount(accountId);
-    const acc = accounts.find((a) => a.id === accountId);
-    announceSuccess(`“${acc?.name || "Account"}” is now your active account.`);
   };
 
   // Filter & Sort
@@ -161,7 +159,7 @@ export function PortfolioHubView({
   }, [accounts, search, filterTab, sortBy]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-3">
       {/* Aggregated Portfolio Banner */}
       <PortfolioSummaryBanner
         accounts={accounts}
@@ -348,3 +346,4 @@ export function PortfolioHubView({
     </div>
   );
 }
+

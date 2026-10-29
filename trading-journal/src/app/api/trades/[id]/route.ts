@@ -42,12 +42,6 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    // Sample trades are generated for empty accounts and are not stored in Postgres.
-    // Treat their deletion as a client-side dismissal instead of passing a text ID
-    // to the trades table's UUID column.
-    if (/^trade-[1-8]$/.test(id)) {
-      return NextResponse.json({ success: true, demo: true });
-    }
     const deleted = await deleteTrade(id, session.user.id);
     if (!deleted) {
       return NextResponse.json({ error: "Trade not found" }, { status: 404 });

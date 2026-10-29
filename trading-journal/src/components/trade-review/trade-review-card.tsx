@@ -129,6 +129,7 @@ export function TradeReviewCard({
               <span className="text-base font-bold tracking-tight text-foreground">
                 {trade.symbol}
               </span>
+              {trade.isDemo && <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-600 dark:text-amber-400">Sample</span>}
 
               <span
                 className={cn(

@@ -13,7 +13,8 @@ export async function POST(
     }
 
     const { id } = await params;
-    await setDefaultTradingAccount(session.user.id, id);
+    const updated = await setDefaultTradingAccount(session.user.id, id);
+    if (!updated) return NextResponse.json({ error: "Account not found." }, { status: 404 });
 
     return NextResponse.json({ success: true, defaultAccountId: id });
   } catch (error) {

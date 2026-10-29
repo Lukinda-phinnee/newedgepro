@@ -6,7 +6,6 @@ import { getUserTradingAccounts } from "@/lib/db/accounts";
 import { getUserTrades } from "@/lib/db/trades";
 import { getUserStrategies } from "@/lib/db/strategies";
 import { getRuleEngineStatus, getComplianceStats } from "@/lib/db/rules";
-import { generateSampleTrades } from "@/lib/demo-trades";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 
 export const metadata: Metadata = { title: "Dashboard — EdgePro" };
@@ -20,25 +19,22 @@ export default async function DashboardPage() {
   const activeAccount = accounts.find((a) => a.isDefault) || accounts[0] || null;
   const accountId = activeAccount?.id;
 
-  const [accountTrades, strategies, ruleStatus, ruleCompliance] = await Promise.all([
-    accountId ? getUserTrades(session.user.id, accountId) : Promise.resolve([]),
+  const accountTrades = accountId ? await getUserTrades(session.user.id, accountId) : [];
+  const [strategies, ruleStatus, ruleCompliance, refreshedAccounts] = await Promise.all([
     getUserStrategies(session.user.id, accountId),
     getRuleEngineStatus(session.user.id, accountId),
     getComplianceStats(session.user.id, accountId),
+    accountId ? getUserTradingAccounts(session.user.id) : Promise.resolve(accounts),
   ]);
-
-  let trades = accountTrades;
-
-  // Fall back to sample trades if user has none yet
-  if (trades.length === 0 && accountId) {
-    trades = generateSampleTrades(accountId, session.user.id);
-  }
+  // Loading trades may persist demo fixtures and update the account balance.
+  // Account metrics are fetched afterward so this first render reflects those rows.
+  const refreshedActiveAccount = refreshedAccounts.find((a) => a.id === accountId) || activeAccount;
 
   return (
     <DashboardView
-      trades={trades}
+      trades={accountTrades}
       strategies={strategies}
-      account={activeAccount}
+      account={refreshedActiveAccount}
       ruleStatus={ruleStatus}
       ruleCompliance={ruleCompliance}
     />

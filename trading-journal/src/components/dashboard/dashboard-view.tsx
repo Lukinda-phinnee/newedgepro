@@ -391,8 +391,10 @@ function RiskStatusGaugeChart({
 
   // Pointer position along 180-degree semi-circle
   const angle = Math.PI - (riskPercent / 100) * Math.PI;
-  const pointerX = cx + radius * Math.cos(angle);
-  const pointerY = cy - radius * Math.sin(angle);
+  // Normalize floating point output so SSR and browser math serialize the same
+  // SVG attributes (their trig implementations can differ by a few ULPs).
+  const pointerX = Math.round((cx + radius * Math.cos(angle)) * 1_000_000) / 1_000_000;
+  const pointerY = Math.round((cy - radius * Math.sin(angle)) * 1_000_000) / 1_000_000;
 
   const pointerColor =
     riskPercent >= 75 ? "#f43f5e" : riskPercent >= 45 ? "#f59e0b" : "#10b981";
@@ -484,9 +486,10 @@ export function DashboardView({
   // ─── Compute Portfolio Value ───
   const portfolioMetrics = useMemo(() => {
     const closedTrades = trades.filter((t) => t.status === "closed");
-    const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const realizedPnl = closedTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
     const startingBalance = account?.startingBalance ?? 0;
-    const currentBalance = account?.currentBalance ?? startingBalance + totalPnl;
+    const currentBalance = account?.currentBalance ?? startingBalance + realizedPnl;
+    const totalPnl = currentBalance - startingBalance;
     const pnlPercent =
       startingBalance > 0
         ? ((currentBalance - startingBalance) / startingBalance) * 100
@@ -518,14 +521,7 @@ export function DashboardView({
 
     if (closedTrades.length === 0) {
       const curr = portfolioMetrics.currentBalance || startingBalance;
-      const diff = curr - startingBalance;
-      return [
-        { label: "Start", balance: startingBalance },
-        { label: "T1", balance: startingBalance + diff * 0.2 },
-        { label: "T2", balance: startingBalance + diff * 0.45 },
-        { label: "T3", balance: startingBalance + diff * 0.75 },
-        { label: "Current", balance: curr },
-      ];
+      return [{ label: "Start", balance: startingBalance }, { label: "Current", balance: curr }];
     }
 
     let running = startingBalance;
@@ -1397,7 +1393,30 @@ export function DashboardView({
           <div className="mt-4"><p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Net P&amp;L</p><p className={cn("mt-1 text-3xl font-semibold tracking-tight tabular-nums", activityPnl > 0 ? "text-emerald-400" : activityPnl < 0 ? "text-rose-400" : "text-foreground")}>{activityPnl > 0 ? "+" : activityPnl < 0 ? "−" : ""}{fmtCurrency(Math.abs(activityPnl))}</p></div>
           <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]"><div className="rounded-lg bg-muted/40 p-2.5"><p className="text-muted-foreground">Trades</p><p className="mt-1 font-semibold">{activityTradeCount}</p></div><div className="rounded-lg bg-muted/40 p-2.5"><p className="text-muted-foreground">Win rate</p><p className="mt-1 font-semibold">{activityTradeCount ? Math.round(activityWins / activityTradeCount * 100) : 0}%</p></div></div>
           <div className="mt-4 space-y-3 border-t border-border/50 pt-3 text-[11px]"><div className="flex items-center justify-between"><span className="text-muted-foreground">Record</span><b>{activityWins}W · {activityLosses}L</b></div><div className="flex items-center justify-between"><span className="text-muted-foreground">Profitable days</span><b className="text-emerald-400">{activityProfitDays}</b></div><div className="flex items-center justify-between"><span className="text-muted-foreground">Losing days</span><b className="text-rose-400">{activityLossDays}</b></div></div>
-          {activityView === "monthly" && <div className="mt-4 space-y-2 border-t border-border/50 pt-3"><h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Weekly P&amp;L</h3>{activityMonth.weeks.map((week) => { const pnl = week.days.filter((day) => day.isCurrentMonth).reduce((sum, day) => sum + day.totalPnl, 0); return <div key={week.startDate} className="flex justify-between gap-2 text-[10px]"><span className="text-muted-foreground">{week.weekLabel}</span><b className={pnl > 0 ? "text-emerald-400" : pnl < 0 ? "text-rose-400" : "text-foreground"}>{pnl > 0 ? "+" : pnl < 0 ? "−" : ""}{fmtCurrency(Math.abs(pnl))}</b></div>; })}</div>}
+          {activityView === "monthly" && <div className="mt-4 border-t border-border/50 pt-3">
+            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Weekly P&amp;L</h3>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {activityMonth.weeks.map((week) => {
+                const days = week.days.filter((day) => day.isCurrentMonth);
+                const pnl = days.reduce((sum, day) => sum + day.totalPnl, 0);
+                const trades = days.reduce((sum, day) => sum + day.tradeCount, 0);
+                const wins = days.reduce((sum, day) => sum + day.wins, 0);
+                const losses = days.reduce((sum, day) => sum + day.losses, 0);
+                const winRate = trades ? Math.round((wins / trades) * 100) : 0;
+                return <article key={week.startDate} className={cn("rounded-lg border p-2.5", pnl > 0 ? "border-emerald-500/25 bg-emerald-500/[0.06]" : pnl < 0 ? "border-rose-500/25 bg-rose-500/[0.06]" : "border-border/60 bg-muted/20")}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">{week.weekLabel}</span>
+                    <b className={cn("text-sm font-extrabold tabular-nums", pnl > 0 ? "text-emerald-400" : pnl < 0 ? "text-rose-400" : "text-muted-foreground")}>{pnl > 0 ? "+" : pnl < 0 ? "−" : ""}{fmtCurrency(Math.abs(pnl))}</b>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-1.5 border-t border-border/40 pt-2 text-[9px]">
+                    <div><p className="text-muted-foreground">Trades</p><p className="mt-0.5 font-semibold tabular-nums text-foreground">{trades}</p></div>
+                    <div><p className="text-muted-foreground">Win rate</p><p className="mt-0.5 font-semibold tabular-nums text-foreground">{winRate}%</p></div>
+                    <div><p className="text-muted-foreground">Record</p><p className="mt-0.5 font-semibold tabular-nums"><span className="text-emerald-400">{wins}W</span><span className="text-muted-foreground"> · </span><span className="text-rose-400">{losses}L</span></p></div>
+                  </div>
+                </article>;
+              })}
+            </div>
+          </div>}
         </section>
       </div>
 

@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type {
@@ -129,6 +130,7 @@ const PRESETS: TestPreset[] = [
 ];
 
 export function SimulationTab({ accounts, selectedAccountId }: SimulationTabProps) {
+  const { showFeedback } = useOperationFeedback();
   const [intent, setIntent] = useState<TradeIntent>({
     symbol: "EURUSD",
     side: "long",
@@ -144,7 +146,6 @@ export function SimulationTab({ accounts, selectedAccountId }: SimulationTabProp
 
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<RuleEvaluationResult | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Calculations
   const calculations = useMemo(() => {
@@ -178,7 +179,6 @@ export function SimulationTab({ accounts, selectedAccountId }: SimulationTabProp
 
   const handleRunSimulation = async () => {
     setIsRunning(true);
-    setErrorMsg(null);
     try {
       const res = await fetch("/api/rules/simulate", {
         method: "POST",
@@ -196,8 +196,9 @@ export function SimulationTab({ accounts, selectedAccountId }: SimulationTabProp
 
       const evalResult: RuleEvaluationResult = await res.json();
       setResult(evalResult);
+      showFeedback({ kind: "success", title: "Simulation complete", description: "The trade intent was evaluated against the selected rules." });
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Simulation failed");
+      showFeedback({ kind: "failure", title: "Simulation failed", description: err instanceof Error ? err.message : "Simulation failed" });
     } finally {
       setIsRunning(false);
     }
@@ -399,9 +400,6 @@ export function SimulationTab({ accounts, selectedAccountId }: SimulationTabProp
             {isRunning ? "Simulating Constraints..." : "Run Simulation Check"}
           </Button>
 
-          {errorMsg && (
-            <p className="text-xs text-rose-400 text-center">{errorMsg}</p>
-          )}
         </div>
 
         {/* Right: Simulation Verdict & Triggered Breakdown (7 cols) */}

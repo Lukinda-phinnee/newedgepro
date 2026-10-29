@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import type { Rule, RuleCategory, RuleSet } from "@/types/rules";
 import type { TradingAccount } from "@/types/account";
 import { cn } from "@/lib/utils";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface RuleSetsTabProps {
   ruleSet: RuleSet | null;
@@ -39,9 +40,6 @@ interface RuleSetsTabProps {
 
 // Apple §4: Spring config for toggle animation
 const springToggle = { type: "spring" as const, damping: 22, stiffness: 400 };
-
-// Undo toast duration in ms (Apple §16.2: forgiveness via undo, not confirm dialogs)
-const UNDO_TIMEOUT_MS = 5000;
 
 const CATEGORIES: Array<RuleCategory | "All"> = [
   "All",
@@ -71,11 +69,7 @@ export function RuleSetsTab({
   );
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  // Apple §16.2 Agency: Undo-based deletion instead of confirm()
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [pendingDeleteName, setPendingDeleteName] = useState<string>("");
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { showFeedback, confirmAction } = useOperationFeedback();
 
   const rules = ruleSet?.rules || [];
 
@@ -114,43 +108,25 @@ export function RuleSetsTab({
     return groups;
   }, [filteredRules]);
 
-  // Apple §16.2: Undo-based delete — optimistic removal with 5s undo window
-  const handleDelete = useCallback(async (rule: Rule) => {
-    // Immediately hide the rule (optimistic)
-    setPendingDeleteId(rule.id);
-    setPendingDeleteName(rule.ruleName);
-    onRuleDeleted(rule.id);
-
-    // Clear any existing timer
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-
-    // Start undo countdown — after timeout, perform actual API delete
-    undoTimerRef.current = setTimeout(async () => {
-      setPendingDeleteId(null);
-      setPendingDeleteName("");
-      try {
-        await fetch(`/api/rules/sets/${ruleSet?.id}/rules/${rule.id}`, {
-          method: "DELETE",
-        });
-      } catch (err) {
-        console.error("Failed to delete rule:", err);
-      }
-    }, UNDO_TIMEOUT_MS);
-  }, [ruleSet?.id, onRuleDeleted]);
-
-  // Undo handler — re-add the rule and cancel the API delete
-  const handleUndoDelete = useCallback(() => {
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-      undoTimerRef.current = null;
+  const handleDelete = async (rule: Rule) => {
+    const confirmed = await confirmAction({
+      title: "Delete this rule?",
+      description: `“${rule.ruleName}” will be permanently removed from this rule set.`,
+      confirmLabel: "Delete rule",
+    });
+    if (!confirmed) return;
+    setDeletingId(rule.id);
+    try {
+      const response = await fetch(`/api/rules/sets/${ruleSet?.id}/rules/${rule.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("The server couldn’t delete this rule.");
+      onRuleDeleted(rule.id);
+      showFeedback({ kind: "success", title: "Rule deleted", description: `“${rule.ruleName}” was removed.` });
+    } catch (error) {
+      showFeedback({ kind: "failure", title: "Rule wasn’t deleted", description: error instanceof Error ? error.message : "Please try again." });
+    } finally {
+      setDeletingId(null);
     }
-    // We need to re-fetch or reconstruct — for now, trigger a page-level refresh
-    // by toggling the pending state (parent will re-render with original data on next fetch)
-    setPendingDeleteId(null);
-    setPendingDeleteName("");
-    // Reload to restore — simplest correct approach
-    window.location.reload();
-  }, []);
+  };
 
   const handleToggle = async (rule: Rule) => {
     const nextState = !rule.isActive;
@@ -168,7 +144,10 @@ export function RuleSetsTab({
       console.error("Failed to toggle rule:", err);
       // Revert if error
       onRuleToggled(rule.id, rule.isActive);
+      showFeedback({ kind: "failure", title: "Rule status wasn’t changed", description: "The server couldn’t update this rule. Please try again." });
+      return;
     }
+    showFeedback({ kind: "success", title: "Rule status updated", description: `“${rule.ruleName}” is now ${nextState ? "active" : "inactive"}.` });
   };
 
   const accountScopeName = useMemo(() => {
@@ -541,30 +520,6 @@ export function RuleSetsTab({
         )}
       </div>
 
-      {/* Apple §16.2: Undo toast — appears after deletion, allows recovery */}
-      <AnimatePresence>
-        {pendingDeleteId && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ type: "spring", damping: 24, stiffness: 300 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-rose-500/30 bg-card/95 backdrop-blur-lg px-4 py-3 shadow-2xl shadow-black/40"
-          >
-            <Trash2 size={15} className="text-rose-400 shrink-0" />
-            <span className="text-xs text-foreground font-medium">
-              Deleted <strong className="text-rose-400">{pendingDeleteName}</strong>
-            </span>
-            <button
-              type="button"
-              onClick={handleUndoDelete}
-              className="ml-2 px-3 py-1 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white press-scale-sm"
-            >
-              Undo
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

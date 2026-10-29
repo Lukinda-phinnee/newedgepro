@@ -4,11 +4,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   useTransition,
 } from "react";
+import { useRouter } from "next/navigation";
 import type { TradingAccount } from "@/types/account";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 export interface ActiveAccountContextValue {
   /** All trading accounts for the user */
@@ -36,6 +39,10 @@ export function ActiveAccountProvider({
 }) {
   const [accounts, setAccounts] = useState<TradingAccount[]>(initialAccounts);
   const [isSwitching, startTransition] = useTransition();
+  const router = useRouter();
+  const { showFeedback } = useOperationFeedback();
+
+  useEffect(() => setAccounts(initialAccounts), [initialAccounts]);
 
   const activeAccount = useMemo(
     () => accounts.find((a) => a.isDefault) || accounts[0] || null,
@@ -60,16 +67,21 @@ export function ActiveAccountProvider({
             setAccounts((prev) =>
               prev.map((a) => ({ ...a, isDefault: a.id === activeAccount?.id })),
             );
+            showFeedback({ kind: "failure", title: "Active account wasn’t changed", description: "The server couldn’t update your active account. Please try again." });
+          } else {
+            router.refresh();
+            showFeedback({ kind: "success", title: "Active account changed", description: "Your selected account is now active." });
           }
-        } catch {
+        } catch (error) {
           // Roll back on network error
           setAccounts((prev) =>
             prev.map((a) => ({ ...a, isDefault: a.id === activeAccount?.id })),
           );
+          showFeedback({ kind: "failure", title: "Active account wasn’t changed", description: error instanceof Error ? error.message : "Please check your connection and try again." });
         }
       });
     },
-    [activeAccount?.id],
+    [activeAccount?.id, router, showFeedback],
   );
 
   const refreshAccounts = useCallback((updated: TradingAccount[]) => {

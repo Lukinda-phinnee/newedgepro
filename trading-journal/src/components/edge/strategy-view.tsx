@@ -1,13 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { Activity } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Activity, AlignJustify, ArrowLeft, Check, Clock, Edit3, Files, FileText, ListChecks, ShieldAlert } from "lucide-react";
+import { PlaybookBlockEditor } from "@/components/edge/playbook-block-editor";
 import { StrategyListPanel } from "@/components/edge/strategy-list-panel";
 import { StrategyDetail } from "@/components/edge/strategy-detail";
 import { StrategyRightPanel } from "@/components/edge/strategy-right-panel";
 import { AddStrategyModal } from "@/components/edge/add-strategy-modal";
 import type { CreateStrategyInput, Strategy, StrategyStatus } from "@/types/strategy";
 import { useOperationFeedback } from "@/components/ui/operation-feedback";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface StrategyViewProps {
   initialStrategies: Strategy[];
@@ -183,6 +191,46 @@ function StrategyRightPanelSkeleton() {
   );
 }
 
+function EmptyPlaybookRightPanel() {
+  return (
+    <aside className="flex w-full flex-col gap-4">
+      <div className="overflow-hidden rounded-xl border border-border/70 bg-card/60">
+        <div className="flex items-center gap-1.5 px-4 pb-2 pt-3.5 text-xs font-semibold text-foreground">
+          <Activity size={13} className="text-violet-400" /> Plan Stats
+        </div>
+        <div className="grid grid-cols-2 gap-px bg-border/40">
+          {["Trades Taken", "Win Rate", "Expectancy", "Profit Factor"].map((label) => (
+            <div key={label} className="bg-card/60 px-4 py-3">
+              <span className="font-mono text-lg font-bold tracking-tight text-muted-foreground/50">—</span>
+              <span className="mt-0.5 block text-[10px] text-muted-foreground">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-border/70 bg-card/60">
+        <div className="flex items-center gap-1.5 px-4 pb-2 pt-3.5 text-xs font-semibold text-foreground">
+          <ShieldAlert size={13} className="text-rose-400" /> Risk Controls
+        </div>
+        <div className="grid grid-cols-2 gap-px bg-border/40">
+          {["Min R:R Ratio", "Risk per trade"].map((label) => (
+            <div key={label} className="bg-card/60 px-4 py-3">
+              <span className="font-mono text-base font-bold tracking-tight text-muted-foreground/50">—</span>
+              <span className="mt-0.5 block text-[10px] text-muted-foreground">{label}</span>
+            </div>
+          ))}
+          <div className="col-span-2 bg-card/60 px-4 py-3 text-[11px] text-muted-foreground">Add strategy details to define risk controls.</div>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-border/70 bg-card/60">
+        <div className="flex items-center gap-1.5 px-4 pb-2 pt-3.5 text-xs font-semibold text-foreground">
+          <Clock size={13} className="text-sky-400" /> Trading Window
+        </div>
+        <div className="px-4 pb-4 text-center text-[11px] text-muted-foreground">No trading hours set</div>
+      </div>
+    </aside>
+  );
+}
+
 export function StrategyView({ initialStrategies }: StrategyViewProps) {
   const { showFeedback } = useOperationFeedback();
   const [strategies, setStrategies] = useState<Strategy[]>(initialStrategies);
@@ -191,6 +239,18 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
   );
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addChoiceOpen, setAddChoiceOpen] = useState(false);
+  const initialPlaybook = initialStrategies.find((strategy) => strategy.id === initialStrategies[0]?.id && strategy.playbookContent !== null);
+  const [blankPlaybookOpen, setBlankPlaybookOpen] = useState(!!initialPlaybook);
+  const [blankPlaybookId, setBlankPlaybookId] = useState<string | null>(initialPlaybook?.id ?? null);
+  const [continuousPlaybook, setContinuousPlaybook] = useState(initialPlaybook?.playbookContinuous ?? false);
+  const [playbookTitle, setPlaybookTitle] = useState(initialPlaybook?.name ?? "Untitled playbook");
+  const [playbookIsActive, setPlaybookIsActive] = useState(initialPlaybook?.status === "ACTIVE");
+  const [playbookContent, setPlaybookContent] = useState(initialPlaybook?.playbookContent ?? "<p><br></p>");
+  const [playbookReviewed, setPlaybookReviewed] = useState(initialPlaybook?.isReviewed ?? false);
+  const [playbookReviewedAt, setPlaybookReviewedAt] = useState(initialPlaybook?.reviewedAt ?? null);
+  const [playbookSaveState, setPlaybookSaveState] = useState<"saving" | "saved" | "failed">("saved");
+  const saveSequenceRef = useRef(0);
   const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
 
   const showToast = (msg: string) => showFeedback({
@@ -201,26 +261,126 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
 
   const selectedStrategy = strategies.find((s) => s.id === selectedId) || null;
 
+  useEffect(() => {
+    if (!blankPlaybookOpen || !blankPlaybookId) return;
+    const sequence = ++saveSequenceRef.current;
+    setPlaybookSaveState("saving");
+    const timer = window.setTimeout(async () => {
+      const status = playbookIsActive ? "ACTIVE" : "CALIBRATING";
+      setStrategies((previous) => previous.map((strategy) => strategy.id === blankPlaybookId
+        ? { ...strategy, name: playbookTitle.trim() || "Untitled playbook", status, playbookContent, playbookContinuous: continuousPlaybook, isReviewed: playbookReviewed, reviewedAt: playbookReviewedAt }
+        : strategy));
+      try {
+        const response = await fetch(`/api/strategies/${blankPlaybookId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: playbookTitle.trim() || "Untitled playbook",
+            status,
+            playbookContent,
+            playbookContinuous: continuousPlaybook,
+            isReviewed: playbookReviewed,
+            reviewedAt: playbookReviewedAt,
+          }),
+        });
+        if (!response.ok) throw new Error("Failed to autosave playbook");
+        if (saveSequenceRef.current === sequence) setPlaybookSaveState("saved");
+      } catch (error) {
+        console.error("Failed to autosave playbook:", error);
+        if (saveSequenceRef.current === sequence) {
+          setPlaybookSaveState("failed");
+          showFeedback({ kind: "failure", title: "Playbook wasn’t saved", description: error instanceof Error ? error.message : "Please try again." });
+        }
+      }
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [blankPlaybookOpen, blankPlaybookId, playbookTitle, playbookIsActive, playbookContent, continuousPlaybook, playbookReviewed, playbookReviewedAt, showFeedback]);
+
   const handleSelectStrategy = (id: string) => {
-    if (id === selectedId) return;
+    if (id === selectedId) {
+      const selected = strategies.find((item) => item.id === id);
+      if (selected?.playbookContent !== null && selected && !blankPlaybookOpen) {
+        setBlankPlaybookId(selected.id);
+        setPlaybookTitle(selected.name);
+        setPlaybookIsActive(selected.status === "ACTIVE");
+        setPlaybookContent(selected.playbookContent || "<p><br></p>");
+        setContinuousPlaybook(selected.playbookContinuous);
+        setPlaybookReviewed(selected.isReviewed);
+        setPlaybookReviewedAt(selected.reviewedAt);
+        setBlankPlaybookOpen(true);
+      }
+      return;
+    }
     setLoadingId(id);
     setTimeout(() => {
+      const strategy = strategies.find((item) => item.id === id);
       setSelectedId(id);
       setLoadingId(null);
+      if (strategy?.playbookContent !== null && strategy) {
+        setBlankPlaybookId(strategy.id);
+        setPlaybookTitle(strategy.name);
+        setPlaybookIsActive(strategy.status === "ACTIVE");
+        setPlaybookContent(strategy.playbookContent || "<p><br></p>");
+        setContinuousPlaybook(strategy.playbookContinuous);
+        setPlaybookReviewed(strategy.isReviewed);
+        setPlaybookReviewedAt(strategy.reviewedAt);
+        setBlankPlaybookOpen(true);
+      } else {
+        setBlankPlaybookOpen(false);
+        setBlankPlaybookId(null);
+      }
     }, 320);
   };
 
   const handleOpenAddModal = () => {
     setEditingStrategy(null);
+    setAddChoiceOpen(true);
+  };
+
+  const handleChooseStrategyForm = () => {
+    setAddChoiceOpen(false);
+    setEditingStrategy(null);
     setAddModalOpen(true);
   };
 
+  const handleChooseEmptyPlaybook = () => {
+    setAddChoiceOpen(false);
+    setPlaybookTitle("Untitled playbook");
+    setPlaybookIsActive(false);
+    setContinuousPlaybook(false);
+    setPlaybookContent("<p><br></p>");
+    setPlaybookReviewed(false);
+    setPlaybookReviewedAt(null);
+    setPlaybookSaveState("saving");
+    setBlankPlaybookId(null);
+    setBlankPlaybookOpen(true);
+    void fetch("/api/strategies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Untitled playbook", status: "CALIBRATING", playbookContent: "<p><br></p>" }),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error("Could not create empty playbook");
+      const result = await response.json();
+      const saved = result.strategy as Strategy;
+      setStrategies((previous) => [saved, ...previous.filter((strategy) => strategy.id !== saved.id)]);
+      setSelectedId(saved.id);
+      setBlankPlaybookId(saved.id);
+      setPlaybookSaveState("saved");
+    }).catch((error) => {
+      console.error("Failed to create empty playbook:", error);
+      setPlaybookSaveState("failed");
+      showFeedback({ kind: "failure", title: "Playbook wasn’t created", description: error instanceof Error ? error.message : "Please try again." });
+    });
+  };
+
   const handleOpenEditModal = (strategy: Strategy) => {
+    setBlankPlaybookOpen(false);
     setEditingStrategy(strategy);
     setAddModalOpen(true);
   };
 
   const handleSaveStrategy = (saved: Strategy) => {
+    setBlankPlaybookOpen(false);
     setStrategies((prev) => {
       const idx = prev.findIndex((s) => s.id === saved.id);
       if (idx >= 0) {
@@ -251,32 +411,33 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(partial),
       });
-      if (res.ok) {
-        showToast("Changes saved");
-      } else {
-        showToast("Failed to save changes to database");
-      }
+      if (!res.ok) throw new Error("Failed to save changes to database");
+      showToast("Changes saved");
     } catch (err) {
       console.error("Failed to persist strategy update:", err);
-      showToast("Network error saving changes");
+      setStrategies((prev) => prev.map((s) => s.id === selectedStrategy.id ? selectedStrategy : s));
+      showFeedback({ kind: "failure", title: "Strategy wasn’t updated", description: err instanceof Error ? err.message : "Network error saving changes" });
     }
   };
 
   const handleStatusChange = async (id: string, status: StrategyStatus) => {
+    const previousStatus = strategies.find((strategy) => strategy.id === id)?.status;
     // Optimistic update
     setStrategies((prev) =>
       prev.map((s) => (s.id === id ? { ...s, status } : s))
     );
-    showToast(`Status changed to ${status.toLowerCase()}`);
-
     try {
-      await fetch(`/api/strategies/${id}`, {
+      const response = await fetch(`/api/strategies/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
+      if (!response.ok) throw new Error("The server couldn’t update this strategy.");
+      showToast(`Status changed to ${status.toLowerCase()}`);
     } catch (err) {
       console.error("Failed to update status:", err);
+      if (previousStatus) setStrategies((prev) => prev.map((strategy) => strategy.id === id ? { ...strategy, status: previousStatus } : strategy));
+      showFeedback({ kind: "failure", title: "Status wasn’t changed", description: err instanceof Error ? err.message : "Please try again." });
     }
   };
 
@@ -337,28 +498,26 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
 
   const handleDeleteStrategy = async (id: string) => {
     const target = strategies.find((s) => s.id === id);
-    setStrategies((prev) => prev.filter((s) => s.id !== id));
-
-    if (selectedId === id) {
-      const remaining = strategies.filter((s) => s.id !== id);
-      setSelectedId(remaining[0]?.id || null);
-    }
-
-    showToast(`Deleted "${target?.name || "Strategy"}"`);
-
     try {
-      await fetch(`/api/strategies/${id}`, {
+      const response = await fetch(`/api/strategies/${id}`, {
         method: "DELETE",
       });
+      if (!response.ok) throw new Error("The server couldn’t delete this strategy.");
+      setStrategies((prev) => prev.filter((s) => s.id !== id));
+      if (selectedId === id) setSelectedId(strategies.find((strategy) => strategy.id !== id)?.id || null);
+      showToast(`Deleted "${target?.name || "Strategy"}"`);
     } catch (err) {
       console.error("Failed to delete strategy:", err);
+      showFeedback({ kind: "failure", title: "Strategy wasn’t deleted", description: err instanceof Error ? err.message : "Please try again." });
     }
   };
 
   const handleCopyPlaybook = (strategy: Strategy) => {
     const markdown = formatPlaybookMarkdown(strategy);
-    navigator.clipboard.writeText(markdown);
-    showToast(`Playbook copied for "${strategy.name}"`);
+    void navigator.clipboard.writeText(markdown).then(
+      () => showToast(`Playbook copied for "${strategy.name}"`),
+      (error) => showFeedback({ kind: "failure", title: "Playbook wasn’t copied", description: error instanceof Error ? error.message : "Clipboard access failed." }),
+    );
   };
 
   return (
@@ -383,7 +542,90 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
 
         {/* ─── Center: Strategy Detail with Loading Animation on Selection ─── */}
         <div className="flex-1 min-w-0 border-r border-border/70 bg-background h-full overflow-hidden">
-          {loadingId ? (
+          {blankPlaybookOpen ? (
+            <div className="flex h-full flex-col bg-background">
+              <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-5 py-3 lg:px-6">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setBlankPlaybookOpen(false)} className="h-8 gap-1.5 px-2 text-xs">
+                    <ArrowLeft size={14} /> Back
+                  </Button>
+                  <span className="size-3 shrink-0 rounded-full bg-violet-500/50" />
+                  <input
+                    aria-label="Playbook title"
+                    value={playbookTitle}
+                    onChange={(event) => setPlaybookTitle(event.target.value)}
+                    placeholder="Untitled playbook"
+                    className="w-full min-w-0 bg-transparent text-lg font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60"
+                  />
+                </div>
+                <div className="ml-3 flex shrink-0 items-center gap-3">
+                  <button
+                    type="button"
+                    aria-pressed={playbookIsActive}
+                    onClick={() => setPlaybookIsActive((active) => !active)}
+                    className="flex items-center gap-2 text-xs font-semibold text-foreground"
+                  >
+                    <span className={`relative h-5 w-9 rounded-full transition-colors ${playbookIsActive ? "bg-violet-500" : "bg-white/[0.12]"}`}>
+                      <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition-transform ${playbookIsActive ? "translate-x-4" : "translate-x-0.5"}`} />
+                    </span>
+                    <span className="hidden xl:inline">{playbookIsActive ? "Active" : "Calibrating"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingStrategy(null);
+                      setAddModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-medium text-violet-400 transition-colors hover:text-violet-300"
+                  >
+                    <Edit3 size={13} />
+                    <span className="hidden sm:inline">Full Edit</span>
+                  </button>
+                  <div className="inline-flex items-center rounded-lg border border-border/70 bg-muted/40 p-0.5" aria-label="Document page layout">
+                    <button type="button" aria-label="Paged layout" title="Paged layout" aria-pressed={!continuousPlaybook} onClick={() => setContinuousPlaybook(false)} className={`rounded-md p-1.5 transition-colors ${!continuousPlaybook ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                      <Files size={15} />
+                    </button>
+                    <button type="button" aria-label="Continuous layout" title="Continuous layout" aria-pressed={continuousPlaybook} onClick={() => setContinuousPlaybook(true)} className={`rounded-md p-1.5 transition-colors ${continuousPlaybook ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                      <AlignJustify size={15} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto bg-muted/30 px-4 py-8 sm:px-8">
+                <article
+                  className={`playbook-document-editor mx-auto min-h-[1123px] w-full max-w-[794px] border border-border/60 shadow-sm ${continuousPlaybook ? "bg-card" : "bg-transparent border-0 shadow-none"}`}
+                  style={continuousPlaybook ? undefined : {
+                    backgroundColor: "transparent",
+                    backgroundImage: "linear-gradient(to bottom, var(--card) 0, var(--card) 1123px, transparent 1123px, transparent 1147px)",
+                    backgroundSize: "100% 1147px",
+                  }}
+                >
+                  <PlaybookBlockEditor key={blankPlaybookId ?? "new-playbook"} initialContent={playbookContent} onChange={setPlaybookContent} />
+                </article>
+              </div>
+              <div className="flex shrink-0 items-center gap-3 border-t border-border/60 bg-card/40 px-6 py-3 backdrop-blur-md lg:px-8">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setPlaybookReviewed(true);
+                    setPlaybookReviewedAt(new Date().toISOString());
+                  }}
+                  disabled={playbookReviewed}
+                  className={`h-9 cursor-pointer px-5 text-xs font-semibold ${playbookReviewed ? "bg-emerald-600 text-white hover:bg-emerald-600" : "bg-violet-600 text-white shadow-sm shadow-violet-950/30 hover:bg-violet-500"}`}
+                >
+                  <Check size={14} className="mr-1.5" />
+                  {playbookReviewed ? "Reviewed" : "Mark as reviewed"}
+                </Button>
+                <span className="text-[11px] font-medium text-foreground">
+                  Last reviewed {playbookReviewedAt ? new Date(playbookReviewedAt).toLocaleString() : "—"}
+                </span>
+                <span className={`ml-auto text-[10px] ${playbookSaveState === "failed" ? "text-rose-400" : "text-muted-foreground"}`} aria-live="polite">
+                  {playbookSaveState === "saving" ? "Saving…" : playbookSaveState === "failed" ? "Save failed" : "Saved"}
+                </span>
+              </div>
+            </div>
+          ) : loadingId ? (
             <StrategyDetailSkeleton />
           ) : selectedStrategy ? (
             <StrategyDetail
@@ -406,16 +648,39 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
         </div>
 
         {/* ─── Right: Stats Panel with Loading Animation on Selection ─── */}
-        {selectedStrategy && (
+        {(selectedStrategy || blankPlaybookOpen) && (
           <div className="hidden lg:block w-[220px] xl:w-[240px] shrink-0 overflow-y-auto p-4 bg-background h-full">
-            {loadingId ? (
+            {blankPlaybookOpen ? (
+              <EmptyPlaybookRightPanel />
+            ) : loadingId ? (
               <StrategyRightPanelSkeleton />
             ) : (
-              <StrategyRightPanel strategy={selectedStrategy} />
+              selectedStrategy && <StrategyRightPanel strategy={selectedStrategy} />
             )}
           </div>
         )}
       </div>
+
+      <Dialog open={addChoiceOpen} onOpenChange={setAddChoiceOpen}>
+        <DialogContent className="max-w-lg p-6">
+          <div className="mb-5">
+            <DialogTitle>What would you like to create?</DialogTitle>
+            <DialogDescription className="mt-1.5">Start with a structured strategy form or a blank playbook document.</DialogDescription>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button type="button" onClick={handleChooseEmptyPlaybook} className="group rounded-xl border border-border/70 bg-background p-4 text-left transition-colors hover:border-violet-500/60 hover:bg-violet-500/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+              <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400"><FileText size={18} /></span>
+              <span className="block text-sm font-semibold text-foreground">Empty document</span>
+              <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">Open a clean, blank playbook.</span>
+            </button>
+            <button type="button" onClick={handleChooseStrategyForm} className="group rounded-xl border border-border/70 bg-background p-4 text-left transition-colors hover:border-violet-500/60 hover:bg-violet-500/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+              <span className="mb-3 flex size-9 items-center justify-center rounded-lg bg-sky-500/10 text-sky-400"><ListChecks size={18} /></span>
+              <span className="block text-sm font-semibold text-foreground">Form</span>
+              <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">Create a strategy with the guided form.</span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── Add / Edit Modal ─── */}
       <AddStrategyModal

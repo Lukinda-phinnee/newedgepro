@@ -544,7 +544,7 @@ export function StrategyDetail({
   return (
     <div className="flex flex-col h-full">
       {/* ─── Top Header ─── */}
-      <div className="flex items-center justify-between px-6 lg:px-8 pt-5 pb-4 border-b border-border/60 shrink-0">
+      <div className="flex items-center justify-between px-5 lg:px-6 pt-3 pb-3 border-b border-border/60 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <span
             className={cn(

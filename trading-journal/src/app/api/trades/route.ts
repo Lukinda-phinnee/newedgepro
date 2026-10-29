@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { getUserTrades, createTrade } from "@/lib/db/trades";
-import { generateSampleTrades } from "@/lib/demo-trades";
 
 
 export async function GET(request: NextRequest) {
@@ -14,12 +13,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const accountId = searchParams.get("accountId") || undefined;
 
-    let trades = await getUserTrades(session.user.id, accountId);
-
-    // If user has no trades yet, provide sample trades for the requested account
-    if (trades.length === 0 && accountId) {
-      trades = generateSampleTrades(accountId, session.user.id);
-    }
+    const trades = await getUserTrades(session.user.id, accountId);
 
     return NextResponse.json({ trades });
   } catch (error) {
@@ -79,6 +73,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { getTradingAccountById } = await import("@/lib/db/accounts");
+    if (!(await getTradingAccountById(session.user.id, String(accountId)))) {
+      return NextResponse.json({ error: "Trading account not found." }, { status: 404 });
+    }
+
     // Evaluate trade intent against active rule set
     let ruleVerdict: "ACCEPT" | "WARN" | "BLOCK" = "ACCEPT";
     let ruleViolationsCount = 0;
@@ -109,6 +108,10 @@ export async function POST(request: NextRequest) {
       ruleEvaluation = evalResult;
     } catch (evalErr) {
       console.warn("Rule evaluation prior to trade creation error:", evalErr);
+      return NextResponse.json(
+        { error: "Trade guardrails could not be checked. Please retry before saving." },
+        { status: 503 },
+      );
     }
 
     const resolvedFollowedRules =

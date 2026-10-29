@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import type { ExecutionGrade, FollowedRules, ReviewStatus, Trade } from "@/types/trade";
 import type { Strategy } from "@/types/strategy";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 import { cn } from "@/lib/utils";
 
 interface TradeReviewModalProps {
@@ -195,6 +196,7 @@ export function TradeReviewModal({
   currentIndex,
   totalInQueue,
 }: TradeReviewModalProps) {
+  const { showFeedback } = useOperationFeedback();
   // Form State
   const [followedRules, setFollowedRules] = useState<FollowedRules>("yes");
   const [executionGrade, setExecutionGrade] = useState<ExecutionGrade>("A");
@@ -535,7 +537,7 @@ export function TradeReviewModal({
         onOpenChange(false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save review");
+      showFeedback({ kind: "failure", title: "Review wasn’t saved", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
       setSaving(false);
     }
@@ -553,7 +555,7 @@ export function TradeReviewModal({
       await onSaveReview(revertedTrade);
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update review status");
+      showFeedback({ kind: "failure", title: "Review status wasn’t updated", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
       setSaving(false);
     }

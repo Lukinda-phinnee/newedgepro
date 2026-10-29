@@ -115,6 +115,16 @@ export function DayDetailPanel({
 
   const isProfitable = metrics.netPnl > 0;
   const isLosing = metrics.netPnl < 0;
+  const reviewedTrades = day.trades.filter((trade) => trade.followedRules);
+  const planAdherence = reviewedTrades.length > 0
+    ? Math.round((reviewedTrades.filter((trade) => trade.followedRules === "yes").length
+      + reviewedTrades.filter((trade) => trade.followedRules === "partial").length * 0.5)
+      / reviewedTrades.length * 100)
+    : null;
+  const guardrailViolations = day.trades.reduce((total, trade) => total + Math.max(
+    trade.ruleViolationsCount ?? 0,
+    trade.ruleVerdict === "WARN" || trade.ruleVerdict === "BLOCK" ? 1 : 0,
+  ), 0);
 
   return (
     <aside
@@ -260,15 +270,16 @@ export function DayDetailPanel({
               <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/50 px-4 py-3 text-xs transition hover:bg-card">
                 <span className="font-semibold text-foreground">Plan Followed</span>
                 <span className="font-medium text-muted-foreground">
-                  {metrics.totalTrades > 0 ? "Followed (100%)" : "No trades"}
+                  {planAdherence === null ? "Not reviewed" : `${planAdherence}% adherence (${reviewedTrades.length} reviewed)`}
                 </span>
               </div>
 
               {/* Guardrail Violations */}
               <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/50 px-4 py-3 text-xs transition hover:bg-card">
                 <span className="font-semibold text-foreground">Guardrail Violations</span>
-                <span className="flex items-center gap-1 font-medium text-emerald-500 dark:text-emerald-400">
-                  <Check size={18} strokeWidth={2.5} />
+                <span className={`flex items-center gap-1 font-medium ${guardrailViolations > 0 ? "text-rose-500 dark:text-rose-400" : "text-emerald-500 dark:text-emerald-400"}`}>
+                  {guardrailViolations > 0 ? <AlertTriangle size={15} /> : <Check size={18} strokeWidth={2.5} />}
+                  {guardrailViolations === 0 ? "No violations" : `${guardrailViolations} violation${guardrailViolations === 1 ? "" : "s"}`}
                 </span>
               </div>
 
@@ -276,7 +287,7 @@ export function DayDetailPanel({
               <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/50 px-4 py-3 text-xs transition hover:bg-card">
                 <span className="font-semibold text-foreground">Pre-Market Routine</span>
                 <span className="font-medium text-muted-foreground">
-                  {metrics.totalTrades > 0 ? "Completed" : "Not completed"}
+                  Not tracked
                 </span>
               </div>
 
@@ -284,9 +295,7 @@ export function DayDetailPanel({
               <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/50 px-4 py-3 text-xs transition hover:bg-card">
                 <span className="font-semibold text-foreground">Trades Journaled</span>
                 <span className="font-medium text-muted-foreground">
-                  {metrics.totalTrades > 0
-                    ? `${metrics.totalTrades} / ${metrics.totalTrades} logged`
-                    : "No trades"}
+                  {metrics.totalTrades > 0 ? `${metrics.totalTrades} logged` : "No trades"}
                 </span>
               </div>
             </div>

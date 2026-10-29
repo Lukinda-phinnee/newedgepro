@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
-  AlertTriangle,
   ArrowRight,
   Check,
   ChevronDown,
@@ -35,6 +34,7 @@ import type {
   StrategyCategory,
   StrategyStatus,
 } from "@/types/strategy";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 import { cn } from "@/lib/utils";
 
 interface AddStrategyModalProps {
@@ -93,10 +93,10 @@ export function AddStrategyModal({
   onSaveSuccess,
   editingStrategy,
 }: AddStrategyModalProps) {
+  const { showFeedback } = useOperationFeedback();
   const isEditing = !!editingStrategy;
   const [step, setStep] = useState<Step>(1);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // ─── Step 1: Core Identity ───
   const [name, setName] = useState("");
@@ -232,7 +232,6 @@ export function AddStrategyModal({
       setTimeStopMinutes(editingStrategy.exitStrategy?.timeStopMinutes ?? 45);
       setAssetSearchQuery("");
       setAssetDropdownOpen(false);
-      setError(null);
       setSaving(false);
     } else if (open && !editingStrategy) {
       resetForm();
@@ -272,7 +271,6 @@ export function AddStrategyModal({
     setRunnerRule("Trail 15m structure pivot");
     setBreakevenRule("Move to breakeven after TP1");
     setTimeStopMinutes(45);
-    setError(null);
     setSaving(false);
   };
 
@@ -395,7 +393,6 @@ export function AddStrategyModal({
 
   const handleSave = async () => {
     setSaving(true);
-    setError(null);
 
     const finalCategories = [...categories];
     if (categoryInput.trim()) {
@@ -486,7 +483,7 @@ export function AddStrategyModal({
       resetForm();
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      showFeedback({ kind: "failure", title: "Strategy wasn’t saved", description: err instanceof Error ? err.message : "Something went wrong." });
     } finally {
       setSaving(false);
     }
@@ -1224,14 +1221,6 @@ export function AddStrategyModal({
             </motion.div>
           </AnimatePresence>
         </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mx-5 mb-3 flex items-center gap-2 rounded-lg bg-rose-500/10 border border-rose-500/30 px-3 py-2 text-xs text-rose-400">
-            <AlertTriangle size={14} />
-            {error}
-          </div>
-        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border/60 px-5 py-3.5">

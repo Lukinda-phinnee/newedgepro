@@ -26,6 +26,7 @@ import { InstrumentSearchSelect } from "@/components/trade-log/instrument-search
 import { calculatePipInfo } from "@/lib/pips";
 import { cn } from "@/lib/utils";
 import type { Trade } from "@/types/trade";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 function compressImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -110,6 +111,7 @@ export function LogTradeDialog({
   onOpenChange,
   onTradeLogged,
 }: LogTradeDialogProps) {
+  const { showFeedback } = useOperationFeedback();
   const { accounts, activeAccount } = useActiveAccount();
 
   const [accountId, setAccountId] = useState(activeAccount?.id || accounts[0]?.id || "");
@@ -331,7 +333,7 @@ export function LogTradeDialog({
       onTradeLogged(data.trade);
       handleClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to log trade.");
+      showFeedback({ kind: "failure", title: "Trade wasn’t logged", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
       setLoading(false);
     }

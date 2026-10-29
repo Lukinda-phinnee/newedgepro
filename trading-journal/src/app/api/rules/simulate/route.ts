@@ -2,27 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { RuleService } from "@/lib/services/rule-service";
 import { sql } from "@/lib/db";
+import { getTradingAccountById } from "@/lib/db/accounts";
 import type { TradeIntent } from "@/types/rules";
-
-async function resolveUserId(): Promise<string> {
-  try {
-    const { data: session } = await auth.getSession();
-    if (session?.user?.id) return session.user.id;
-  } catch {
-    // ignore
-  }
-
-  const acc = await sql`SELECT user_id FROM trading_accounts LIMIT 1`;
-  if (acc.length > 0 && acc[0].user_id) {
-    return String(acc[0].user_id);
-  }
-
-  return "default_user";
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await resolveUserId();
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = session.user.id;
     const body = await request.json();
     const { accountId, tradeIntent } = body as {
       accountId?: string | null;
@@ -35,12 +22,23 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+    if (accountId && !(await getTradingAccountById(userId, String(accountId)))) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
 
     const result = await RuleService.evaluateTradeIntent(
       userId,
       accountId || null,
       tradeIntent,
     );
+
+    await sql`
+      INSERT INTO rule_simulations (user_id, account_id, verdict, violation_count)
+      VALUES (
+        ${userId}, ${accountId || null}, ${result.verdict},
+        ${Array.isArray(result.triggeredRules) ? result.triggeredRules.length : 0}
+      )
+    `;
 
     return NextResponse.json(result);
   } catch (error) {

@@ -1,32 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { getRuleEngineStatus } from "@/lib/db/rules";
-import { sql } from "@/lib/db";
-
-async function resolveUserId(): Promise<string> {
-  try {
-    const { data: session } = await auth.getSession();
-    if (session?.user?.id) return session.user.id;
-  } catch {
-    // ignore
-  }
-
-  const acc = await sql`SELECT user_id FROM trading_accounts LIMIT 1`;
-  if (acc.length > 0 && acc[0].user_id) {
-    return String(acc[0].user_id);
-  }
-
-  return "default_user";
-}
+import { getTradingAccountById } from "@/lib/db/accounts";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ accountId: string }> },
 ) {
   try {
-    const userId = await resolveUserId();
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = session.user.id;
     const { accountId } = await params;
     const targetAccountId = accountId === "global" ? null : accountId;
+    if (targetAccountId && !(await getTradingAccountById(userId, targetAccountId))) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
 
     const status = await getRuleEngineStatus(userId, targetAccountId);
     return NextResponse.json(status);

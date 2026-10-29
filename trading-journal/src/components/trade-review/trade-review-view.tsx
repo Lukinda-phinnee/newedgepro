@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Award,
@@ -39,6 +39,7 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
   const { activeAccount } = useActiveAccount();
   const { showFeedback } = useOperationFeedback();
   const [trades, setTrades] = useState<Trade[]>(initialTrades);
+  useEffect(() => setTrades(initialTrades), [initialTrades]);
 
   // View Mode: cards (default) vs table
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
@@ -200,9 +201,8 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
       setTrades((prev) => prev.map((t) => (t.id === saved.id ? saved : t)));
       showFeedback({ kind: "success", title: saved.reviewStatus === "reviewed" ? "Review saved" : "Trade updated", description: saved.reviewStatus === "reviewed" ? `${saved.symbol} was reviewed with grade ${saved.executionGrade || "A"}.` : `${saved.symbol} was updated.` });
     } catch (err) {
-      // Optimistic fallback for demo mode
-      setTrades((prev) => prev.map((t) => (t.id === updatedTrade.id ? updatedTrade : t)));
-      showFeedback({ kind: "failure", title: "Saved locally", description: `We couldn’t sync ${updatedTrade.symbol} with the server. Your changes are available in this session.` });
+      showFeedback({ kind: "failure", title: "Review wasn’t saved", description: err instanceof Error ? err.message : "Please check your connection and try again." });
+      throw err;
     }
   };
 
