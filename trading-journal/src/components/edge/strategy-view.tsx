@@ -232,7 +232,7 @@ function EmptyPlaybookRightPanel() {
 }
 
 export function StrategyView({ initialStrategies }: StrategyViewProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const [strategies, setStrategies] = useState<Strategy[]>(initialStrategies);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialStrategies[0]?.id || null
@@ -354,6 +354,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
     setPlaybookSaveState("saving");
     setBlankPlaybookId(null);
     setBlankPlaybookOpen(true);
+    showProcessing("Creating playbook…");
     void fetch("/api/strategies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -366,6 +367,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
       setSelectedId(saved.id);
       setBlankPlaybookId(saved.id);
       setPlaybookSaveState("saved");
+      showToast("Playbook created");
     }).catch((error) => {
       console.error("Failed to create empty playbook:", error);
       setPlaybookSaveState("failed");
@@ -396,6 +398,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
 
   const handleUpdateStrategy = async (partial: Partial<Strategy>) => {
     if (!selectedStrategy) return;
+    showProcessing("Saving strategy changes…");
 
     // Optimistic update
     setStrategies((prev) =>
@@ -421,6 +424,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
   };
 
   const handleStatusChange = async (id: string, status: StrategyStatus) => {
+    showProcessing("Updating strategy status…");
     const previousStatus = strategies.find((strategy) => strategy.id === id)?.status;
     // Optimistic update
     setStrategies((prev) =>
@@ -476,6 +480,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
     };
 
     try {
+      showProcessing("Duplicating strategy…");
       const res = await fetch("/api/strategies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -499,6 +504,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
   const handleDeleteStrategy = async (id: string) => {
     const target = strategies.find((s) => s.id === id);
     try {
+      showProcessing("Deleting strategy…");
       const response = await fetch(`/api/strategies/${id}`, {
         method: "DELETE",
       });

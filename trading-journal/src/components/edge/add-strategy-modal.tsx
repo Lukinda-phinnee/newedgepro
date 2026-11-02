@@ -93,7 +93,7 @@ export function AddStrategyModal({
   onSaveSuccess,
   editingStrategy,
 }: AddStrategyModalProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const isEditing = !!editingStrategy;
   const [step, setStep] = useState<Step>(1);
   const [saving, setSaving] = useState(false);
@@ -393,6 +393,7 @@ export function AddStrategyModal({
 
   const handleSave = async () => {
     setSaving(true);
+    showProcessing(editingStrategy ? "Saving strategy…" : "Creating strategy…");
 
     const finalCategories = [...categories];
     if (categoryInput.trim()) {

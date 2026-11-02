@@ -57,7 +57,7 @@ export function RuleEngineView({
   initialCompliance,
   accounts,
 }: RuleEngineViewProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   // Navigation tab
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const prevTabRef = useRef<TabKey>("overview");
@@ -203,6 +203,7 @@ export function RuleEngineView({
 
   // Handle toggle directly from inspect modal with API call
   const handleToggleRuleFromModal = async (ruleId: string, nextActive: boolean) => {
+    showProcessing("Updating rule status…");
     handleRuleToggled(ruleId, nextActive);
     try {
       const res = await fetch(`/api/rules/sets/${activeRuleSet.id}/rules/${ruleId}`, {

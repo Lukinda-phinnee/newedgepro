@@ -69,7 +69,7 @@ export function RuleSetsTab({
   );
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const { showFeedback, confirmAction } = useOperationFeedback();
+  const { showFeedback, showProcessing, confirmAction } = useOperationFeedback();
 
   const rules = ruleSet?.rules || [];
 
@@ -130,6 +130,7 @@ export function RuleSetsTab({
 
   const handleToggle = async (rule: Rule) => {
     const nextState = !rule.isActive;
+    showProcessing("Updating rule status…");
     onRuleToggled(rule.id, nextState);
     try {
       const res = await fetch(`/api/rules/sets/${ruleSet?.id}/rules/${rule.id}`, {

@@ -1,6 +1,5 @@
 import "server-only";
 import { sql } from "@/lib/db";
-import { generateSampleTrades } from "@/lib/demo-trades";
 import type { ExecutionGrade, FollowedRules, ReviewStatus, Trade, TradeSide, TradeStatus } from "@/types/trade";
 
 function mapTradeRow(row: Record<string, unknown>): Trade {
@@ -132,127 +131,10 @@ function mapTradeRow(row: Record<string, unknown>): Trade {
   };
 }
 
-async function seedEmptyDemoAccount(userId: string, accountId: string): Promise<void> {
-  const accounts = await sql`
-    SELECT account.account_type, account.demo_data_seeded_at,
-      EXISTS (
-        SELECT 1 FROM trades trade
-        WHERE trade.user_id::text = account.user_id::text
-          AND trade.account_id::text = account.id::text
-      ) AS has_trades
-    FROM trading_accounts account
-    WHERE account.id = ${accountId} AND account.user_id = ${userId}
-    LIMIT 1
-  `;
-  const account = accounts[0];
-  if (!account || account.account_type !== "demo" || account.demo_data_seeded_at || account.has_trades) return;
-
-  const fixtures = generateSampleTrades(accountId, userId).map((trade) => ({
-    symbol: trade.symbol,
-    side: trade.side,
-    entry_price: trade.entryPrice,
-    exit_price: trade.exitPrice,
-    quantity: trade.quantity,
-    stop_loss: trade.stopLoss,
-    take_profit: trade.takeProfit,
-    pnl: trade.pnl,
-    pnl_percentage: trade.pnlPercentage,
-    status: trade.status,
-    strategy: trade.strategy,
-    market_session: trade.marketSession,
-    market_condition: trade.marketCondition,
-    confidence: trade.confidence,
-    planned_entry: trade.plannedEntry,
-    notes: trade.notes,
-    opened_at: trade.openedAt,
-    closed_at: trade.closedAt,
-    review_status: trade.reviewStatus,
-    reviewed_at: trade.reviewedAt,
-    execution_grade: trade.executionGrade,
-    review_rating: trade.reviewRating,
-    followed_rules: trade.followedRules,
-    mistake_tags: trade.mistakeTags ? JSON.stringify(trade.mistakeTags) : null,
-    what_went_well: trade.whatWentWell,
-    what_to_improve: trade.whatToImprove,
-    lessons_learned: trade.lessonsLearned,
-    review_notes: trade.reviewNotes,
-    trade_management: trade.tradeManagement,
-    screenshots: trade.screenshots ? JSON.stringify(trade.screenshots) : "[]",
-    screenshot_titles: trade.screenshotTitles ? JSON.stringify(trade.screenshotTitles) : "[]",
-    entry_confluences: trade.entryConfluences ? JSON.stringify(trade.entryConfluences) : "[]",
-    entry_emotion: trade.entryEmotion,
-    exit_emotion: trade.exitEmotion,
-    rule_verdict: trade.ruleVerdict,
-    rule_violations_count: trade.ruleViolationsCount ?? 0,
-    rule_evaluation: trade.ruleEvaluation ? JSON.stringify(trade.ruleEvaluation) : null,
-  }));
-
-  await sql`
-    WITH fixtures AS (
-      SELECT *
-      FROM jsonb_to_recordset(${JSON.stringify(fixtures)}::jsonb) AS fixture(
-        symbol text, side text, entry_price numeric, exit_price numeric,
-        quantity numeric, stop_loss numeric, take_profit numeric, pnl numeric,
-        pnl_percentage numeric, status text, strategy text, market_session text,
-        market_condition text, confidence numeric, planned_entry numeric,
-        notes text, opened_at timestamptz, closed_at timestamptz,
-        review_status text, reviewed_at timestamptz, execution_grade text,
-        review_rating integer, followed_rules text, mistake_tags text,
-        what_went_well text, what_to_improve text, lessons_learned text,
-        review_notes text, trade_management text, screenshots text,
-        screenshot_titles text, entry_confluences text, entry_emotion text,
-        exit_emotion text, rule_verdict text, rule_violations_count integer,
-        rule_evaluation jsonb
-      )
-    ), seed_claim AS (
-      UPDATE trading_accounts account
-      SET demo_data_seeded_at = NOW(),
-          current_balance = COALESCE(account.current_balance, account.starting_balance)
-            + COALESCE((SELECT SUM(fixture.pnl) FROM fixtures fixture WHERE fixture.status = 'closed'), 0)
-      WHERE account.id = ${accountId}
-        AND account.user_id = ${userId}
-        AND account.account_type = 'demo'
-        AND account.demo_data_seeded_at IS NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM trades trade
-          WHERE trade.user_id = ${userId} AND trade.account_id = ${accountId}
-        )
-      RETURNING account.id
-    )
-    INSERT INTO trades (
-      user_id, account_id, symbol, side, entry_price, exit_price, quantity,
-      stop_loss, take_profit, pnl, pnl_percentage, status, strategy,
-      market_session, market_condition, confidence, planned_entry, notes,
-      opened_at, closed_at, review_status, reviewed_at, execution_grade,
-      review_rating, followed_rules, mistake_tags, what_went_well,
-      what_to_improve, lessons_learned, review_notes, trade_management,
-      screenshots, screenshot_titles, entry_confluences, entry_emotion,
-      exit_emotion, rule_verdict, rule_violations_count, rule_evaluation,
-      is_demo
-    )
-    SELECT
-      ${userId}, seed_claim.id, fixture.symbol, fixture.side,
-      fixture.entry_price, fixture.exit_price, fixture.quantity,
-      fixture.stop_loss, fixture.take_profit, fixture.pnl,
-      fixture.pnl_percentage, fixture.status, fixture.strategy,
-      fixture.market_session, fixture.market_condition, fixture.confidence,
-      fixture.planned_entry, fixture.notes, fixture.opened_at, fixture.closed_at,
-      fixture.review_status, fixture.reviewed_at, fixture.execution_grade,
-      fixture.review_rating, fixture.followed_rules, fixture.mistake_tags,
-      fixture.what_went_well, fixture.what_to_improve, fixture.lessons_learned,
-      fixture.review_notes, fixture.trade_management, fixture.screenshots,
-      fixture.screenshot_titles, fixture.entry_confluences, fixture.entry_emotion,
-      fixture.exit_emotion, fixture.rule_verdict, fixture.rule_violations_count,
-      fixture.rule_evaluation, true
-    FROM seed_claim CROSS JOIN fixtures AS fixture
-  `;
-}
-
 export async function getUserTrades(
   userId: string,
   accountId?: string,
 ): Promise<Trade[]> {
-  if (accountId) await seedEmptyDemoAccount(userId, accountId);
   const rows = accountId
     ? await sql`
         SELECT * FROM trades

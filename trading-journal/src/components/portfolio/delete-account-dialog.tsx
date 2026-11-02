@@ -25,7 +25,7 @@ export function DeleteAccountDialog({
   onOpenChange,
   onAccountDeleted,
 }: DeleteAccountDialogProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +34,7 @@ export function DeleteAccountDialog({
   const handleDelete = async () => {
     setError(null);
     setLoading(true);
+    showProcessing("Deleting account…");
 
     try {
       const response = await fetch(`/api/accounts/${account.id}`, {

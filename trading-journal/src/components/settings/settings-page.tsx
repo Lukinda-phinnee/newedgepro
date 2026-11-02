@@ -49,7 +49,7 @@ function getInitials(name: string | null, email: string) {
 
 export function SettingsPage({ name: initialName, email }: SettingsPageProps) {
   const router = useRouter();
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const { preferences, updatePreferences } = useUserPreferences();
   const avatarInput = useRef<HTMLInputElement>(null);
   const phoneInput = useRef<HTMLInputElement>(null);
@@ -105,6 +105,7 @@ export function SettingsPage({ name: initialName, email }: SettingsPageProps) {
       return;
     }
     setSaving(true);
+    showProcessing("Saving account details…");
     try {
       if (nextName !== name) {
         const { error } = await authClient.updateUser({ name: nextName });
@@ -124,6 +125,7 @@ export function SettingsPage({ name: initialName, email }: SettingsPageProps) {
 
   const savePreferences = async () => {
     setSaving(true);
+    showProcessing("Saving preferences…");
     try {
       await saveSettings({ timezone: draft.timezone, timeFormat: draft.timeFormat, currencyDisplay: draft.currencyDisplay || "" });
       showFeedback({ kind: "success", title: "Preferences saved", description: "Your journal preferences have been updated." });

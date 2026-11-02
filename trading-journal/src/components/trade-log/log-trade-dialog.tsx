@@ -111,7 +111,7 @@ export function LogTradeDialog({
   onOpenChange,
   onTradeLogged,
 }: LogTradeDialogProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const { accounts, activeAccount } = useActiveAccount();
 
   const [accountId, setAccountId] = useState(activeAccount?.id || accounts[0]?.id || "");
@@ -284,6 +284,7 @@ export function LogTradeDialog({
     }
 
     setLoading(true);
+    showProcessing("Adding trade…");
 
     try {
       const chosenStrategy =

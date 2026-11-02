@@ -30,7 +30,7 @@ function Detail({ label, value, icon: Icon }: { label: string; value: string; ic
 
 export function ProfilePage({ name: initialName, email }: ProfilePageProps) {
   const router = useRouter();
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const { preferences, updatePreferences } = useUserPreferences();
   const avatarInput = useRef<HTMLInputElement>(null);
   const phoneInput = useRef<HTMLInputElement>(null);
@@ -77,6 +77,7 @@ export function ProfilePage({ name: initialName, email }: ProfilePageProps) {
     const nextName = editName.trim();
     if (!nextName || nextName.length > 100) { showFeedback({ kind: "failure", title: "Name is required", description: "Enter a name up to 100 characters." }); return; }
     setSaving(true);
+    showProcessing("Saving profile…");
     try {
       const { error: authError } = await authClient.updateUser({ name: nextName });
       if (authError) throw new Error(authError.message || "Couldn’t update your name.");
@@ -89,6 +90,7 @@ export function ProfilePage({ name: initialName, email }: ProfilePageProps) {
 
   const savePreferences = async () => {
     setSaving(true);
+    showProcessing("Saving preferences…");
     try { await saveSettings({ timezone: draft.timezone, timeFormat: draft.timeFormat, currencyDisplay: draft.currencyDisplay || "" }); showFeedback({ kind: "success", title: "Preferences saved", description: "Your journal preferences have been updated." }); }
     catch (cause) { showFeedback({ kind: "failure", title: "Preferences weren’t saved", description: cause instanceof Error ? cause.message : "Please try again." }); }
     finally { setSaving(false); }
@@ -108,7 +110,7 @@ export function ProfilePage({ name: initialName, email }: ProfilePageProps) {
     if (file.size > 300_000) { showFeedback({ kind: "failure", title: "Image is too large", description: "Choose an image smaller than 300 KB." }); return; }
     const reader = new FileReader();
     reader.onload = async () => {
-      try { await saveSettings({ avatarData: String(reader.result) }); showFeedback({ kind: "success", title: "Profile photo updated", description: "Your new photo is saved." }); }
+      try { showProcessing("Saving profile photo…"); await saveSettings({ avatarData: String(reader.result) }); showFeedback({ kind: "success", title: "Profile photo updated", description: "Your new photo is saved." }); }
       catch (cause) { showFeedback({ kind: "failure", title: "Profile photo wasn’t saved", description: cause instanceof Error ? cause.message : "Please try again." }); }
     };
     reader.onerror = () => showFeedback({ kind: "failure", title: "Image couldn’t be read", description: "Choose another image and try again." });

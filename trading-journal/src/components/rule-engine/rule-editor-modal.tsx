@@ -167,7 +167,7 @@ export function RuleEditorModal({
   initialRule,
   onSaveSuccess,
 }: RuleEditorModalProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const [category, setCategory] = useState<RuleCategory>(
     initialRule?.ruleCategory || "Risk",
   );
@@ -371,6 +371,7 @@ export function RuleEditorModal({
     }
 
     setIsSubmitting(true);
+    showProcessing(initialRule ? "Saving rule changes…" : "Creating rule…");
 
     const thresholdVal =
       currentMetric.unit === "list"

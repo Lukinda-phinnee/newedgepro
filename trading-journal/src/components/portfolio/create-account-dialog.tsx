@@ -46,7 +46,7 @@ export function CreateAccountDialog({
   onOpenChange,
   onAccountCreated,
 }: CreateAccountDialogProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const [accountType, setAccountType] = useState<"demo" | "live">("demo");
   const [name, setName] = useState("");
   const [brokerName, setBrokerName] = useState("EdgePro Simulated");
@@ -131,6 +131,7 @@ export function CreateAccountDialog({
     }
 
     setLoading(true);
+    showProcessing("Creating account…");
 
     try {
       const chosenBroker =

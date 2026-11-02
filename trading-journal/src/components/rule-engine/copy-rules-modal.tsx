@@ -29,7 +29,7 @@ export function CopyRulesModal({
   accounts,
   onCopySuccess,
 }: CopyRulesModalProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const [selectedAccountId, setSelectedAccountId] = useState<string>(
     accounts[0]?.id || "",
   );
@@ -46,6 +46,7 @@ export function CopyRulesModal({
     }
 
     setIsSubmitting(true);
+    showProcessing("Copying rules…");
 
     try {
       const res = await fetch("/api/rules/copy-to-account", {

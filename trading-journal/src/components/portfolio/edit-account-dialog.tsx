@@ -34,7 +34,7 @@ export function EditAccountDialog({
   onOpenChange,
   onAccountUpdated,
 }: EditAccountDialogProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const [name, setName] = useState("");
   const [brokerName, setBrokerName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -81,6 +81,7 @@ export function EditAccountDialog({
     }
 
     setLoading(true);
+    showProcessing("Saving account changes…");
 
     try {
       const response = await fetch(`/api/accounts/${account.id}`, {

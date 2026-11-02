@@ -26,8 +26,7 @@ export default async function DashboardPage() {
     getComplianceStats(session.user.id, accountId),
     accountId ? getUserTradingAccounts(session.user.id) : Promise.resolve(accounts),
   ]);
-  // Loading trades may persist demo fixtures and update the account balance.
-  // Account metrics are fetched afterward so this first render reflects those rows.
+  // Refresh account metrics alongside dashboard data so the first render uses current values.
   const refreshedActiveAccount = refreshedAccounts.find((a) => a.id === accountId) || activeAccount;
 
   return (

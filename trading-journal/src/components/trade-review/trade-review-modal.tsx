@@ -196,7 +196,7 @@ export function TradeReviewModal({
   currentIndex,
   totalInQueue,
 }: TradeReviewModalProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   // Form State
   const [followedRules, setFollowedRules] = useState<FollowedRules>("yes");
   const [executionGrade, setExecutionGrade] = useState<ExecutionGrade>("A");
@@ -496,6 +496,7 @@ export function TradeReviewModal({
   const handleSave = async (markAsReviewed: boolean = true) => {
     setError(null);
     setSaving(true);
+    showProcessing("Saving review…");
     try {
       const updatedStatus: ReviewStatus = isFlagged
         ? "flagged"
@@ -546,6 +547,7 @@ export function TradeReviewModal({
   const handleMarkUnreviewed = async () => {
     setError(null);
     setSaving(true);
+    showProcessing("Updating trade…");
     try {
       const revertedTrade: Trade = {
         ...trade,

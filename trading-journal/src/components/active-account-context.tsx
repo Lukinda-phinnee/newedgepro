@@ -40,7 +40,7 @@ export function ActiveAccountProvider({
   const [accounts, setAccounts] = useState<TradingAccount[]>(initialAccounts);
   const [isSwitching, startTransition] = useTransition();
   const router = useRouter();
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
 
   useEffect(() => setAccounts(initialAccounts), [initialAccounts]);
 
@@ -51,6 +51,7 @@ export function ActiveAccountProvider({
 
   const setActiveAccount = useCallback(
     (accountId: string) => {
+      showProcessing("Switching account…");
       // Optimistic: mark new default immediately
       setAccounts((prev) =>
         prev.map((a) => ({ ...a, isDefault: a.id === accountId })),
@@ -81,7 +82,7 @@ export function ActiveAccountProvider({
         }
       });
     },
-    [activeAccount?.id, router, showFeedback],
+    [activeAccount?.id, router, showFeedback, showProcessing],
   );
 
   const refreshAccounts = useCallback((updated: TradingAccount[]) => {

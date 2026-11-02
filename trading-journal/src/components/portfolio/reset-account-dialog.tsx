@@ -27,7 +27,7 @@ export function ResetAccountDialog({
   onOpenChange,
   onAccountReset,
 }: ResetAccountDialogProps) {
-  const { showFeedback } = useOperationFeedback();
+  const { showFeedback, showProcessing } = useOperationFeedback();
   const [resetToStarting, setResetToStarting] = useState(true);
   const [customBalance, setCustomBalance] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,6 +49,7 @@ export function ResetAccountDialog({
     }
 
     setLoading(true);
+    showProcessing("Resetting account balance…");
 
     try {
       const response = await fetch(`/api/accounts/${account.id}/reset`, {
