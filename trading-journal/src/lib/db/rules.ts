@@ -941,12 +941,6 @@ export async function getRuleEngineStatus(
           AND created_at >= NOW() - INTERVAL '7 days'
       `;
   const recentViolationCount = Number(violationCountRows[0]?.count) || 0;
-  // Calculate discipline score: 100 minus penalties
-  const disciplineScore = Math.max(
-    30,
-    Math.min(100, Math.round(98 - recentViolationCount * 3.5)),
-  );
-
   let escalationLevel: RuleEngineStatus["escalationLevel"] = "Normal";
   if (isLocked) escalationLevel = "Locked";
   else if (isCooldown) escalationLevel = "Elevated";
@@ -958,7 +952,6 @@ export async function getRuleEngineStatus(
     isGlobal: !accountId,
     activeRuleSet: ruleSet,
     totalActiveRules: activeRules.length,
-    disciplineScore,
     escalationLevel,
     isLocked,
     isCooldown,
@@ -988,6 +981,8 @@ export async function getComplianceStats(
                 AND created_at >= NOW() - INTERVAL '7 days') AS violations_this_week,
             (SELECT COUNT(*)::int FROM rule_simulations
               WHERE user_id = ${userId} AND (account_id = ${accountId} OR account_id IS NULL)) AS total_simulations,
+            (SELECT COUNT(*)::int FROM trades
+              WHERE user_id = ${userId} AND account_id = ${accountId}) AS total_trades,
             (SELECT COUNT(*)::int FROM rule_simulations
               WHERE user_id = ${userId} AND (account_id = ${accountId} OR account_id IS NULL)
                 AND verdict = 'ACCEPT') AS passed_simulations,
@@ -1003,6 +998,7 @@ export async function getComplianceStats(
             (SELECT COUNT(*)::int FROM rule_violations
               WHERE user_id = ${userId} AND created_at >= NOW() - INTERVAL '7 days') AS violations_this_week,
             (SELECT COUNT(*)::int FROM rule_simulations WHERE user_id = ${userId}) AS total_simulations,
+            (SELECT COUNT(*)::int FROM trades WHERE user_id = ${userId}) AS total_trades,
             (SELECT COUNT(*)::int FROM rule_simulations
               WHERE user_id = ${userId} AND verdict = 'ACCEPT') AS passed_simulations,
             ((SELECT COUNT(*)::int FROM rule_violations WHERE user_id = ${userId})
@@ -1015,18 +1011,19 @@ export async function getComplianceStats(
   const violationsThisWeek = Number(stats.violations_this_week) || 0;
   const totalViolations = Number(stats.total_violations) || 0;
   const totalSimulations = Number(stats.total_simulations) || 0;
+  const totalTrades = Number(stats.total_trades) || 0;
   const passRate = totalSimulations > 0
     ? Number(((Number(stats.passed_simulations || 0) / totalSimulations) * 100).toFixed(1))
-    : 0;
+    : null;
 
-  const disciplineScore = Math.max(
-    35,
-    Math.min(100, Math.round(100 - violationsThisWeek * 4)),
-  );
+  const disciplineScore = totalTrades > 0 || totalSimulations > 0 || totalViolations > 0
+    ? Math.max(35, Math.min(100, Math.round(100 - violationsThisWeek * 4)))
+    : null;
 
   return {
     accountId: accountId || null,
     totalSimulations,
+    totalTrades,
     totalViolations,
     violationsToday,
     violationsThisWeek,

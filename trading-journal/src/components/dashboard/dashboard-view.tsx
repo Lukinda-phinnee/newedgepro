@@ -568,8 +568,8 @@ export function DashboardView({
 
   // ─── Compute Discipline Score ───
   const disciplineMetrics = useMemo(() => {
-    const score = ruleStatus?.disciplineScore ?? ruleCompliance?.disciplineScore ?? 0;
-    const passRate = ruleCompliance?.passRate ?? 100;
+    const score = ruleCompliance?.disciplineScore ?? null;
+    const passRate = ruleCompliance?.passRate ?? null;
     const violationsToday = ruleCompliance?.violationsToday ?? 0;
     const violationsThisWeek = ruleCompliance?.violationsThisWeek ?? 0;
 
@@ -582,10 +582,11 @@ export function DashboardView({
     const adherenceRate =
       tradesWithRules.length > 0
         ? ((followedYes + followedPartial * 0.5) / tradesWithRules.length) * 100
-        : 100;
+        : null;
 
     let grade: { letter: string; label: string; color: string };
-    if (score >= 95) grade = { letter: "A+", label: "Elite Discipline", color: "text-emerald-400" };
+    if (score === null) grade = { letter: "—", label: "No activity yet", color: "text-muted-foreground" };
+    else if (score >= 95) grade = { letter: "A+", label: "Elite Discipline", color: "text-emerald-400" };
     else if (score >= 88) grade = { letter: "A", label: "Strong Adherence", color: "text-emerald-300" };
     else if (score >= 78) grade = { letter: "B", label: "Acceptable", color: "text-amber-300" };
     else if (score >= 68) grade = { letter: "C", label: "Needs Work", color: "text-orange-400" };
@@ -676,10 +677,10 @@ export function DashboardView({
     const violations = closed.filter((trade) => trade.ruleVerdict === "WARN" || trade.ruleVerdict === "BLOCK").length;
     const withTiming = closed.filter((trade) => Boolean(trade.marketSession)).length;
     const radar = [
-      { label: "Adherence", value: Math.round(disciplineMetrics.adherenceRate) },
-      { label: "Risk control", value: closed.length ? Math.round((1 - violations / closed.length) * 100) : 100 },
+      { label: "Adherence", value: Math.round(disciplineMetrics.adherenceRate ?? 0) },
+      { label: "Risk control", value: closed.length ? Math.round((1 - violations / closed.length) * 100) : 0 },
       { label: "Outcome", value: closed.length ? Math.round((wins / closed.length) * 100) : 0 },
-      { label: "Discipline", value: Math.round(disciplineMetrics.score) },
+      { label: "Discipline", value: Math.round(disciplineMetrics.score ?? 0) },
       { label: "Timing", value: closed.length ? Math.round((withTiming / closed.length) * 100) : 0 },
     ];
     const assets = new Map<string, { pnl: number; count: number; wins: number }>();
@@ -968,21 +969,21 @@ export function DashboardView({
               <div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-[26px] font-semibold tracking-tight text-foreground leading-none">
-                    {disciplineMetrics.score}
+                    {disciplineMetrics.score ?? "—"}
                   </span>
                   <span className="text-[13px] text-muted-foreground/60 font-medium">/ 100</span>
                 </div>
                 <div className="mt-1 text-[11px] text-muted-foreground/80">
                   Pass rate{" "}
                   <span className="font-medium text-foreground/80">
-                    {disciplineMetrics.passRate.toFixed(1)}%
+                    {disciplineMetrics.passRate === null ? "—" : `${disciplineMetrics.passRate.toFixed(1)}%`}
                   </span>
                 </div>
               </div>
 
               {/* Doughnut Chart (Size: 68px) */}
               <DisciplineDoughnutChart
-                score={disciplineMetrics.score}
+                score={disciplineMetrics.score ?? 0}
                 gradeLetter={disciplineMetrics.grade.letter}
                 gradeColor={disciplineMetrics.grade.color}
                 size={68}

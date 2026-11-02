@@ -62,14 +62,15 @@ export function OverviewTab({
   onSelectCategory,
   onOpenSimulator,
 }: OverviewTabProps) {
-  const disciplineScore = status?.disciplineScore ?? 95;
-  const passRate = compliance?.passRate ?? 96.4;
+  const disciplineScore = compliance?.disciplineScore ?? null;
+  const passRate = compliance?.passRate ?? null;
   const violationsToday = compliance?.violationsToday ?? 0;
-  const violationsThisWeek = compliance?.violationsThisWeek ?? 1;
-  const totalActiveRules = status?.totalActiveRules ?? (activeRuleSet?.rules?.length || 7);
+  const violationsThisWeek = compliance?.violationsThisWeek ?? 0;
+  const totalActiveRules = status?.totalActiveRules ?? activeRuleSet?.rules?.filter((rule) => rule.isActive).length ?? 0;
 
   // Grade badge derived from score
   const grade = useMemo(() => {
+    if (disciplineScore === null) return { letter: "—", label: "No activity yet", color: "text-muted-foreground" };
     if (disciplineScore >= 95) return { letter: "A+", label: "Elite Discipline", color: "text-emerald-400" };
     if (disciplineScore >= 88) return { letter: "A", label: "Strong Adherence", color: "text-emerald-300" };
     if (disciplineScore >= 78) return { letter: "B", label: "Acceptable", color: "text-amber-300" };
@@ -102,7 +103,7 @@ export function OverviewTab({
           </div>
           <div className="mt-4 flex items-baseline gap-3">
             <span className="text-4xl font-extrabold tracking-tight text-foreground">
-              {disciplineScore}
+              {disciplineScore ?? "—"}
             </span>
             <span className="text-sm font-semibold text-muted-foreground">/ 100</span>
           </div>
@@ -112,14 +113,14 @@ export function OverviewTab({
               {/* Apple §4: Spring-animated progress indicator */}
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${disciplineScore}%` }}
+                animate={{ width: `${disciplineScore ?? 0}%` }}
                 transition={{ type: "spring", damping: 24, stiffness: 120 }}
                 className="h-full rounded-full bg-gradient-to-r from-violet-500 to-emerald-400"
               />
             </div>
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>Execution consistency</span>
-              <span className="font-mono">{passRate}% rule pass rate</span>
+              <span>{disciplineScore === null ? "Trade activity will appear here" : "Execution consistency"}</span>
+              <span className="font-mono">{passRate === null ? "—" : `${passRate}%`} rule pass rate</span>
             </div>
           </div>
         </div>

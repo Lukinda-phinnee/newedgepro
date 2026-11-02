@@ -163,7 +163,6 @@ export interface RuleEngineStatus {
   isGlobal: boolean;
   activeRuleSet: RuleSet | null;
   totalActiveRules: number;
-  disciplineScore: number; // 0 - 100
   escalationLevel: "Normal" | "Elevated" | "Severe" | "Locked";
   isLocked: boolean;
   isCooldown: boolean;
@@ -175,11 +174,12 @@ export interface RuleEngineStatus {
 export interface RuleEngineCompliance {
   accountId: string | null;
   totalSimulations: number;
+  totalTrades: number;
   totalViolations: number;
   violationsToday: number;
   violationsThisWeek: number;
-  passRate: number; // percentage e.g. 94.2
-  disciplineScore: number;
+  passRate: number | null; // null until there is a simulation to score
+  disciplineScore: number | null; // null until there is trade or simulation activity
   recentViolations: RuleViolation[];
 }
 
