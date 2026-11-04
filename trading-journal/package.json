@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:migrate": "node --env-file=.env.local src/lib/db/migrate.mjs",
     "db:migrate:dashboard": "node --env-file=.env.local src/lib/db/migrate-dashboard.mjs",
+    "db:migrate:propfirms": "node --env-file=.env.local src/lib/db/migrate-propfirms.mjs",
     "db:migrate:notes": "node --env-file=.env.local src/lib/db/migrate-notes.mjs",
     "postinstall": "node scripts/patch-next-themes.mjs"
   },

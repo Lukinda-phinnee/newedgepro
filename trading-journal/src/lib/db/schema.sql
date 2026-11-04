@@ -139,6 +139,20 @@ ALTER TABLE trading_accounts ALTER COLUMN profit_target DROP NOT NULL;
 CREATE INDEX IF NOT EXISTS trading_accounts_user_id_created_at_idx
   ON trading_accounts (user_id, created_at DESC);
 
+-- Prop firm tracker: each firm owns an ordered set of phase-specific rules.
+CREATE TABLE IF NOT EXISTS propfirms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  evaluation_type VARCHAR(24) NOT NULL CHECK (evaluation_type IN ('1-phase', '2-phase', '3-phase', 'Instant funding', 'Custom')),
+  phases JSONB NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(phases) = 'array'),
+  logo_data TEXT,
+  tracker_data JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(tracker_data) = 'object'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS propfirms_user_created_idx ON propfirms (user_id, created_at DESC);
+
 -- Trades table
 CREATE TABLE IF NOT EXISTS trades (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity, ArrowDownLeft, BookOpen, BriefcaseBusiness,
   LayoutDashboard, Menu, NotebookPen, PanelLeftClose,
-  PanelLeftOpen, Plus, ShieldCheck, Target, X,
+  PanelLeftOpen, Plus, ShieldCheck, Target, X, ChartNoAxesCombined,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -30,6 +30,7 @@ const navigationGroups = [
     { label: "Edge", href: "/edge", icon: Activity },
     { label: "Rule engine", href: "/rule-engine", icon: ShieldCheck },
     { label: "Trader notes", href: "/trader-notes", icon: NotebookPen },
+    { label: "Propfirm tracker", href: "/propfirm-tracker", icon: ChartNoAxesCombined },
   ] },
 ];
 
@@ -273,7 +274,7 @@ export function DashboardShell({
               ? "p-0 overflow-hidden"
               : pathname === "/profile" || pathname === "/settings"
               ? "p-0 overflow-y-auto"
-              : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine"
+              : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine" || pathname === "/propfirm-tracker"
               ? "p-4 overflow-y-auto"
               : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9 overflow-y-auto",
           )}
