@@ -93,17 +93,21 @@ export default function PropfirmTrackerPage() {
     } finally { setDeletingId(null); }
   };
 
+  const selectedFirm = selectedFirmId ? firms.find((firm) => firm.id === selectedFirmId) : null;
+
   return (
     <main className="w-full space-y-7 [&_*]:!font-normal" aria-label="Propfirm tracker">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-normal tracking-tight text-foreground sm:text-3xl">Propfirm tracker</h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Building2 size={15} className="text-violet-300" />{firms.length} {firms.length === 1 ? "firm" : "firms"} tracked</div>
-          <Button type="button" onClick={() => setAddDialogOpen(true)} className="h-9 gap-1.5 bg-violet-600 px-4 text-xs font-normal text-white shadow-sm hover:bg-violet-500"><Plus size={15} />Add prop firm</Button>
-        </div>
-      </header>
+      {!selectedFirm && (
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-normal tracking-tight text-foreground sm:text-3xl">Propfirm tracker</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground"><Building2 size={15} className="text-violet-400" />{firms.length} {firms.length === 1 ? "firm" : "firms"} tracked</div>
+            <Button type="button" onClick={() => setAddDialogOpen(true)} className="h-9 gap-1.5 bg-violet-600 px-4 text-xs font-normal text-white shadow-sm hover:bg-violet-500"><Plus size={15} />Add prop firm</Button>
+          </div>
+        </header>
+      )}
 
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto p-0 [&_*]:!font-normal">
