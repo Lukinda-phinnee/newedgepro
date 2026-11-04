@@ -1,4 +1,4 @@
-import { sql } from "@/lib/db";
+﻿import { sql } from "@/lib/db";
 import { getEffectiveRuleSet, recordViolation } from "@/lib/db/rules";
 import type {
   ComparisonOperator,
@@ -337,6 +337,11 @@ export class RuleService {
           actualValue = todayTradesCount; // Approximation
           break;
 
+        // Recovery — consecutive loss account trigger (account-wide streak, not daily-reset)
+        case "consecutive_loss_trigger":
+          actualValue = consecutiveLosses;
+          break;
+
         // Eligibility
         case "instrument":
         case "symbol":
@@ -409,6 +414,37 @@ export class RuleService {
         });
 
         messages.push(msg);
+
+        // If this is a consecutive loss recovery trigger with REDUCE_RISK,
+        // additionally enforce the reduced risk % against the current trade intent.
+        if (
+          metric === "consecutive_loss_trigger" &&
+          rule.consequence === "REDUCE_RISK"
+        ) {
+          const reducedRiskPercent =
+            typeof rule.consequenceParams?.reducedRiskPercent === "number"
+              ? (rule.consequenceParams.reducedRiskPercent as number)
+              : 1.0;
+          if (riskPercent > reducedRiskPercent) {
+            const riskMsg = `Recovery mode active: Trade risk ${riskPercent.toFixed(2)}% exceeds your reduced limit of ${reducedRiskPercent}% while on a loss streak. Reduce your position size to continue.`;
+            triggeredRules.push({
+              ruleId: `${rule.id}-risk-enforcement`,
+              ruleName: `${rule.ruleName} — Risk Limit Enforcement`,
+              ruleCategory: rule.ruleCategory,
+              metric: "risk_per_trade",
+              operator: ">",
+              threshold: reducedRiskPercent,
+              actualValue: riskPercent,
+              severity: "HIGH",
+              consequence: "BLOCK_TRADE",
+              message: riskMsg,
+            });
+            messages.push(riskMsg);
+          } else {
+            const okMsg = `Recovery mode active (${consecutiveLosses} consecutive losses). Trade risk ${riskPercent.toFixed(2)}% is within your reduced limit of ${reducedRiskPercent}%. Proceed with caution.`;
+            messages.push(okMsg);
+          }
+        }
       } else {
         passedRules.push({
           ruleId: rule.id,

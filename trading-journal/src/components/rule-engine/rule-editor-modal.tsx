@@ -200,6 +200,10 @@ export function RuleEditorModal({
   const [durationMinutes, setDurationMinutes] = useState<number>(
     initialRule?.consequenceDuration || 60,
   );
+  const [reducedRiskPercent, setReducedRiskPercent] = useState<number>(() => {
+    const p = initialRule?.consequenceParams?.reducedRiskPercent;
+    return typeof p === "number" ? p : 1.0;
+  });
   const [isActive, setIsActive] = useState(
     initialRule ? initialRule.isActive : true,
   );
@@ -285,6 +289,8 @@ export function RuleEditorModal({
       setConsequence(initialRule.consequence);
       setUserMessage(initialRule.userMessage || "");
       setDurationMinutes(initialRule.consequenceDuration || 60);
+      const rp = initialRule.consequenceParams?.reducedRiskPercent;
+      setReducedRiskPercent(typeof rp === "number" ? rp : 1.0);
       setIsActive(initialRule.isActive);
 
       if (typeof initialRule.thresholdValue === "number") {
@@ -307,6 +313,7 @@ export function RuleEditorModal({
       } else if (Array.isArray(metric.defaultThreshold)) {
         setListThreshold(metric.defaultThreshold);
       }
+      setReducedRiskPercent(1.0);
     }
   }, [initialRule, open]);
 
@@ -327,6 +334,7 @@ export function RuleEditorModal({
     } else if (Array.isArray(metric.defaultThreshold)) {
       setListThreshold(metric.defaultThreshold);
     }
+    setReducedRiskPercent(1.0);
     setIsInstrumentDropdownOpen(false);
   };
 
@@ -346,6 +354,7 @@ export function RuleEditorModal({
     } else if (Array.isArray(metric.defaultThreshold)) {
       setListThreshold(metric.defaultThreshold);
     }
+    setReducedRiskPercent(1.0);
     setIsInstrumentDropdownOpen(false);
   };
 
@@ -398,6 +407,10 @@ export function RuleEditorModal({
           : null,
       userMessage: userMessage.trim() || null,
       isActive,
+      consequenceParams:
+        selectedMetricId === "consecutive_loss_trigger" && consequence === "REDUCE_RISK"
+          ? { reducedRiskPercent: Number(reducedRiskPercent) }
+          : {},
     };
 
     try {
@@ -898,6 +911,37 @@ export function RuleEditorModal({
                 <p className="text-[11px] text-muted-foreground pt-5">
                   Trading remains halted until the cooldown timer expires.
                 </p>
+              </div>
+            )}
+
+            {/* Reduced Risk input — only for consecutive_loss_trigger + REDUCE_RISK */}
+            {selectedMetricId === "consecutive_loss_trigger" && consequence === "REDUCE_RISK" && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-36">
+                    <Label className="text-xs text-muted-foreground block mb-1">
+                      Reduced Risk Per Trade (%)
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0.1"
+                      max="100"
+                      step="0.1"
+                      value={reducedRiskPercent}
+                      onChange={(e) => setReducedRiskPercent(Number(e.target.value))}
+                      className="h-9 text-xs bg-background/50 border-border/70 font-mono"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pt-5">
+                    Max risk allowed per trade while the loss streak is active.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                  <Clock size={13} className="text-amber-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                    <span className="font-semibold">Exit condition:</span> This reduced risk limit stays enforced on every subsequent trade until the loss streak is broken by a winning trade.
+                  </p>
+                </div>
               </div>
             )}
 
