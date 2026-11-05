@@ -34,6 +34,7 @@ interface StrategyListPanelProps {
   onSelectStrategy: (id: string) => void;
   onOpenAddModal: () => void;
   onOpenEditModal: (strategy: Strategy) => void;
+  onOpenPlaybook?: (strategy: Strategy) => void;
   onDuplicateStrategy: (strategy: Strategy) => void;
   onStatusChange: (id: string, status: StrategyStatus) => void;
   onDeleteStrategy: (id: string) => void;
@@ -60,6 +61,7 @@ export function StrategyListPanel({
   onSelectStrategy,
   onOpenAddModal,
   onOpenEditModal,
+  onOpenPlaybook,
   onDuplicateStrategy,
   onStatusChange,
   onDeleteStrategy,
@@ -394,6 +396,21 @@ export function StrategyListPanel({
               <Edit3 size={13} className="text-violet-400" />
               <span>Edit Strategy</span>
             </button>
+
+            {/* Open Word Playbook Doc */}
+            {onOpenPlaybook && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveMenu(null);
+                  onOpenPlaybook(activeMenuStrategy);
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-foreground hover:bg-violet-600/15 hover:text-violet-300 transition-colors cursor-pointer"
+              >
+                <FileText size={13} className="text-violet-400" />
+                <span>Word Playbook Doc</span>
+              </button>
+            )}
 
             {/* Duplicate Strategy */}
             <button

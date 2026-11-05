@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Activity, AlignJustify, ArrowLeft, Check, Clock, Edit3, Files, FileText, ListChecks, ShieldAlert } from "lucide-react";
-import { PlaybookBlockEditor } from "@/components/edge/playbook-block-editor";
+import { PlaybookWordEditor, defaultPlaybookTemplate } from "@/components/edge/playbook-word-editor";
 import { StrategyListPanel } from "@/components/edge/strategy-list-panel";
 import { StrategyDetail } from "@/components/edge/strategy-detail";
 import { StrategyRightPanel } from "@/components/edge/strategy-right-panel";
@@ -96,6 +96,63 @@ function formatPlaybookMarkdown(s: Strategy): string {
   }
 
   return lines.join("\n");
+}
+
+function formatPlaybookHtml(s: Strategy): string {
+  let html = `<h1>${s.name} (${s.version || "v1.0"})</h1>`;
+  html += `<p><strong>Category:</strong> ${s.category} | <strong>Status:</strong> ${s.status} | <strong>Regime:</strong> ${s.marketRegime || "General"}</p>`;
+  html += `<p><strong>Targets:</strong> Win Rate: ${s.winRateTarget}% | Expectancy: +${s.expectancyR}R | Min R:R: 1:${s.minRrRatio} | Max Risk: ${s.maxRiskPercent}%</p>`;
+  html += `<p><strong>Execution Window:</strong> Sessions: ${(s.tradingSessions || []).join(", ") || "N/A"} (${s.killZoneStart || "09:30"} - ${s.killZoneEnd || "11:30"} ${s.timeZone || "EST"}) | Days: ${(s.daysOfWeek || []).join(", ") || "All"}</p>`;
+  html += `<hr class="playbook-block-separator" />`;
+
+  if (s.thesis) {
+    html += `<h2>1. Thesis &amp; Core Idea</h2><p>${s.thesis}</p>`;
+  }
+
+  if (s.entryChecklist && s.entryChecklist.length > 0) {
+    html += `<h2>2. Entry Checklist</h2><ul data-type="taskList" style="list-style: none; padding-left: 0; margin: 8px 0;">`;
+    for (const item of s.entryChecklist) {
+      html += `<li style="margin: 6px 0; display: flex; align-items: center; gap: 8px;"><input type="checkbox" checked /> <span><strong>[${item.phase}]</strong> ${item.label}${item.notes ? ` <em>(${item.notes})</em>` : ""}</span></li>`;
+    }
+    html += `</ul>`;
+  }
+
+  if (s.disqualifiers && s.disqualifiers.length > 0) {
+    html += `<h2>3. Disqualifiers &amp; Hard Invalidation</h2><ul>`;
+    for (const item of s.disqualifiers) {
+      html += `<li>⚠️ <strong>[${item.severity}]</strong> ${item.condition}${item.explanation ? ` &mdash; ${item.explanation}` : ""}</li>`;
+    }
+    html += `</ul>`;
+  }
+
+  if (s.exitStrategy) {
+    html += `<h2>4. Exit Strategy Matrix</h2>`;
+    html += `<table style="width: 100%; border-collapse: collapse; margin: 12px 0;"><thead><tr style="background-color: rgba(255, 255, 255, 0.05);"><th style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px; text-align: left;">Rule</th><th style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px; text-align: left;">Parameter</th></tr></thead><tbody>`;
+    if (s.exitStrategy.tp1Ratio) {
+      html += `<tr><td style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px;"><strong>TP1</strong></td><td style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px;">1:${s.exitStrategy.tp1Ratio}R (${s.exitStrategy.tp1Percent || 50}%)</td></tr>`;
+    }
+    if (s.exitStrategy.tp2Ratio) {
+      html += `<tr><td style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px;"><strong>TP2</strong></td><td style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px;">1:${s.exitStrategy.tp2Ratio}R (${s.exitStrategy.tp2Percent || 35}%)</td></tr>`;
+    }
+    if (s.exitStrategy.runnerRule) {
+      html += `<tr><td style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px;"><strong>Runner Rule</strong></td><td style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px;">${s.exitStrategy.runnerRule}</td></tr>`;
+    }
+    if (s.exitStrategy.breakevenRule) {
+      html += `<tr><td style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px;"><strong>Breakeven Rule</strong></td><td style="border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px;">${s.exitStrategy.breakevenRule}</td></tr>`;
+    }
+    html += `</tbody></table>`;
+  }
+
+  if (s.stopLossLogic || s.invalidationRule || s.killSwitchRule) {
+    html += `<h2>5. Risk Directives</h2><ul>`;
+    if (s.invalidationRule) html += `<li><strong>Invalidation Rule:</strong> ${s.invalidationRule}</li>`;
+    if (s.stopLossLogic) html += `<li><strong>Stop Loss Logic:</strong> ${s.stopLossLogic}</li>`;
+    if (s.killSwitchRule) html += `<li><strong>Kill Switch Rule:</strong> ${s.killSwitchRule}</li>`;
+    html += `</ul>`;
+  }
+
+  html += `<p><br/></p>`;
+  return html;
 }
 
 function StrategyDetailSkeleton() {
@@ -348,7 +405,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
     setPlaybookTitle("Untitled playbook");
     setPlaybookIsActive(false);
     setContinuousPlaybook(false);
-    setPlaybookContent("<p><br></p>");
+    setPlaybookContent(defaultPlaybookTemplate);
     setPlaybookReviewed(false);
     setPlaybookReviewedAt(null);
     setPlaybookSaveState("saving");
@@ -358,7 +415,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
     void fetch("/api/strategies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Untitled playbook", status: "CALIBRATING", playbookContent: "<p><br></p>" }),
+      body: JSON.stringify({ name: "Untitled playbook", status: "CALIBRATING", playbookContent: defaultPlaybookTemplate }),
     }).then(async (response) => {
       if (!response.ok) throw new Error("Could not create empty playbook");
       const result = await response.json();
@@ -373,6 +430,49 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
       setPlaybookSaveState("failed");
       showFeedback({ kind: "failure", title: "Playbook wasn’t created", description: error instanceof Error ? error.message : "Please try again." });
     });
+  };
+
+  const handleOpenPlaybook = (strategy: Strategy) => {
+    let content = strategy.playbookContent;
+    if (!content || !content.trim() || content === "<p><br></p>") {
+      content = formatPlaybookHtml(strategy);
+    }
+    setSelectedId(strategy.id);
+    setBlankPlaybookId(strategy.id);
+    setPlaybookTitle(strategy.name);
+    setPlaybookIsActive(strategy.status === "ACTIVE");
+    setPlaybookContent(content);
+    setContinuousPlaybook(strategy.playbookContinuous ?? false);
+    setPlaybookReviewed(strategy.isReviewed ?? false);
+    setPlaybookReviewedAt(strategy.reviewedAt ?? null);
+    setBlankPlaybookOpen(true);
+  };
+
+  const triggerManualSave = async () => {
+    if (!blankPlaybookId) return;
+    try {
+      setPlaybookSaveState("saving");
+      const status: StrategyStatus = playbookIsActive ? "ACTIVE" : "CALIBRATING";
+      const response = await fetch(`/api/strategies/${blankPlaybookId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: playbookTitle.trim() || "Untitled playbook",
+          status,
+          playbookContent,
+          playbookContinuous: continuousPlaybook,
+          isReviewed: playbookReviewed,
+          reviewedAt: playbookReviewedAt,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to save playbook");
+      setPlaybookSaveState("saved");
+      showToast("Playbook saved to database");
+    } catch (error) {
+      console.error("Failed to save playbook:", error);
+      setPlaybookSaveState("failed");
+      showFeedback({ kind: "failure", title: "Playbook wasn’t saved", description: error instanceof Error ? error.message : "Please try again." });
+    }
   };
 
   const handleOpenEditModal = (strategy: Strategy) => {
@@ -539,6 +639,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
             onSelectStrategy={handleSelectStrategy}
             onOpenAddModal={handleOpenAddModal}
             onOpenEditModal={handleOpenEditModal}
+            onOpenPlaybook={handleOpenPlaybook}
             onDuplicateStrategy={handleDuplicateStrategy}
             onStatusChange={handleStatusChange}
             onDeleteStrategy={handleDeleteStrategy}
@@ -597,38 +698,21 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
                   </div>
                 </div>
               </div>
-              <div className="flex-1 overflow-auto bg-muted/30 px-4 py-8 sm:px-8">
-                <article
-                  className={`playbook-document-editor mx-auto min-h-[1123px] w-full max-w-[794px] border border-border/60 shadow-sm ${continuousPlaybook ? "bg-card" : "bg-transparent border-0 shadow-none"}`}
-                  style={continuousPlaybook ? undefined : {
-                    backgroundColor: "transparent",
-                    backgroundImage: "linear-gradient(to bottom, var(--card) 0, var(--card) 1123px, transparent 1123px, transparent 1147px)",
-                    backgroundSize: "100% 1147px",
-                  }}
-                >
-                  <PlaybookBlockEditor key={blankPlaybookId ?? "new-playbook"} initialContent={playbookContent} onChange={setPlaybookContent} />
-                </article>
-              </div>
-              <div className="flex shrink-0 items-center gap-3 border-t border-border/60 bg-card/40 px-6 py-3 backdrop-blur-md lg:px-8">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => {
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <PlaybookWordEditor
+                  key={blankPlaybookId ?? "new-playbook"}
+                  initialContent={playbookContent}
+                  onChange={setPlaybookContent}
+                  onManualSave={triggerManualSave}
+                  isContinuous={continuousPlaybook}
+                  saveStatus={playbookSaveState}
+                  reviewed={playbookReviewed}
+                  reviewedAt={playbookReviewedAt}
+                  onToggleReviewed={() => {
                     setPlaybookReviewed(true);
                     setPlaybookReviewedAt(new Date().toISOString());
                   }}
-                  disabled={playbookReviewed}
-                  className={`h-9 cursor-pointer px-5 text-xs font-semibold ${playbookReviewed ? "bg-emerald-600 text-white hover:bg-emerald-600" : "bg-violet-600 text-white shadow-sm shadow-violet-950/30 hover:bg-violet-500"}`}
-                >
-                  <Check size={14} className="mr-1.5" />
-                  {playbookReviewed ? "Reviewed" : "Mark as reviewed"}
-                </Button>
-                <span className="text-[11px] font-medium text-foreground">
-                  Last reviewed {playbookReviewedAt ? new Date(playbookReviewedAt).toLocaleString() : "—"}
-                </span>
-                <span className={`ml-auto text-[10px] ${playbookSaveState === "failed" ? "text-rose-400" : "text-muted-foreground"}`} aria-live="polite">
-                  {playbookSaveState === "saving" ? "Saving…" : playbookSaveState === "failed" ? "Save failed" : "Saved"}
-                </span>
+                />
               </div>
             </div>
           ) : loadingId ? (
@@ -638,6 +722,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
               strategy={selectedStrategy}
               onUpdateStrategy={handleUpdateStrategy}
               onOpenEdit={handleOpenEditModal}
+              onOpenPlaybook={handleOpenPlaybook}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">

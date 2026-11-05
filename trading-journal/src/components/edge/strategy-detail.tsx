@@ -89,6 +89,7 @@ interface StrategyDetailProps {
   strategy: Strategy;
   onUpdateStrategy: (updated: Partial<Strategy>) => void;
   onOpenEdit?: (strategy: Strategy) => void;
+  onOpenPlaybook?: (strategy: Strategy) => void;
 }
 
 const TRADE_MANAGEMENT_RULE_TYPES = [
@@ -128,6 +129,7 @@ export function StrategyDetail({
   strategy,
   onUpdateStrategy,
   onOpenEdit,
+  onOpenPlaybook,
 }: StrategyDetailProps) {
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [isReviewed, setIsReviewed] = useState(false);
@@ -585,6 +587,18 @@ export function StrategyDetail({
               {statusToggle[strategy.status].label}
             </span>
           </button>
+
+          {onOpenPlaybook && (
+            <button
+              type="button"
+              onClick={() => onOpenPlaybook(strategy)}
+              className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors cursor-pointer font-medium"
+              title="Open Word Playbook Document"
+            >
+              <FileText size={13} />
+              Playbook Doc
+            </button>
+          )}
 
           <button
             type="button"
