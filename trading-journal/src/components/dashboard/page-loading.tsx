@@ -30,6 +30,21 @@ export function RuleEnginePageLoading() {
   return <div className="space-y-5"><div className="flex items-center justify-between"><Block className="h-9 w-56" /><Block className="h-9 w-36" /></div><Metrics /><div className="grid grid-cols-1 gap-4 lg:grid-cols-2"><Block className="h-[420px]" /><Block className="h-[420px]" /></div></div>;
 }
 
+export function PlanPageLoading() {
+  return (
+    <div className="w-full max-w-none flex flex-col lg:flex-row gap-6">
+      <div className="flex-1 space-y-4">
+        <Block className="h-28 w-full" />
+        <Block className="h-44 w-full" />
+        <Block className="h-64 w-full" />
+      </div>
+      <div className="w-full lg:w-80 xl:w-96 shrink-0">
+        <Block className="h-[500px] w-full" />
+      </div>
+    </div>
+  );
+}
+
 export function SectionPageLoading() {
   return <div className="mx-auto max-w-3xl space-y-5 py-8"><Block className="h-8 w-36" /><Block className="h-12 w-72" /><Block className="h-5 w-full max-w-xl" /><Block className="mt-10 h-64 w-full" /></div>;
 }
@@ -41,5 +56,6 @@ export function NavigationPageLoading({ href }: { href: string }) {
   if (href === "/portfolio-hub") return <PortfolioHubPageLoading />;
   if (href === "/edge") return <EdgePageLoading />;
   if (href === "/rule-engine") return <RuleEnginePageLoading />;
+  if (href === "/plan") return <PlanPageLoading />;
   return <SectionPageLoading />;
 }

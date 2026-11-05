@@ -5,7 +5,7 @@ import { SettingsPage } from "@/components/settings/settings-page";
 import { auth } from "@/lib/auth/server";
 
 const sections: Record<string, { title: string; description: string; eyebrow: string }> = {
-  plan: { title: "Trading plan", description: "Set your intentions, define your levels, and prepare for the sessions ahead.", eyebrow: "PREPARATION" },
+
   "trader-notes": { title: "Trader notes", description: "Keep your observations, ideas, and reflections close to your trading practice.", eyebrow: "NOTEBOOK" },
   profile: { title: "Profile", description: "Your EdgePro account profile and personal details.", eyebrow: "YOUR ACCOUNT" },
   settings: { title: "Settings", description: "Manage your account preferences and journal experience.", eyebrow: "YOUR ACCOUNT" },

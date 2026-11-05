@@ -274,7 +274,7 @@ export function DashboardShell({
               ? "p-0 overflow-hidden"
               : pathname === "/profile" || pathname === "/settings"
               ? "p-0 overflow-y-auto"
-              : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine" || pathname === "/propfirm-tracker"
+              : pathname === "/plan" ? "p-4 overflow-hidden w-full max-w-none h-full" : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine" || pathname === "/propfirm-tracker"
               ? "p-4 overflow-y-auto"
               : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9 overflow-y-auto",
           )}
