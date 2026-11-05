@@ -41,7 +41,6 @@ interface PlaybookWordEditorProps {
   initialContent?: string | null;
   onChange?: (content: string) => void;
   onManualSave?: () => void;
-  isContinuous?: boolean;
   saveStatus?: "saving" | "saved" | "failed";
   reviewed?: boolean;
   reviewedAt?: string | null;
@@ -152,7 +151,6 @@ export function PlaybookWordEditor({
   initialContent,
   onChange,
   onManualSave,
-  isContinuous = false,
   saveStatus = "saved",
   reviewed = false,
   reviewedAt = null,
@@ -680,7 +678,7 @@ export function PlaybookWordEditor({
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-background text-foreground overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-card text-foreground overflow-hidden">
       {/* Hidden file input for image uploads */}
       <input
         ref={fileInputRef}
@@ -1159,7 +1157,7 @@ export function PlaybookWordEditor({
 
       {/* ─── MICROSOFT WORD DOCUMENT CANVAS ─── */}
       <div
-        className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-8 overscroll-contain bg-muted/20 relative"
+        className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-8 overscroll-contain relative"
         onClick={handleEditorClick}
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
@@ -1171,20 +1169,9 @@ export function PlaybookWordEditor({
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          style={{
-            lineHeight: lineSpacing,
-            ...(isContinuous
-              ? undefined
-              : {
-                  backgroundImage: "linear-gradient(to bottom, var(--card) 0, var(--card) 1123px, transparent 1123px, transparent 1147px)",
-                  backgroundSize: "100% 1147px",
-                }),
-          }}
+          style={{ lineHeight: lineSpacing }}
           className={cn(
-            "playbook-document-content mx-auto w-full transition-all duration-150 focus:outline-hidden",
-            isContinuous
-              ? "max-w-[920px] min-h-[600px] bg-card border border-border/60 rounded-xl p-6 sm:p-10 shadow-xs"
-              : "max-w-[794px] min-h-[1123px] border border-border/60 shadow-sm p-8 sm:p-14 bg-card",
+            "mx-auto w-full max-w-[900px] min-h-[600px] focus:outline-hidden",
             "text-foreground font-sans text-sm",
             /* Typography styles with adjustable line-height */
             "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:text-foreground [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:leading-tight",
@@ -1262,7 +1249,7 @@ export function PlaybookWordEditor({
       {/* ─── MICROSOFT WORD STATUS STRIP (Bottom) ─── */}
       <footer className="shrink-0 border-t border-border/70 bg-card/90 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-muted-foreground select-none gap-2">
         <div className="flex items-center gap-3">
-          <span>{isContinuous ? "Continuous Scroll" : "Page 1 of 1 (A4)"}</span>
+          <span>Page 1 of 1</span>
           <span>•</span>
           <span className="font-mono">{wordCount} words</span>
           <span>•</span>

@@ -10,11 +10,9 @@
 @source "../../node_modules/novel-lightweight/dist";
 
 .playbook-document-content[contenteditable="true"] {
-  min-height: 1123px;
-  padding: 96px 11% !important;
   color: var(--foreground);
   font-size: 15px;
-  line-height: 1.75;
+  line-height: inherit;
   outline: none;
 }
 
