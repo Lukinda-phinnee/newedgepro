@@ -13,6 +13,7 @@ import {
   Clock,
   MoreVertical,
   PanelLeftClose,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ interface PlanSidebarProps {
   activePlanId: string;
   onSelectPlan: (id: string) => void;
   onCreatePlan: () => void;
+  onDuplicatePlan?: (id: string) => void;
   onDeletePlan: (id: string) => void;
   isOpen: boolean;
   onToggle: () => void;
@@ -42,6 +44,7 @@ export function PlanSidebar({
   activePlanId,
   onSelectPlan,
   onCreatePlan,
+  onDuplicatePlan,
   onDeletePlan,
   isOpen,
   onToggle,
@@ -177,21 +180,37 @@ export function PlanSidebar({
                     {plan.title || "Untitled Plan"}
                   </h4>
 
-                  {plans.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`Delete "${plan.title}"?`)) {
-                          onDeletePlan(plan.id);
-                        }
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-rose-400 transition-opacity cursor-pointer shrink-0"
-                      title="Delete plan"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    {onDuplicatePlan && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDuplicatePlan(plan.id);
+                        }}
+                        className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        title="Duplicate plan"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    )}
+
+                    {plans.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete "${plan.title}"?`)) {
+                            onDeletePlan(plan.id);
+                          }
+                        }}
+                        className="p-0.5 rounded text-muted-foreground hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Delete plan"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <p className="text-[11px] text-muted-foreground/75 line-clamp-1 leading-snug">

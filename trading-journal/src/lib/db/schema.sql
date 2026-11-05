@@ -393,3 +393,18 @@ CREATE INDEX IF NOT EXISTS note_documents_workspace_updated_idx ON note_document
 CREATE INDEX IF NOT EXISTS note_comments_document_created_idx ON note_comments (document_id, created_at ASC);
 CREATE INDEX IF NOT EXISTS note_attachments_document_idx ON note_attachments (document_id);
 
+-- TRADING PLANS MODULE
+CREATE TABLE IF NOT EXISTS trading_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  account_id UUID REFERENCES trading_accounts(id) ON DELETE SET NULL,
+  title VARCHAR(200) NOT NULL DEFAULT 'Untitled Plan',
+  session_tag VARCHAR(50) DEFAULT 'NY AM',
+  summary TEXT DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS trading_plans_user_updated_idx ON trading_plans (user_id, updated_at DESC);
+

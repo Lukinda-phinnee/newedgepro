@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Sparkles, ArrowUp, RotateCcw, Bot, User, Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { TradingPlanItem } from "@/components/plan/plan-sidebar";
 
 interface ChatMessage {
   id: string;
@@ -18,10 +19,11 @@ const suggestedPrompts = [
 ];
 
 interface PlanAiSidebarProps {
+  activePlan?: TradingPlanItem;
   className?: string;
 }
 
-export function PlanAiSidebar({ className }: PlanAiSidebarProps) {
+export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isResponding, setIsResponding] = useState(false);
@@ -37,7 +39,7 @@ export function PlanAiSidebar({ className }: PlanAiSidebarProps) {
     scrollToBottom();
   }, [messages, isResponding]);
 
-  const handleSend = (textToSend?: string) => {
+  const handleSend = async (textToSend?: string) => {
     const content = (textToSend ?? input).trim();
     if (!content || isResponding) return;
 
@@ -59,20 +61,49 @@ export function PlanAiSidebar({ className }: PlanAiSidebarProps) {
       textareaRef.current.style.height = "auto";
     }
 
-    // Simulated response UI demonstration before backend AI configuration
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/plans/copilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: content,
+          planTitle: activePlan?.title,
+          planContent: activePlan?.content,
+          sessionTag: activePlan?.sessionTag,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Copilot response failed");
+      }
+
+      const data = await response.json();
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: `I received your message: "${content}". Once the AI engine is configured, real-time contextual plan insights and risk audits will be generated here.`,
+        content: data.response || "No response received.",
         createdAt: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
       };
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      console.error("Copilot request error:", err);
+      const errorMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content:
+          "I encountered an issue analyzing your plan. Please check your connection and try again.",
+        createdAt: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsResponding(false);
-    }, 1000);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

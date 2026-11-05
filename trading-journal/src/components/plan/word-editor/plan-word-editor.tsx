@@ -37,14 +37,19 @@ import {
   ExternalLink,
   PanelLeftOpen,
   ArrowUpDown,
+  Loader2,
+  Cloud,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TradingPlanItem } from "@/components/plan/plan-sidebar";
 
 interface PlanWordEditorProps {
   plan?: TradingPlanItem;
+  saveStatus?: "saved" | "saving" | "error";
   onUpdateContent?: (content: string, snippet?: string) => void;
   onUpdateTitle?: (title: string) => void;
+  onManualSave?: () => void;
   onToggleLeftSidebar?: () => void;
   leftSidebarOpen?: boolean;
 }
@@ -126,8 +131,10 @@ const defaultPlanTemplate = `
 
 export function PlanWordEditor({
   plan,
+  saveStatus = "saved",
   onUpdateContent,
   onUpdateTitle,
+  onManualSave,
   onToggleLeftSidebar,
   leftSidebarOpen,
 }: PlanWordEditorProps) {
@@ -135,7 +142,6 @@ export function PlanWordEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
-  const [lastSaved, setLastSaved] = useState<string>("Ready");
   const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
   const [activeTable, setActiveTable] = useState<HTMLTableElement | null>(null);
   const [showTablePicker, setShowTablePicker] = useState(false);
@@ -154,6 +160,18 @@ export function PlanWordEditor({
     }
     return "1.5";
   });
+
+  // Ctrl+S / Cmd+S listener for instant cloud save
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        onManualSave?.();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onManualSave]);
 
   const handleLineSpacingChange = (val: string) => {
     setLineSpacing(val);
@@ -188,7 +206,6 @@ export function PlanWordEditor({
     const snippet = text.trim().slice(0, 75);
     updateCounts();
     onUpdateContent?.(html, snippet);
-    setLastSaved("Saved");
   }, [onUpdateContent]);
 
   // Track active table or active image when selection changes
@@ -816,8 +833,20 @@ export function PlanWordEditor({
           </button>
         </div>
 
-        {/* Template Quick Insert */}
-        <div className="ml-auto flex items-center gap-2">
+        {/* Template & Cloud Save Actions */}
+        <div className="ml-auto flex items-center gap-1.5">
+          {onManualSave && (
+            <button
+              type="button"
+              onClick={onManualSave}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg border border-border/70 hover:border-violet-500/40 hover:bg-muted/40 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+              title="Save to database (Ctrl+S)"
+            >
+              <Cloud size={12} className="text-violet-400" />
+              <span>Save</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={resetToTemplate}
@@ -997,10 +1026,22 @@ export function PlanWordEditor({
             <span>Spacing: {lineSpacing}×</span>
           </button>
           <span>•</span>
-          <span className="flex items-center gap-1 font-mono text-[10px]">
-            <Check size={11} className="text-emerald-400" />
-            {lastSaved}
-          </span>
+          {saveStatus === "saving" ? (
+            <span className="flex items-center gap-1 font-mono text-[10px] text-violet-400 animate-pulse">
+              <Loader2 size={11} className="animate-spin" />
+              Saving to database...
+            </span>
+          ) : saveStatus === "error" ? (
+            <span className="flex items-center gap-1 font-mono text-[10px] text-amber-400">
+              <AlertTriangle size={11} />
+              Saved locally (offline)
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 font-mono text-[10px] text-emerald-400">
+              <Check size={11} />
+              Saved to database
+            </span>
+          )}
           <span>•</span>
           <span>100% Zoom</span>
         </div>
