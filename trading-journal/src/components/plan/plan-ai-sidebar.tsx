@@ -1,29 +1,60 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, ArrowUp, RotateCcw, Bot, User, Check, Copy } from "lucide-react";
+import {
+  Sparkles,
+  ArrowUp,
+  RotateCcw,
+  Check,
+  Copy,
+  FileText,
+  Clock,
+  Cpu,
+  Target,
+  ArrowRight,
+  Bold as BoldIcon,
+  Italic as ItalicIcon,
+  Code as CodeIcon,
+  List as ListIcon,
+  CheckSquare,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TradingPlanItem } from "@/components/plan/plan-sidebar";
+import { RichChatMessage } from "@/components/plan/rich-chat-message";
 
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  createdPlan?: TradingPlanItem;
 }
 
-const suggestedPrompts = [
-  "Review my risk boundaries for today",
-  "How should I handle high-impact news?",
-  "Draft an entry checklist for this session",
+const frameworkPrompts = [
+  {
+    icon: Clock,
+    label: "5-Min Time Blocks",
+    prompt: "Structure my trading session into 5-minute time-blocked intervals from pre-market to hard cutoff.",
+  },
+  {
+    icon: Cpu,
+    label: "5-Step Algorithm",
+    prompt: "Apply the 5-Step Engineering Algorithm to optimize my entry rules and eliminate indicator clutter.",
+  },
+  {
+    icon: Target,
+    label: "First Principles",
+    prompt: "Deconstruct today's trade thesis to first principles: liquidity pools, trapped traders, and R:R math.",
+  },
 ];
 
 interface PlanAiSidebarProps {
   activePlan?: TradingPlanItem;
+  onPlanCreated?: (plan: TradingPlanItem) => void;
   className?: string;
 }
 
-export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
+export function PlanAiSidebar({ activePlan, onPlanCreated, className }: PlanAiSidebarProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isResponding, setIsResponding] = useState(false);
@@ -39,7 +70,7 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
     scrollToBottom();
   }, [messages, isResponding]);
 
-  const handleSend = async (textToSend?: string) => {
+  const handleSend = async (textToSend?: string, mode: "chat" | "create_plan" = "chat") => {
     const content = (textToSend ?? input).trim();
     if (!content || isResponding) return;
 
@@ -62,6 +93,11 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
     }
 
     try {
+      const historyPayload = messages.slice(-6).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const response = await fetch("/api/plans/copilot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -70,6 +106,8 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
           planTitle: activePlan?.title,
           planContent: activePlan?.content,
           sessionTag: activePlan?.sessionTag,
+          mode,
+          conversationHistory: historyPayload,
         }),
       });
 
@@ -78,23 +116,31 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
       }
 
       const data = await response.json();
+
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: data.response || "No response received.",
+        content: data.response || "I have analyzed your request.",
         createdAt: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
+        createdPlan: data.createdPlan || undefined,
       };
+
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // If a plan was created, immediately sync to parent state
+      if (data.createdPlan && onPlanCreated) {
+        onPlanCreated(data.createdPlan);
+      }
     } catch (err) {
       console.error("Copilot request error:", err);
       const errorMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
         content:
-          "I encountered an issue analyzing your plan. Please check your connection and try again.",
+          "I encountered an issue processing your request. Please check your connection or API key and try again.",
         createdAt: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -119,6 +165,22 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
   };
 
+  const insertFormatting = (prefix: string, suffix: string = "") => {
+    if (!textareaRef.current) return;
+    const el = textareaRef.current;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selected = input.substring(start, end);
+    const replacement = `${prefix}${selected || "text"}${suffix}`;
+    const updated = input.substring(0, start) + replacement + input.substring(end);
+    setInput(updated);
+    setTimeout(() => {
+      el.focus();
+      const newCursor = start + prefix.length + (selected ? selected.length : 4);
+      el.setSelectionRange(newCursor, newCursor);
+    }, 0);
+  };
+
   const copyMessage = (id: string, text: string) => {
     if (navigator?.clipboard) {
       navigator.clipboard.writeText(text);
@@ -132,21 +194,28 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
     setMessages([]);
   };
 
+  const handleGenerateFullPlanDoc = () => {
+    const prompt = `Please engineer and create a full trading plan document for my ${
+      activePlan?.sessionTag || "NY AM"
+    } session. Synthesize our conversation and enforce 5-minute time blocking, the 5-step engineering algorithm, and first principles strategy.`;
+    void handleSend(prompt, "create_plan");
+  };
+
   return (
     <aside
       className={cn(
-        "relative flex flex-col h-full w-full lg:w-80 xl:w-96 shrink-0 rounded-2xl border border-border/70 bg-card p-4 shadow-xs overflow-hidden",
+        "relative flex flex-col h-full w-full lg:w-80 xl:w-96 shrink-0 rounded-2xl border border-border/70 bg-card p-3.5 shadow-xs overflow-hidden",
         className
       )}
     >
-      {/* Subtle Apple Intelligence ambient iridescent glow within card */}
+      {/* Apple Intelligence ambient iridescent glow */}
       <div
         className="pointer-events-none absolute -top-8 -right-8 size-48 rounded-full bg-gradient-to-br from-violet-500/10 via-indigo-500/10 to-fuchsia-500/10 blur-3xl opacity-70 -z-10"
         aria-hidden="true"
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-border/70 shrink-0">
+      <div className="flex items-center justify-between pb-2.5 border-b border-border/70 shrink-0">
         <div className="flex items-center gap-2">
           <div className="size-6 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
             <Sparkles size={13} />
@@ -177,39 +246,69 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
             </button>
           )}
           <span className="text-[10px] uppercase font-mono tracking-widest text-muted-foreground/70">
-            AI
+            Groq AI
           </span>
         </div>
       </div>
 
+      {/* Quick Action: Generate Full Plan Document Banner */}
+      <div className="pt-2 pb-1 shrink-0">
+        <button
+          type="button"
+          onClick={handleGenerateFullPlanDoc}
+          disabled={isResponding}
+          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 hover:text-violet-200 transition-all cursor-pointer shadow-2xs group disabled:opacity-50"
+          title="Create a complete plan doc with Time Blocking, 5-Step Algorithm & First Principles"
+        >
+          <div className="flex items-center gap-1.5 text-left">
+            <Sparkles size={12} className="text-violet-400 group-hover:rotate-12 transition-transform" />
+            <span className="text-[11px] font-semibold tracking-tight">Generate Full Plan Doc</span>
+          </div>
+          <ArrowRight size={12} className="opacity-70 group-hover:translate-x-0.5 transition-transform" />
+        </button>
+      </div>
+
       {/* Messages Stream & Scroll Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-3 space-y-3 pr-1 text-xs overscroll-contain">
+      <div className="flex-1 min-h-0 overflow-y-auto py-2 space-y-3 pr-1 text-xs overscroll-contain">
         {messages.length === 0 ? (
-          /* Empty State */
-          <div className="h-full flex flex-col items-center justify-center p-4 text-center">
-            <div className="size-9 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 mb-2.5">
-              <Sparkles size={18} />
+          /* Empty State: Mentor introduction & 3 framework cards */
+          <div className="h-full flex flex-col items-center justify-center p-3 text-center">
+            <div className="size-9 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 mb-2">
+              <Sparkles size={17} />
             </div>
-            <p className="text-xs font-medium text-foreground">Plan Intelligence</p>
-            <p className="text-[11px] text-muted-foreground/70 mt-1 max-w-[220px] leading-relaxed">
-              Ask questions about your setups, risk rules, or session game plan.
+            <p className="text-xs font-semibold text-foreground">Your Plan Mentor</p>
+            <p className="text-[11px] text-muted-foreground/70 mt-0.5 max-w-[240px] leading-relaxed">
+              Hey! What session are we prepping for? Chat with me about your setups or generate a full disciplined plan doc.
             </p>
 
-            {/* Quick Starter Suggestions */}
-            <div className="mt-5 w-full space-y-1.5">
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground/60 tracking-wider block mb-1">
-                Suggested Prompts
+            {/* Framework Action Buttons */}
+            <div className="mt-3.5 w-full space-y-1.5 text-left">
+              <span className="text-[9px] uppercase font-semibold text-muted-foreground/60 tracking-wider block px-1">
+                Core Philosophies
               </span>
-              {suggestedPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => handleSend(prompt)}
-                  className="w-full text-left p-2 rounded-xl border border-border/60 hover:border-violet-500/40 bg-muted/20 hover:bg-muted/40 text-[11px] text-muted-foreground hover:text-foreground transition-all cursor-pointer leading-tight"
-                >
-                  {prompt}
-                </button>
-              ))}
+              {frameworkPrompts.map((fp) => {
+                const Icon = fp.icon;
+                return (
+                  <button
+                    key={fp.label}
+                    type="button"
+                    onClick={() => handleSend(fp.prompt)}
+                    className="w-full flex items-center gap-2 p-2 rounded-xl border border-border/60 hover:border-violet-500/40 bg-muted/20 hover:bg-muted/40 text-left transition-all cursor-pointer group"
+                  >
+                    <div className="size-5 rounded-md bg-violet-500/10 flex items-center justify-center text-violet-400 shrink-0">
+                      <Icon size={11} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-medium text-foreground group-hover:text-violet-300 truncate">
+                        {fp.label}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground/60 truncate leading-tight">
+                        {fp.prompt}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -226,14 +325,14 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
                       <span>•</span>
                       <span className="font-mono">{message.createdAt}</span>
                     </div>
-                    <div className="relative p-3 rounded-2xl max-w-[85%] text-xs leading-relaxed bg-violet-600 text-white font-normal rounded-tr-xs shadow-xs select-text">
-                      <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                    <div className="relative p-2.5 rounded-2xl max-w-[85%] text-xs leading-relaxed bg-violet-600 text-white font-normal rounded-tr-xs shadow-xs select-text">
+                      <RichChatMessage content={message.content} isUser />
                     </div>
                   </div>
                 );
               }
 
-              // AI response: full width plain text without a bubble
+              // AI response with Rich Text
               return (
                 <div key={message.id} className="group w-full flex flex-col gap-1.5 py-1">
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground/60">
@@ -257,18 +356,56 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
                     </div>
                   </div>
 
-                  <div className="w-full text-xs leading-relaxed text-foreground select-text whitespace-pre-wrap break-words">
-                    {message.content}
-                  </div>
+                  {/* Rich Text Rendered Content */}
+                  <RichChatMessage content={message.content} />
+
+                  {/* Render Created Plan Card if this message created a DB plan */}
+                  {message.createdPlan && (
+                    <div className="mt-2 p-3 rounded-xl border border-violet-500/35 bg-violet-500/10 backdrop-blur-xs flex flex-col gap-2 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex size-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+                            <Check size={11} />
+                          </span>
+                          <span className="text-[11px] font-semibold text-violet-200">
+                            Saved to Database
+                          </span>
+                        </div>
+                        <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[9px] font-mono text-violet-300 uppercase">
+                          {message.createdPlan.sessionTag}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h5 className="text-xs font-semibold text-foreground">
+                          {message.createdPlan.title}
+                        </h5>
+                        {message.createdPlan.summary && (
+                          <p className="text-[11px] text-muted-foreground/80 line-clamp-2 mt-0.5 leading-tight">
+                            {message.createdPlan.summary}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onPlanCreated?.(message.createdPlan!)}
+                        className="mt-0.5 flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-medium transition-colors shadow-2xs cursor-pointer"
+                      >
+                        <FileText size={12} />
+                        <span>Open &amp; Edit Plan Document</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
 
-            {/* Responding / Thinking State - Full width, no bubble */}
+            {/* Responding / Thinking State */}
             {isResponding && (
               <div className="w-full flex flex-col items-start gap-1 py-1">
                 <div className="flex items-center gap-1 text-[10px] text-violet-400 font-medium">
-                  <Sparkles size={10} className="animate-spin" /> Copilot is thinking...
+                  <Sparkles size={10} className="animate-spin" /> Copilot is typing...
                 </div>
                 <div className="flex items-center gap-1.5 py-1 text-muted-foreground/60">
                   <span className="size-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:-0.3s]" />
@@ -282,8 +419,69 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
         )}
       </div>
 
-      {/* Floating Prompt Input Bar */}
-      <div className="pt-3 border-t border-border/70 mt-auto shrink-0">
+      {/* Floating Prompt Input Bar with Rich Text Formatting Toolbar */}
+      <div className="pt-2 border-t border-border/70 mt-auto shrink-0 flex flex-col gap-1.5">
+        {/* Quick formatting ribbon */}
+        <div className="flex items-center justify-between px-1 text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => insertFormatting("**", "**")}
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title="Bold (**text**)"
+            >
+              <BoldIcon size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={() => insertFormatting("*", "*")}
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title="Italic (*text*)"
+            >
+              <ItalicIcon size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={() => insertFormatting("`", "`")}
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title="Inline Code (`code`)"
+            >
+              <CodeIcon size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={() => insertFormatting("• ")}
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title="Bullet list (• )"
+            >
+              <ListIcon size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={() => insertFormatting("- [ ] ")}
+              className="p-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title="Checklist task (- [ ] )"
+            >
+              <CheckSquare size={12} />
+            </button>
+          </div>
+
+          {/* Quick asset tags */}
+          <div className="flex items-center gap-1">
+            {["NQ", "ES", "EUR/USD"].map((ticker) => (
+              <button
+                key={ticker}
+                type="button"
+                onClick={() => insertFormatting(`${ticker} `)}
+                className="px-1.5 py-0.5 rounded bg-muted/40 hover:bg-violet-500/20 hover:text-violet-300 text-[10px] font-mono text-muted-foreground transition-colors cursor-pointer"
+                title={`Insert ${ticker}`}
+              >
+                {ticker}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -298,7 +496,7 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
             onChange={handleInputResize}
             onKeyDown={handleKeyDown}
             disabled={isResponding}
-            placeholder="Ask Copilot... (Enter to send)"
+            placeholder="Chat with mentor or format setups..."
             className="w-full resize-none bg-transparent px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-hidden max-h-28 overflow-y-auto leading-relaxed"
           />
           <button
@@ -310,9 +508,11 @@ export function PlanAiSidebar({ activePlan, className }: PlanAiSidebarProps) {
             <ArrowUp size={14} />
           </button>
         </form>
-        <span className="text-[9px] text-muted-foreground/50 block text-center mt-1.5 font-mono">
-          Shift+Enter for newline
-        </span>
+
+        <div className="flex items-center justify-between text-[9px] text-muted-foreground/50 px-1 font-mono">
+          <span>Shift+Enter for newline</span>
+          <span>Markdown &amp; Rich Text Enabled</span>
+        </div>
       </div>
     </aside>
   );

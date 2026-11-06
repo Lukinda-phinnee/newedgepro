@@ -237,7 +237,13 @@ export function PlanView({ initialPlans }: PlanViewProps) {
       </section>
 
       {/* ─── AI Sidebar (Right End Side) ─── */}
-      <PlanAiSidebar activePlan={activePlan} />
+      <PlanAiSidebar
+        activePlan={activePlan}
+        onPlanCreated={(newPlan) => {
+          setPlans((prev) => [newPlan, ...prev.filter((p) => p.id !== newPlan.id)]);
+          setActivePlanId(newPlan.id);
+        }}
+      />
     </div>
   );
 }
