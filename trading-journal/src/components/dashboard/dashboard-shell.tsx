@@ -6,6 +6,7 @@ import {
   Activity, ArrowDownLeft, BookOpen, BriefcaseBusiness,
   LayoutDashboard, Menu, NotebookPen, PanelLeftClose,
   PanelLeftOpen, Plus, ShieldCheck, Target, X, ChartNoAxesCombined,
+  Flower2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -27,6 +28,7 @@ const navigationGroups = [
     { label: "Plan", href: "/plan", icon: Target },
   ] },
   { label: "Improve", items: [
+    { label: "Sanctuary", href: "/sanctuary", icon: Flower2 },
     { label: "Edge", href: "/edge", icon: Activity },
     { label: "Rule engine", href: "/rule-engine", icon: ShieldCheck },
     { label: "Trader notes", href: "/trader-notes", icon: NotebookPen },
@@ -93,7 +95,7 @@ export function DashboardShell({
     return () => document.removeEventListener("pointermove", updateHeaderVisibility);
   }, [isNotesWorkspace]);
   const navigation = navigationGroups.flatMap((group) => group.items);
-  const title = pathname.startsWith("/trader-notes") ? "Trader notes" : navigation.find((item) => item.href === pathname)?.label ?? ({ "/profile": "Profile", "/settings": "Settings" }[pathname] ?? "Dashboard");
+  const title = pathname.startsWith("/trader-notes") ? "Trader notes" : pathname.startsWith("/sanctuary") ? "Sanctuary" : navigation.find((item) => item.href === pathname)?.label ?? ({ "/profile": "Profile", "/settings": "Settings" }[pathname] ?? "Dashboard");
 
   return (
     <div className="fixed inset-0 flex h-dvh min-h-0 overflow-hidden bg-background text-foreground">
@@ -274,7 +276,11 @@ export function DashboardShell({
               ? "p-0 overflow-hidden"
               : pathname === "/profile" || pathname === "/settings"
               ? "p-0 overflow-y-auto"
-              : pathname === "/plan" ? "p-4 overflow-hidden w-full max-w-none h-full" : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine" || pathname === "/propfirm-tracker"
+              : pathname === "/plan"
+              ? "p-4 overflow-hidden w-full max-w-none h-full"
+              : pathname === "/sanctuary"
+              ? "p-4 overflow-y-auto w-full max-w-none"
+              : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine" || pathname === "/propfirm-tracker"
               ? "p-4 overflow-y-auto"
               : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9 overflow-y-auto",
           )}
