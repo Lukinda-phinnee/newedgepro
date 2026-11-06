@@ -41,6 +41,7 @@ interface PlaybookWordEditorProps {
   initialContent?: string | null;
   onChange?: (content: string) => void;
   onManualSave?: () => void;
+  isContinuous?: boolean;
   saveStatus?: "saving" | "saved" | "failed";
   reviewed?: boolean;
   reviewedAt?: string | null;
@@ -151,6 +152,7 @@ export function PlaybookWordEditor({
   initialContent,
   onChange,
   onManualSave,
+  isContinuous = false,
   saveStatus = "saved",
   reviewed = false,
   reviewedAt = null,
@@ -181,7 +183,7 @@ export function PlaybookWordEditor({
         // storage fallback
       }
     }
-    return "1.5";
+    return "1.6";
   });
 
   // Slash menu state
@@ -877,8 +879,10 @@ export function PlaybookWordEditor({
                 Line Spacing
               </span>
               {[
+                { label: "1.0 (Tight)", value: "1.0" },
                 { label: "1.15 (Compact)", value: "1.15" },
-                { label: "1.5 (Standard)", value: "1.5" },
+                { label: "1.4 (Comfortable)", value: "1.4" },
+                { label: "1.6 (Standard)", value: "1.6" },
                 { label: "1.75 (Relaxed)", value: "1.75" },
                 { label: "2.0 (Double)", value: "2.0" },
               ].map((opt) => (
@@ -1169,23 +1173,24 @@ export function PlaybookWordEditor({
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          style={{ lineHeight: lineSpacing }}
+          style={{ "--playbook-line-spacing": lineSpacing, lineHeight: "var(--playbook-line-spacing)" } as React.CSSProperties}
           className={cn(
             "mx-auto w-full max-w-[900px] min-h-[600px] focus:outline-hidden",
             "text-foreground font-sans text-sm",
-            /* Typography styles with adjustable line-height */
-            "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:text-foreground [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:leading-tight",
-            "[&_h2]:text-lg [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-foreground [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:border-b [&_h2]:border-border/40 [&_h2]:pb-1 [&_h2]:leading-snug",
-            "[&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:leading-snug",
-            "[&_p]:mb-3 [&_p]:leading-[inherit]",
+            /* All child elements inherit the user-adjustable line spacing */
+            "[&_*]:leading-[var(--playbook-line-spacing,1.5)]",
+            "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:text-foreground [&_h1]:mt-6 [&_h1]:mb-3",
+            "[&_h2]:text-lg [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-foreground [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:border-b [&_h2]:border-border/40 [&_h2]:pb-1",
+            "[&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-4 [&_h3]:mb-1.5",
+            "[&_p]:mb-3",
             "[&_ul:not([data-type='taskList'])]:list-disc [&_ul:not([data-type='taskList'])]:pl-5 [&_ul:not([data-type='taskList'])]:mb-3",
             "[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3",
-            "[&_li]:leading-[inherit] [&_li]:mb-1",
+            "[&_li]:mb-1",
             "[&_hr]:my-5 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-border/60",
             /* Tables */
             "[&_table]:w-full [&_table]:border-collapse [&_table]:my-3",
-            "[&_th]:border [&_th]:border-border/70 [&_th]:bg-muted/40 [&_th]:p-2.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-xs [&_th]:leading-[inherit]",
-            "[&_td]:border [&_td]:border-border/70 [&_td]:p-2.5 [&_td]:text-xs [&_td]:leading-[inherit]",
+            "[&_th]:border [&_th]:border-border/70 [&_th]:bg-muted/40 [&_th]:p-2.5 [&_th]:text-left [&_th]:font-semibold [&_th]:text-xs",
+            "[&_td]:border [&_td]:border-border/70 [&_td]:p-2.5 [&_td]:text-xs",
             /* Images */
             "[&_img]:max-w-full [&_img]:rounded-lg [&_img]:transition-all [&_img:hover]:ring-2 [&_img:hover]:ring-violet-500/50"
           )}

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import {
   AlertOctagon,
   AlertTriangle,
+  ArrowUpDown,
   BarChart3,
   Check,
   ChevronDown,
@@ -133,6 +134,24 @@ export function StrategyDetail({
 }: StrategyDetailProps) {
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [isReviewed, setIsReviewed] = useState(false);
+
+  // ─── Line Spacing (user-adjustable, persisted) ───
+  const [lineSpacing, setLineSpacing] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("edgepro_detail_line_spacing");
+        if (saved) return saved;
+      } catch { /* storage unavailable */ }
+    }
+    return "1.6";
+  });
+  const [showSpacingPicker, setShowSpacingPicker] = useState(false);
+
+  const handleLineSpacingChange = (val: string) => {
+    setLineSpacing(val);
+    try { localStorage.setItem("edgepro_detail_line_spacing", val); } catch { /* unavailable */ }
+    setShowSpacingPicker(false);
+  };
 
   // ─── 1. Plan Type & Metadata Inline States ───
   const [isEditingCategory, setIsEditingCategory] = useState(false);
@@ -608,11 +627,57 @@ export function StrategyDetail({
             <Edit3 size={13} />
             Full Edit
           </button>
+
+          {/* ─── Line Spacing Picker ─── */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowSpacingPicker((v) => !v)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer font-mono"
+              title="Adjust line spacing"
+            >
+              <ArrowUpDown size={12} className="text-violet-400" />
+              <span>{lineSpacing}×</span>
+            </button>
+            {showSpacingPicker && (
+              <div className="absolute right-0 top-7 z-50 p-1.5 rounded-xl border border-border/70 bg-card shadow-lg flex flex-col w-40 space-y-0.5">
+                <span className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Line Spacing
+                </span>
+                {[
+                  { label: "1.0 (Tight)", value: "1.0" },
+                  { label: "1.3 (Compact)", value: "1.3" },
+                  { label: "1.6 (Standard)", value: "1.6" },
+                  { label: "1.75 (Relaxed)", value: "1.75" },
+                  { label: "2.0 (Double)", value: "2.0" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => handleLineSpacingChange(opt.value)}
+                    className={cn(
+                      "w-full text-left px-2 py-1 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-between",
+                      lineSpacing === opt.value
+                        ? "bg-violet-600 text-white font-medium"
+                        : "text-foreground hover:bg-muted/60"
+                    )}
+                  >
+                    <span>{opt.label}</span>
+                    {lineSpacing === opt.value && <Check size={11} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ─── Scrollable Playbook Content ─── */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="strategy-detail-content flex-1 overflow-y-auto"
+        style={{ "--detail-line-spacing": lineSpacing } as React.CSSProperties}
+        onClick={() => setShowSpacingPicker(false)}
+      >
         <div className="px-6 lg:px-8 py-6 space-y-6 max-w-3xl">
 
           {/* ─── Section 1: Plan Type / Strategy Overview ─── */}

@@ -3,8 +3,12 @@
 @import "shadcn/tailwind.css";
 
 @keyframes feedback-countdown {
-  from { transform: scaleX(1); }
-  to { transform: scaleX(0); }
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }
 
 @source "../../node_modules/novel-lightweight/dist";
@@ -124,7 +128,10 @@
   cursor: pointer;
 }
 
-.playbook-document-content ul[data-type="taskList"] li > span[contenteditable="true"] {
+.playbook-document-content
+  ul[data-type="taskList"]
+  li
+  > span[contenteditable="true"] {
   display: block;
   min-width: 0;
   margin: 0;
@@ -137,13 +144,29 @@
   grid-column: 2;
 }
 
-.playbook-document-content ul[data-type="taskList"] li:has(> input:checked) > span {
+.playbook-document-content
+  ul[data-type="taskList"]
+  li:has(> input:checked)
+  > span {
   color: var(--muted-foreground);
   text-decoration: line-through;
 }
 
 .playbook-slash-menu {
   max-height: min(360px, calc(100vh - 24px));
+}
+
+/* ─── Strategy Detail: user-adjustable line spacing ─── */
+/* Force ALL descendant elements (including inputs, buttons, spans with
+   hardcoded Tailwind leading-* classes) to adopt the CSS variable. */
+.strategy-detail-content,
+.strategy-detail-content * {
+  line-height: var(--detail-line-spacing, 1.6) !important;
+}
+/* Keep icon-only buttons visually tight regardless of spacing setting */
+.strategy-detail-content .icon-btn-tight,
+.strategy-detail-content .icon-btn-tight * {
+  line-height: 1 !important;
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -202,11 +225,11 @@
   --primary: oklch(0.55 0.22 295);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.94 0 0);
-  --secondary-foreground: oklch(0.20 0 0);
+  --secondary-foreground: oklch(0.2 0 0);
   --muted: oklch(0.94 0 0);
   --muted-foreground: oklch(0.48 0 0);
   --accent: oklch(0.94 0 0);
-  --accent-foreground: oklch(0.20 0 0);
+  --accent-foreground: oklch(0.2 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.89 0 0);
   --input: oklch(0.89 0 0);
@@ -222,7 +245,7 @@
   --sidebar-primary: oklch(0.55 0.22 295);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.94 0 0);
-  --sidebar-accent-foreground: oklch(0.20 0 0);
+  --sidebar-accent-foreground: oklch(0.2 0 0);
   --sidebar-border: oklch(0.89 0 0);
   --sidebar-ring: oklch(0.55 0.22 295);
 }
@@ -235,7 +258,7 @@ html.dark {
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.21 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.60 0.22 295);
+  --primary: oklch(0.6 0.22 295);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.24 0 0);
   --secondary-foreground: oklch(0.985 0 0);
@@ -256,7 +279,7 @@ html.dark {
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.65 0.2 295);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.20 0 0);
+  --sidebar-accent: oklch(0.2 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.65 0.2 295);
@@ -401,7 +424,7 @@ html.dark .loop-module {
 
 html.dark .loop-module [class~="bg-white"],
 html.dark .loop-module [class*="bg-white/"],
-html.dark .loop-module [class*="bg-white[" ] {
+html.dark .loop-module [class*="bg-white["] {
   background-color: var(--card) !important;
 }
 
