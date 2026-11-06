@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { PlanSidebar, type TradingPlanItem } from "@/components/plan/plan-sidebar";
+import {
+  PlanSidebar,
+  type TradingPlanItem,
+} from "@/components/plan/plan-sidebar";
 import { PlanWordEditor } from "@/components/plan/word-editor/plan-word-editor";
 import { PlanAiSidebar } from "@/components/plan/plan-ai-sidebar";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface PlanViewProps {
   initialPlans?: TradingPlanItem[];
@@ -12,6 +16,7 @@ interface PlanViewProps {
 export type SaveStatus = "saved" | "saving" | "error";
 
 export function PlanView({ initialPlans }: PlanViewProps) {
+  const { showFeedback } = useOperationFeedback();
   const [plans, setPlans] = useState<TradingPlanItem[]>(() => {
     if (initialPlans && initialPlans.length > 0) return initialPlans;
     return [];
@@ -38,34 +43,31 @@ export function PlanView({ initialPlans }: PlanViewProps) {
   const activePlan = plans.find((p) => p.id === activePlanId) || plans[0];
 
   // Cloud Autosave Function (Debounced)
-  const persistPlanToDb = useCallback(
-    async (planToSave: TradingPlanItem) => {
-      setSaveStatus("saving");
-      try {
-        const response = await fetch("/api/plans", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: planToSave.id,
-            title: planToSave.title,
-            sessionTag: planToSave.sessionTag,
-            summary: planToSave.summary,
-            content: planToSave.content,
-          }),
-        });
+  const persistPlanToDb = useCallback(async (planToSave: TradingPlanItem) => {
+    setSaveStatus("saving");
+    try {
+      const response = await fetch("/api/plans", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: planToSave.id,
+          title: planToSave.title,
+          sessionTag: planToSave.sessionTag,
+          summary: planToSave.summary,
+          content: planToSave.content,
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error("Failed to save plan to database");
-        }
-
-        setSaveStatus("saved");
-      } catch (err) {
-        console.error("Autosave error:", err);
-        setSaveStatus("error");
+      if (!response.ok) {
+        throw new Error("Failed to save plan to database");
       }
-    },
-    []
-  );
+
+      setSaveStatus("saved");
+    } catch (err) {
+      console.error("Autosave error:", err);
+      setSaveStatus("error");
+    }
+  }, []);
 
   const triggerDebouncedAutosave = useCallback(
     (updatedPlan: TradingPlanItem) => {
@@ -78,7 +80,7 @@ export function PlanView({ initialPlans }: PlanViewProps) {
         void persistPlanToDb(updatedPlan);
       }, 600);
     },
-    [persistPlanToDb]
+    [persistPlanToDb],
   );
 
   const handleCreatePlan = async () => {
@@ -89,7 +91,7 @@ export function PlanView({ initialPlans }: PlanViewProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: `Trading Plan ${plans.length + 1}`,
-          sessionTag: "NY AM",
+          sessionTag: "",
           summary: "New trading plan document.",
           content: `<h1>New Trading Plan</h1><p>Document today's market context, planned setups, and risk boundaries...</p><p><br/></p>`,
         }),
@@ -101,6 +103,11 @@ export function PlanView({ initialPlans }: PlanViewProps) {
       setPlans((prev) => [plan, ...prev]);
       setActivePlanId(plan.id);
       setSaveStatus("saved");
+      showFeedback({
+        kind: "success",
+        title: "Trading plan created",
+        description: `“${plan.title}” is ready to edit.`,
+      });
     } catch (err) {
       console.error("Create plan error:", err);
       // Fallback local create if network fails
@@ -108,7 +115,7 @@ export function PlanView({ initialPlans }: PlanViewProps) {
       const newPlan: TradingPlanItem = {
         id: fallbackId,
         title: `Trading Plan ${plans.length + 1}`,
-        sessionTag: "Custom",
+        sessionTag: "",
         summary: "New blank trading plan document.",
         content: `<h1>New Trading Plan</h1><p>Document today's market context, planned setups, and risk boundaries...</p><p><br/></p>`,
         updatedAt: "Just now",
@@ -143,6 +150,11 @@ export function PlanView({ initialPlans }: PlanViewProps) {
       setPlans((prev) => [plan, ...prev]);
       setActivePlanId(plan.id);
       setSaveStatus("saved");
+      showFeedback({
+        kind: "success",
+        title: "Trading plan created",
+        description: `“${plan.title}” is ready to edit.`,
+      });
     } catch (err) {
       console.error("Duplicate plan error:", err);
     }
@@ -175,7 +187,7 @@ export function PlanView({ initialPlans }: PlanViewProps) {
     };
 
     setPlans((prev) =>
-      prev.map((p) => (p.id === activePlanId ? updatedPlan : p))
+      prev.map((p) => (p.id === activePlanId ? updatedPlan : p)),
     );
 
     triggerDebouncedAutosave(updatedPlan);
@@ -190,7 +202,22 @@ export function PlanView({ initialPlans }: PlanViewProps) {
     };
 
     setPlans((prev) =>
-      prev.map((p) => (p.id === activePlanId ? updatedPlan : p))
+      prev.map((p) => (p.id === activePlanId ? updatedPlan : p)),
+    );
+
+    triggerDebouncedAutosave(updatedPlan);
+  };
+
+  const handleUpdateSessionTag = (sessionTag: string) => {
+    if (!activePlan) return;
+    const updatedPlan: TradingPlanItem = {
+      ...activePlan,
+      sessionTag,
+      updatedAt: "Just now",
+    };
+
+    setPlans((prev) =>
+      prev.map((p) => (p.id === activePlanId ? updatedPlan : p)),
     );
 
     triggerDebouncedAutosave(updatedPlan);
@@ -225,6 +252,7 @@ export function PlanView({ initialPlans }: PlanViewProps) {
             saveStatus={saveStatus}
             onUpdateContent={handleUpdateContent}
             onUpdateTitle={handleUpdateTitle}
+            onUpdateSessionTag={handleUpdateSessionTag}
             onManualSave={handleManualSave}
             leftSidebarOpen={leftSidebarOpen}
             onToggleLeftSidebar={() => setLeftSidebarOpen(true)}
@@ -240,7 +268,10 @@ export function PlanView({ initialPlans }: PlanViewProps) {
       <PlanAiSidebar
         activePlan={activePlan}
         onPlanCreated={(newPlan) => {
-          setPlans((prev) => [newPlan, ...prev.filter((p) => p.id !== newPlan.id)]);
+          setPlans((prev) => [
+            newPlan,
+            ...prev.filter((p) => p.id !== newPlan.id),
+          ]);
           setActivePlanId(newPlan.id);
         }}
       />

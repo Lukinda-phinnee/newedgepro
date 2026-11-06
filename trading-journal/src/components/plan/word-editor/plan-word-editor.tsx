@@ -43,12 +43,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TradingPlanItem } from "@/components/plan/plan-sidebar";
+import { SessionMultiSelect } from "@/components/plan/session-multi-select";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 interface PlanWordEditorProps {
   plan?: TradingPlanItem;
   saveStatus?: "saved" | "saving" | "error";
   onUpdateContent?: (content: string, snippet?: string) => void;
   onUpdateTitle?: (title: string) => void;
+  onUpdateSessionTag?: (sessionTag: string) => void;
   onManualSave?: () => void;
   onToggleLeftSidebar?: () => void;
   leftSidebarOpen?: boolean;
@@ -134,10 +137,12 @@ export function PlanWordEditor({
   saveStatus = "saved",
   onUpdateContent,
   onUpdateTitle,
+  onUpdateSessionTag,
   onManualSave,
   onToggleLeftSidebar,
   leftSidebarOpen,
 }: PlanWordEditorProps) {
+  const { confirmAction, showFeedback } = useOperationFeedback();
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [wordCount, setWordCount] = useState(0);
@@ -465,11 +470,21 @@ export function PlanWordEditor({
     handleInput();
   };
 
-  const resetToTemplate = () => {
+  const resetToTemplate = async () => {
     if (!editorRef.current) return;
-    if (confirm("Reset document to the standard Trading Plan template?")) {
+    const confirmed = await confirmAction({
+      title: "Reset document to template?",
+      description: "This will replace the current document content with the standard Trading Plan template.",
+      confirmLabel: "Reset content",
+    });
+    if (confirmed && editorRef.current) {
       editorRef.current.innerHTML = defaultPlanTemplate;
       handleInput();
+      showFeedback({
+        kind: "success",
+        title: "Template applied",
+        description: "Standard trading plan template has been loaded.",
+      });
     }
   };
 
@@ -491,7 +506,7 @@ export function PlanWordEditor({
 
       {/* ─── MICROSOFT WORD STYLE COMMAND RIBBON / TOOLBAR ─── */}
       <header className="shrink-0 border-b border-border/70 bg-card/90 px-3 py-2 flex flex-wrap items-center gap-1.5 select-none">
-        {/* Left Sidebar Toggle & Plan Title */}
+        {/* Left Sidebar Toggle, Plan Title, & Optional Session Multi-Select */}
         <div className="flex items-center gap-1.5 pr-2 border-r border-border/60">
           {!leftSidebarOpen && onToggleLeftSidebar && (
             <button
@@ -509,9 +524,16 @@ export function PlanWordEditor({
               type="text"
               value={plan.title}
               onChange={(e) => onUpdateTitle(e.target.value)}
-              className="h-7 px-2 text-xs font-semibold bg-transparent text-foreground border-b border-transparent hover:border-border/60 focus:border-violet-500 focus:outline-hidden max-w-[160px] truncate transition-colors"
+              className="h-7 px-2 text-xs font-semibold bg-transparent text-foreground border-b border-transparent hover:border-border/60 focus:border-violet-500 focus:outline-hidden max-w-[150px] truncate transition-colors"
               placeholder="Plan Title..."
               title="Click to rename plan"
+            />
+          )}
+
+          {plan && onUpdateSessionTag && (
+            <SessionMultiSelect
+              value={plan.sessionTag}
+              onChange={onUpdateSessionTag}
             />
           )}
         </div>
@@ -838,7 +860,14 @@ export function PlanWordEditor({
           {onManualSave && (
             <button
               type="button"
-              onClick={onManualSave}
+              onClick={() => {
+                onManualSave();
+                showFeedback({
+                  kind: "success",
+                  title: "Plan saved",
+                  description: "Your trading plan is saved in the database.",
+                });
+              }}
               className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg border border-border/70 hover:border-violet-500/40 hover:bg-muted/40 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
               title="Save to database (Ctrl+S)"
             >

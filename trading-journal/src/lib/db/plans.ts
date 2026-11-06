@@ -6,7 +6,7 @@ function mapPlanRow(row: Record<string, unknown>): TradingPlanItem {
   return {
     id: String(row.id),
     title: String(row.title || "Untitled Plan"),
-    sessionTag: String(row.session_tag || "NY AM"),
+    sessionTag: String(row.session_tag || ""),
     summary: String(row.summary || ""),
     content: String(row.content || ""),
     updatedAt:
@@ -45,7 +45,7 @@ export async function createTradingPlan(
   }
 ): Promise<TradingPlanItem> {
   const title = (input.title || "New Trading Plan").slice(0, 200);
-  const sessionTag = (input.sessionTag || "NY AM").slice(0, 50);
+  const sessionTag = (input.sessionTag ?? "").slice(0, 250);
   const summary = (input.summary || "").slice(0, 300);
   const content = input.content ?? "";
   const accountId = input.accountId || null;
@@ -70,14 +70,14 @@ export async function updateTradingPlan(
   }
 ): Promise<TradingPlanItem | null> {
   const title = input.title !== undefined ? input.title.slice(0, 200) : undefined;
-  const sessionTag = input.sessionTag !== undefined ? input.sessionTag.slice(0, 50) : undefined;
+  const sessionTag = input.sessionTag !== undefined ? input.sessionTag.slice(0, 250) : undefined;
   const summary = input.summary !== undefined ? input.summary.slice(0, 300) : undefined;
   const content = input.content !== undefined ? input.content : undefined;
 
   const rows = (await sql`
     UPDATE trading_plans SET
       title = COALESCE(${title ?? null}, title),
-      session_tag = COALESCE(${sessionTag ?? null}, session_tag),
+      session_tag = CASE WHEN ${sessionTag !== undefined} THEN ${sessionTag ?? ""} ELSE session_tag END,
       summary = COALESCE(${summary ?? null}, summary),
       content = COALESCE(${content ?? null}, content),
       updated_at = NOW()

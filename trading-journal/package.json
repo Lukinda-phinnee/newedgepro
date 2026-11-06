@@ -11,6 +11,8 @@
     "db:migrate:dashboard": "node --env-file=.env.local src/lib/db/migrate-dashboard.mjs",
     "db:migrate:propfirms": "node --env-file=.env.local src/lib/db/migrate-propfirms.mjs",
     "db:migrate:notes": "node --env-file=.env.local src/lib/db/migrate-notes.mjs",
+    "db:migrate:plans": "node --env-file=.env.local src/lib/db/migrate-plans.mjs",
+    "db:migrate:chat": "node --env-file=.env.local src/lib/db/migrate-chat.mjs",
     "postinstall": "node scripts/patch-next-themes.mjs"
   },
   "dependencies": {

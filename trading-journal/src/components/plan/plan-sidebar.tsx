@@ -16,6 +16,7 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useOperationFeedback } from "@/components/ui/operation-feedback";
 
 export interface TradingPlanItem {
   id: string;
@@ -51,6 +52,7 @@ export function PlanSidebar({
   className,
 }: PlanSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { confirmAction, showFeedback } = useOperationFeedback();
 
   const filteredPlans = plans.filter(
     (p) =>
@@ -166,19 +168,24 @@ export function PlanSidebar({
                 className={cn(
                   "group relative p-2.5 rounded-xl border transition-all cursor-pointer select-none",
                   isActive
-                    ? "border-violet-500/50 bg-violet-500/10 shadow-2xs"
+                    ? "border-violet-500/70 bg-violet-500/15 dark:bg-violet-500/25 shadow-xs ring-1 ring-violet-500/30"
                     : "border-transparent hover:border-border/60 hover:bg-muted/40"
                 )}
               >
                 <div className="flex items-start justify-between gap-1.5 mb-1">
-                  <h4
-                    className={cn(
-                      "text-xs font-medium tracking-tight truncate flex-1",
-                      isActive ? "text-violet-300 font-semibold" : "text-foreground"
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    {isActive && (
+                      <span className="size-1.5 rounded-full bg-violet-600 dark:bg-violet-400 shrink-0" />
                     )}
-                  >
-                    {plan.title || "Untitled Plan"}
-                  </h4>
+                    <h4
+                      className={cn(
+                        "text-xs font-semibold tracking-tight truncate flex-1",
+                        isActive ? "text-violet-950 dark:text-white" : "text-foreground"
+                      )}
+                    >
+                      {plan.title || "Untitled Plan"}
+                    </h4>
+                  </div>
 
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     {onDuplicatePlan && (
@@ -187,8 +194,18 @@ export function PlanSidebar({
                         onClick={(e) => {
                           e.stopPropagation();
                           onDuplicatePlan(plan.id);
+                          showFeedback({
+                            kind: "success",
+                            title: "Plan duplicated",
+                            description: `Created a copy of “${plan.title}”.`,
+                          });
                         }}
-                        className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        className={cn(
+                          "p-0.5 rounded transition-colors cursor-pointer",
+                          isActive
+                            ? "text-muted-foreground hover:text-foreground dark:text-white/70 dark:hover:text-white"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
                         title="Duplicate plan"
                       >
                         <Copy size={12} />
@@ -198,13 +215,28 @@ export function PlanSidebar({
                     {plans.length > 1 && (
                       <button
                         type="button"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
-                          if (confirm(`Delete "${plan.title}"?`)) {
+                          const confirmed = await confirmAction({
+                            title: "Delete trading plan?",
+                            description: `“${plan.title}” will be permanently deleted.`,
+                            confirmLabel: "Delete plan",
+                          });
+                          if (confirmed) {
                             onDeletePlan(plan.id);
+                            showFeedback({
+                              kind: "success",
+                              title: "Plan deleted",
+                              description: `“${plan.title}” was deleted.`,
+                            });
                           }
                         }}
-                        className="p-0.5 rounded text-muted-foreground hover:text-rose-400 transition-colors cursor-pointer"
+                        className={cn(
+                          "p-0.5 rounded transition-colors cursor-pointer",
+                          isActive
+                            ? "text-muted-foreground hover:text-rose-600 dark:text-white/70 dark:hover:text-rose-300"
+                            : "text-muted-foreground hover:text-rose-400"
+                        )}
                         title="Delete plan"
                       >
                         <Trash2 size={12} />
@@ -213,15 +245,64 @@ export function PlanSidebar({
                   </div>
                 </div>
 
-                <p className="text-[11px] text-muted-foreground/75 line-clamp-1 leading-snug">
+                <p
+                  className={cn(
+                    "text-[11px] line-clamp-1 leading-snug",
+                    isActive
+                      ? "text-foreground/80 dark:text-white/80"
+                      : "text-muted-foreground/75"
+                  )}
+                >
                   {plan.summary || "No preview content"}
                 </p>
 
-                <div className="flex items-center justify-between gap-2 mt-2 text-[10px] text-muted-foreground/60 font-mono">
-                  <span className="px-1.5 py-0.2 rounded bg-muted/60 text-muted-foreground font-sans">
-                    {plan.sessionTag || "Session"}
+                <div className="flex items-center justify-between gap-1.5 mt-2 text-[10px] font-mono min-h-[18px]">
+                  {(() => {
+                    const tags = (plan.sessionTag || "")
+                      .split(",")
+                      .map((t) => t.trim())
+                      .filter(Boolean);
+                    if (tags.length === 0) {
+                      return <span />;
+                    }
+                    return (
+                      <div className="flex items-center gap-1 flex-wrap max-w-[65%]">
+                        {tags.slice(0, 2).map((tag) => (
+                          <span
+                            key={tag}
+                            className={cn(
+                              "px-1.5 py-0.2 rounded font-sans text-[10px] truncate max-w-[80px]",
+                              isActive
+                                ? "bg-violet-500/20 text-violet-800 dark:bg-violet-500/30 dark:text-violet-200 border border-violet-500/30 dark:border-violet-500/40 font-medium"
+                                : "bg-muted/60 text-muted-foreground border border-border/50"
+                            )}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                        {tags.length > 2 && (
+                          <span
+                            className={cn(
+                              "px-1 py-0.2 rounded font-sans text-[9px]",
+                              isActive
+                                ? "text-violet-700 dark:text-violet-300 font-medium"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            +{tags.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  <span
+                    className={cn(
+                      "shrink-0",
+                      isActive ? "text-muted-foreground dark:text-white/70" : "text-muted-foreground/60"
+                    )}
+                  >
+                    {plan.updatedAt}
                   </span>
-                  <span>{plan.updatedAt}</span>
                 </div>
               </div>
             );
