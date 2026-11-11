@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity, ArrowDownLeft, BookOpen, BriefcaseBusiness,
+  Activity, BookOpen, BriefcaseBusiness, ClipboardList,
   LayoutDashboard, Menu, NotebookPen, PanelLeftClose,
-  PanelLeftOpen, Plus, ShieldCheck, Target, X, ChartNoAxesCombined,
+  PanelLeftOpen, Plus, ShieldCheck, Target, Trophy, X,
   Flower2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -18,22 +18,31 @@ import { BrandMark } from "@/components/brand-mark";
 import { useActiveAccount } from "@/components/active-account-context";
 
 const navigationGroups = [
-  { label: "Overview", items: [
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Portfolio hub", href: "/portfolio-hub", icon: BriefcaseBusiness },
-  ] },
-  { label: "Trading", items: [
-    { label: "Trade log", href: "/trade-log", icon: ArrowDownLeft },
-    { label: "Trade review", href: "/trade-review", icon: BookOpen },
-    { label: "Plan", href: "/plan", icon: Target },
-  ] },
-  { label: "Improve", items: [
-    { label: "Sanctuary", href: "/sanctuary", icon: Flower2 },
-    { label: "Edge", href: "/edge", icon: Activity },
-    { label: "Rule engine", href: "/rule-engine", icon: ShieldCheck },
-    { label: "Trader notes", href: "/trader-notes", icon: NotebookPen },
-    { label: "Propfirm tracker", href: "/propfirm-tracker", icon: ChartNoAxesCombined },
-  ] },
+  {
+    label: "Trading Operations",
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Trade Log", href: "/trade-log", icon: ClipboardList },
+      { label: "Trade Review", href: "/trade-review", icon: BookOpen },
+      { label: "Trading Plan", href: "/plan", icon: Target },
+    ],
+  },
+  {
+    label: "Portfolio & Risk",
+    items: [
+      { label: "Portfolio Hub", href: "/portfolio-hub", icon: BriefcaseBusiness },
+      { label: "Prop Firm Tracker", href: "/propfirm-tracker", icon: Trophy },
+      { label: "Rule Engine", href: "/rule-engine", icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "Analytics & Mindset",
+    items: [
+      { label: "Edge", href: "/edge", icon: Activity },
+      { label: "Trader Notes", href: "/trader-notes", icon: NotebookPen },
+      { label: "Sanctuary", href: "/sanctuary", icon: Flower2 },
+    ],
+  },
 ];
 
 export function DashboardShell({
@@ -95,7 +104,12 @@ export function DashboardShell({
     return () => document.removeEventListener("pointermove", updateHeaderVisibility);
   }, [isNotesWorkspace]);
   const navigation = navigationGroups.flatMap((group) => group.items);
-  const title = pathname.startsWith("/trader-notes") ? "Trader notes" : pathname.startsWith("/sanctuary") ? "Sanctuary" : navigation.find((item) => item.href === pathname)?.label ?? ({ "/profile": "Profile", "/settings": "Settings" }[pathname] ?? "Dashboard");
+  const title = pathname.startsWith("/trader-notes")
+    ? "Trader Notes"
+    : pathname.startsWith("/sanctuary")
+    ? "Sanctuary"
+    : navigation.find((item) => item.href === pathname)?.label ??
+      ({ "/profile": "Profile", "/settings": "Settings" }[pathname] ?? "Dashboard");
 
   return (
     <div className="fixed inset-0 flex h-dvh min-h-0 overflow-hidden bg-background text-foreground">
@@ -207,7 +221,7 @@ export function DashboardShell({
                         )}
                       />
                       <span className={cn(collapsed && "lg:hidden")}>{label}</span>
-                      {label === "Trade log" && !collapsed && tradeCount !== null && (
+                      {href === "/trade-log" && !collapsed && tradeCount !== null && (
                         <span className="ml-auto rounded-md bg-sidebar-accent px-1.5 py-0.5 text-[10px] text-sidebar-accent-foreground">
                           {tradeCount}
                         </span>

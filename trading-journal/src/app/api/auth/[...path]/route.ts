@@ -13,9 +13,16 @@ async function handle(request: Request, context: unknown) {
     requestUrl.protocol === "http:" &&
     ["localhost", "127.0.0.1", "[::1]"].includes(requestUrl.hostname);
 
-  if (isLocalHttp && cookieHeader.includes("neon-auth.") && !cookieHeader.includes("__Secure-neon-auth.")) {
+  if (
+    isLocalHttp &&
+    cookieHeader.includes("neon-auth.") &&
+    !cookieHeader.includes("__Secure-neon-auth.")
+  ) {
     const headers = new Headers(request.headers);
-    const secureCookies = cookieHeader.replace(/(^|;\s*)neon-auth\./g, "$1__Secure-neon-auth.");
+    const secureCookies = cookieHeader.replace(
+      /(^|;\s*)neon-auth\./g,
+      "$1__Secure-neon-auth.",
+    );
     headers.set("cookie", `${cookieHeader}; ${secureCookies}`);
     requestToPass = new Request(request.url, {
       method: request.method,
@@ -36,7 +43,8 @@ async function handle(request: Request, context: unknown) {
   }
 
   const setCookies = response.headers.getSetCookie();
-  if (!setCookies.some((cookie) => cookie.startsWith("__Secure-neon-auth."))) return response;
+  if (!setCookies.some((cookie) => cookie.startsWith("__Secure-neon-auth.")))
+    return response;
 
   const headers = new Headers(response.headers);
   for (const cookie of setCookies) {
@@ -54,8 +62,13 @@ async function handle(request: Request, context: unknown) {
   });
 }
 
-export const GET = (request: Request, context: unknown) => handle(request, context);
-export const POST = (request: Request, context: unknown) => handle(request, context);
-export const PUT = (request: Request, context: unknown) => handle(request, context);
-export const DELETE = (request: Request, context: unknown) => handle(request, context);
-export const PATCH = (request: Request, context: unknown) => handle(request, context);
+export const GET = (request: Request, context: unknown) =>
+  handle(request, context);
+export const POST = (request: Request, context: unknown) =>
+  handle(request, context);
+export const PUT = (request: Request, context: unknown) =>
+  handle(request, context);
+export const DELETE = (request: Request, context: unknown) =>
+  handle(request, context);
+export const PATCH = (request: Request, context: unknown) =>
+  handle(request, context);
