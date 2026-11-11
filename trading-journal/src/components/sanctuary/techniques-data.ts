@@ -27,6 +27,9 @@ export interface TechniqueProfile {
   };
   stages: MeditationStage[];
   guidanceQuote: string;
+  bgImageUrl: string;
+  tradingContext: string;
+  scientificObjective: string;
 }
 
 export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
@@ -37,6 +40,9 @@ export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
     category: "attention",
     defaultDurationMinutes: 10,
     defaultSound: "rain",
+    bgImageUrl: "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=2400&q=85",
+    tradingContext: "Morning or Pre-Chart Analysis",
+    scientificObjective: "Train sustained focus by returning awareness to the breath whenever distraction or impulsive trade ideas arise.",
     defaultBreathing: { inhale: 4, hold: 2, exhale: 5, rest: 2 },
     guidanceQuote: "Every time you notice distraction and return to the breath, you complete a repetition of mental discipline.",
     stages: [
@@ -94,6 +100,9 @@ export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
     category: "mindfulness",
     defaultDurationMinutes: 5,
     defaultSound: "ocean",
+    bgImageUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=2400&q=85",
+    tradingContext: "15 min Before London / NY Open",
+    scientificObjective: "Observe fear, FOMO, and impatience as passing bodily sensations rather than instructions to click buy or sell.",
     defaultBreathing: { inhale: 4, hold: 2, exhale: 5, rest: 2 },
     guidanceQuote: "An emotion is information, not an instruction. Your trading decisions must come from your predefined rules.",
     stages: [
@@ -142,6 +151,9 @@ export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
     category: "bodyscan",
     defaultDurationMinutes: 5,
     defaultSound: "wind",
+    bgImageUrl: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=2400&q=85",
+    tradingContext: "Post-Market Decompression",
+    scientificObjective: "Identify physical tension in jaw, neck, and shoulders, downregulating post-market stress before leaving your desk.",
     defaultBreathing: { inhale: 4, hold: 1, exhale: 5, rest: 1 },
     guidanceQuote: "Your trading session has ended. Release accumulated muscular tension and do not carry it into your evening.",
     stages: [
@@ -190,6 +202,9 @@ export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
     category: "breathing",
     defaultDurationMinutes: 2,
     defaultSound: "singing-bowl",
+    bgImageUrl: "https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&w=2400&q=85",
+    tradingContext: "Anytime during Trading Hours",
+    scientificObjective: "Observe natural respiration rhythm without forcing or modifying rate. Establishes immediate baseline sensory presence.",
     defaultBreathing: { inhale: 3, hold: 1, exhale: 3, rest: 1 },
     guidanceQuote: "Observe natural respiration rhythm without forcing or modifying rate. Establishes immediate presence.",
     stages: [
@@ -211,6 +226,9 @@ export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
     category: "breathing",
     defaultDurationMinutes: 3,
     defaultSound: "ocean",
+    bgImageUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=2400&q=85",
+    tradingContext: "Mid-Session Volatility or Choppy Range",
+    scientificObjective: "Controlled 4-second inhalation followed by a 6-second slow exhalation down-regulates sympathetic adrenaline.",
     defaultBreathing: { inhale: 4, hold: 0, exhale: 6, rest: 0 },
     guidanceQuote: "Controlled 4-second inhalation followed by a 6-second slow exhalation down-regulates acute adrenaline.",
     stages: [
@@ -232,6 +250,9 @@ export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
     category: "breathing",
     defaultDurationMinutes: 2,
     defaultSound: "wind",
+    bgImageUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=2400&q=85",
+    tradingContext: "Post-Loss or Sudden Market Shock",
+    scientificObjective: "Lengthening the exhale stimulates the vagus nerve, rapidly lowering elevated pulse and physical agitation.",
     defaultBreathing: { inhale: 4, hold: 1, exhale: 7, rest: 2 },
     guidanceQuote: "Lengthening the exhale stimulates the vagus nerve, rapidly lowering sympathetic nervous system arousal.",
     stages: [
@@ -247,4 +268,3 @@ export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
     ],
   },
 };
-

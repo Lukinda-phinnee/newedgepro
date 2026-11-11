@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Play,
   Pause,
   RotateCcw,
+  SkipForward,
   Volume2,
   VolumeX,
   CloudRain,
@@ -17,7 +18,10 @@ import {
   Mic,
   MicOff,
   ChevronRight,
+  ChevronLeft,
   Brain,
+  Shield,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -66,7 +70,7 @@ export function MeditationSessionModal({
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const currentStage = profile.stages[currentStageIdx] || profile.stages[0];
 
-  // Voice narration toggle using SpeechSynthesis
+  // Voice narration toggle using Web Speech API
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
 
   // Dynamic Breath pacing based on active stage or default breathing pattern
@@ -110,7 +114,7 @@ export function MeditationSessionModal({
       sanctuaryAudio.setVolume(volume);
       setCurrentSound(initialSound);
 
-      // Speak stage 1 narration if available
+      // Speak stage 1 narration
       const firstNarration = profile.stages[0]?.narration || profile.guidanceQuote;
       speakNarration(firstNarration);
     } else {
@@ -152,7 +156,7 @@ export function MeditationSessionModal({
     return () => clearInterval(timer);
   }, [isRunning, isOpen, durationMinutes, onComplete]);
 
-  // Breathing Box / Rhythm Cycle adapted to THIS specific technique
+  // Breathing Rhythm Cycle adapted to THIS specific technique
   useEffect(() => {
     if (!isRunning || !isOpen) return;
 
@@ -198,6 +202,14 @@ export function MeditationSessionModal({
     }
   };
 
+  const handlePrevStage = () => {
+    if (currentStageIdx > 0) {
+      const prevIdx = currentStageIdx - 1;
+      setCurrentStageIdx(prevIdx);
+      speakNarration(profile.stages[prevIdx].narration);
+    }
+  };
+
   const handleSoundChange = (sound: AmbientSoundType) => {
     setCurrentSound(sound);
     sanctuaryAudio.play(sound);
@@ -235,184 +247,239 @@ export function MeditationSessionModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl rounded-3xl border border-white/10 bg-[#16201a] text-[#f2efe9] shadow-2xl p-6 md:p-8 flex flex-col items-center overflow-hidden">
-        {/* Serene Ambient Glow Gradient */}
-        <div className="absolute -top-24 -left-24 size-72 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 size-72 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex flex-col justify-between overflow-hidden bg-black text-[#f2efe9] select-none animate-in fade-in duration-300">
+      
+      {/* ─── FULL-SCREEN NATURE PHOTOGRAPHY BACKDROP ─── */}
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-[12000ms] ease-out scale-105 pointer-events-none"
+        style={{ backgroundImage: `url("${profile.bgImageUrl}")` }}
+      />
+      {/* Deep Atmospheric Vignette & Gradients for Crisp Readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#080d09]/95 via-[#0c140e]/75 to-[#080d09]/90 pointer-events-none" />
+      <div className="absolute inset-0 bg-radial from-transparent via-black/40 to-black/80 pointer-events-none" />
 
-        {/* Top Bar: Title & Technique Subtitle */}
-        <div className="relative w-full flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              <Brain size={16} />
-            </span>
-            <div>
-              <h3 className="text-sm font-semibold tracking-wide font-serif text-white">
-                {profile.title}
-              </h3>
-              <p className="text-[11px] text-emerald-300/80 font-mono">
-                {profile.subtitle}
-              </p>
-            </div>
-          </div>
+      {/* ─── TOP BAR (HEADER & QUICK AUDIO CONTROLS) ─── */}
+      <header className="relative z-10 w-full flex items-center justify-between p-4 sm:p-8 shrink-0 border-b border-white/10 backdrop-blur-md bg-black/20">
+        
+        {/* Left: Exit button & Technique title */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium backdrop-blur-md border border-white/10 transition-colors cursor-pointer"
+            title="Leave meditation session"
+          >
+            <ArrowLeft size={14} />
+            <span className="hidden sm:inline">Leave Session</span>
+          </button>
 
-          <div className="flex items-center gap-2">
-            {/* Voice Narration Toggle */}
-            <button
-              type="button"
-              onClick={toggleVoice}
-              className={cn(
-                "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs transition-colors cursor-pointer border",
-                isVoiceEnabled
-                  ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
-                  : "bg-white/5 border-white/10 text-white/50"
-              )}
-              title={isVoiceEnabled ? "Voice narration active" : "Voice narration off"}
-            >
-              {isVoiceEnabled ? <Mic size={12} /> : <MicOff size={12} />}
-              <span className="text-[10px] hidden sm:inline">
-                {isVoiceEnabled ? "Voice On" : "Voice Off"}
+          <div className="border-l border-white/15 pl-3 sm:pl-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-semibold">
+                {profile.tradingContext}
               </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
-            >
-              <X size={18} />
-            </button>
+            </div>
+            <h2 className="text-base sm:text-xl font-serif font-medium text-white tracking-wide">
+              {profile.title}
+            </h2>
           </div>
         </div>
 
-        {/* Main Breathwork Visualizer Orb */}
-        <div className="relative my-6 flex flex-col items-center justify-center">
-          {/* Animated Breathing Circle with technique rhythm */}
-          <div className="relative flex items-center justify-center size-52">
-            {/* Outer Pulsing Aura */}
-            <div
-              className={cn(
-                "absolute rounded-full transition-all duration-[4000ms] ease-in-out bg-emerald-500/15 border border-emerald-400/20",
-                breathPhase === "Inhale" && "size-52 scale-100 opacity-90",
-                breathPhase === "Hold" && "size-52 scale-100 opacity-75",
-                breathPhase === "Exhale" && "size-32 scale-75 opacity-40",
-                breathPhase === "Rest" && "size-32 scale-75 opacity-30"
-              )}
+        {/* Right: Voice toggle, volume, mute, close */}
+        <div className="flex items-center gap-3">
+          {/* Voice Narration Toggle */}
+          <button
+            type="button"
+            onClick={toggleVoice}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer border backdrop-blur-md",
+              isVoiceEnabled
+                ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-300 shadow-sm"
+                : "bg-white/10 border-white/10 text-white/60 hover:text-white"
+            )}
+            title={isVoiceEnabled ? "Voice narration active" : "Voice narration muted"}
+          >
+            {isVoiceEnabled ? <Mic size={13} className="text-emerald-300" /> : <MicOff size={13} />}
+            <span className="hidden sm:inline text-[11px]">
+              {isVoiceEnabled ? "Voice On" : "Voice Off"}
+            </span>
+          </button>
+
+          {/* Master Volume */}
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-md">
+            <button
+              type="button"
+              onClick={handleToggleMute}
+              className="text-white/70 hover:text-white transition-colors cursor-pointer"
+            >
+              {isMuted || volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={isMuted ? 0 : volume}
+              onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+              className="w-16 h-1 accent-emerald-400 cursor-pointer"
             />
-
-            {/* Inner Glowing Core */}
-            <div
-              className={cn(
-                "relative z-10 flex flex-col items-center justify-center rounded-full transition-all duration-[4000ms] ease-in-out shadow-lg",
-                "bg-gradient-to-br from-[#2a4535] to-[#1c3024] border border-emerald-400/40 text-white",
-                breathPhase === "Inhale" && "size-36 scale-100",
-                breathPhase === "Hold" && "size-36 scale-100 shadow-emerald-500/20",
-                breathPhase === "Exhale" && "size-28 scale-85",
-                breathPhase === "Rest" && "size-28 scale-80"
-              )}
-            >
-              <span className="text-xs font-serif font-medium tracking-wide">
-                {isFinished ? "Completed" : breathPhase}
-              </span>
-              {!isFinished && (
-                <span className="text-2xl font-mono font-light text-emerald-300 mt-0.5">
-                  {breathCounter}
-                </span>
-              )}
-            </div>
           </div>
 
-          {/* Time Remaining */}
-          <div className="mt-3 text-center">
-            <span className="text-2xl font-mono tracking-wider font-light text-white/90">
-              {formatTime(secondsRemaining)}
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </header>
+
+      {/* ─── CENTER ARENA: BREATHING ORB & SYNCHRONIZED STAGE NARRATION ─── */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 sm:p-6 max-w-4xl mx-auto w-full gap-5 sm:gap-7">
+        
+        {/* Dynamic Breathing Orb */}
+        <div className="relative flex items-center justify-center size-64 sm:size-76 my-2">
+          
+          {/* Subtle Outer Pulsing Wave Rings */}
+          <div
+            className={cn(
+              "absolute rounded-full transition-all duration-[4000ms] ease-in-out border",
+              breathPhase === "Inhale" && "size-64 sm:size-76 scale-100 opacity-90 border-emerald-400/30 bg-emerald-500/10 shadow-[0_0_60px_rgba(52,211,153,0.18)]",
+              breathPhase === "Hold" && "size-64 sm:size-76 scale-100 opacity-80 border-amber-400/30 bg-amber-500/10 shadow-[0_0_50px_rgba(251,191,36,0.18)]",
+              breathPhase === "Exhale" && "size-36 sm:size-44 scale-80 opacity-40 border-teal-400/20 bg-teal-500/5",
+              breathPhase === "Rest" && "size-36 sm:size-44 scale-75 opacity-30 border-white/10 bg-white/5"
+            )}
+          />
+
+          {/* Glowing Center Core */}
+          <div
+            className={cn(
+              "relative z-10 flex flex-col items-center justify-center rounded-full transition-all duration-[4000ms] ease-in-out shadow-2xl backdrop-blur-xl border border-white/20",
+              "bg-gradient-to-br from-[#1c3024]/90 via-[#14231a]/95 to-[#0b140f]/95 text-white",
+              breathPhase === "Inhale" && "size-44 sm:size-52 scale-100 border-emerald-400/40",
+              breathPhase === "Hold" && "size-44 sm:size-52 scale-100 border-amber-400/40 shadow-emerald-500/20",
+              breathPhase === "Exhale" && "size-32 sm:size-38 scale-85 border-teal-400/30",
+              breathPhase === "Rest" && "size-32 sm:size-38 scale-80 border-white/15"
+            )}
+          >
+            <span className="text-xs sm:text-sm font-serif font-medium tracking-widest uppercase text-emerald-200">
+              {isFinished ? "Completed" : breathPhase}
             </span>
+            {!isFinished && (
+              <span className="text-3xl sm:text-4xl font-mono font-light text-white mt-1">
+                {breathCounter}s
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Dynamic Guided Script / Stage Instruction Card */}
-        <div className="relative w-full p-4 rounded-2xl bg-white/5 border border-white/10 mb-5 text-center">
-          {profile.stages.length > 1 && (
-            <div className="flex items-center justify-between text-[11px] font-mono text-emerald-300/90 mb-1.5 pb-1 border-b border-white/10">
-              <span>
-                Stage {currentStage.stageNumber} of {profile.stages.length}: {currentStage.title}
-              </span>
-              {currentStageIdx < profile.stages.length - 1 && (
-                <button
-                  type="button"
-                  onClick={handleNextStage}
-                  className="hover:underline flex items-center gap-0.5 text-white/80 hover:text-white cursor-pointer"
-                >
-                  <span>Next Stage</span>
-                  <ChevronRight size={12} />
-                </button>
-              )}
-            </div>
-          )}
-
-          <p className="text-xs text-stone-200 font-light leading-relaxed italic">
-            "{currentStage?.narration || profile.guidanceQuote}"
+        {/* Countdown Clock */}
+        <div className="text-center">
+          <div className="text-3xl sm:text-4xl font-mono font-light tracking-widest text-white drop-shadow-md">
+            {formatTime(secondsRemaining)}
+          </div>
+          <p className="text-xs font-mono text-emerald-300/80 mt-1 uppercase tracking-wider">
+            {profile.subtitle}
           </p>
         </div>
 
-        {/* Soundscapes Selector */}
-        <div className="relative w-full p-3 rounded-2xl bg-white/5 border border-white/10 mb-6">
-          <div className="flex items-center justify-between text-xs mb-2 px-1 text-white/70">
-            <span className="flex items-center gap-1.5 font-medium">
-              <Waves size={13} className="text-emerald-400" /> Ambient Soundscape
-            </span>
-            <div className="flex items-center gap-2">
+        {/* Synchronized Stage Script Card */}
+        <div className="w-full max-w-2xl p-5 sm:p-6 rounded-3xl bg-black/40 border border-white/15 backdrop-blur-xl shadow-2xl text-center space-y-3">
+          
+          {/* Stage Pills & Stepper */}
+          {profile.stages.length > 1 && (
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 text-xs font-mono">
               <button
                 type="button"
-                onClick={handleToggleMute}
-                className="text-white/60 hover:text-white transition-colors cursor-pointer"
+                disabled={currentStageIdx === 0}
+                onClick={handlePrevStage}
+                className="flex items-center gap-1 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
-                {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                <ChevronLeft size={14} />
+                <span className="hidden sm:inline">Prev Stage</span>
               </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={isMuted ? 0 : volume}
-                onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                className="w-16 h-1 accent-emerald-400 cursor-pointer"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-4 gap-1.5">
-            {[
-              { id: "rain", label: "Rain", icon: CloudRain },
-              { id: "ocean", label: "Ocean", icon: Waves },
-              { id: "singing-bowl", label: "Bowl", icon: Bell },
-              { id: "wind", label: "Wind", icon: Wind },
-            ].map((sound) => {
-              const Icon = sound.icon;
-              const isActive = currentSound === sound.id;
-              return (
-                <button
-                  key={sound.id}
-                  type="button"
-                  onClick={() => handleSoundChange(sound.id as AmbientSoundType)}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-medium transition-all cursor-pointer",
-                    isActive
-                      ? "bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-xs"
-                      : "bg-white/5 hover:bg-white/10 text-white/70 border border-transparent"
-                  )}
-                >
-                  <Icon size={12} />
-                  <span>{sound.label}</span>
-                </button>
-              );
-            })}
+              <div className="flex items-center gap-1.5">
+                {profile.stages.map((stg, idx) => (
+                  <span
+                    key={stg.id}
+                    className={cn(
+                      "size-2 rounded-full transition-all",
+                      idx === currentStageIdx
+                        ? "bg-emerald-400 scale-125"
+                        : idx < currentStageIdx
+                        ? "bg-white/50"
+                        : "bg-white/20"
+                    )}
+                  />
+                ))}
+                <span className="ml-2 text-emerald-300 font-medium">
+                  Stage {currentStage.stageNumber}: {currentStage.title}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                disabled={currentStageIdx === profile.stages.length - 1}
+                onClick={handleNextStage}
+                className="flex items-center gap-1 text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                <span className="hidden sm:inline">Next Stage</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Actual Script Narration Text */}
+          <blockquote className="text-sm sm:text-base text-stone-100 font-light leading-relaxed font-sans italic">
+            "{currentStage?.narration || profile.guidanceQuote}"
+          </blockquote>
+
+          {/* Scientific Purpose Indicator */}
+          <div className="pt-2 text-[11px] font-mono text-white/50 flex items-center justify-center gap-1.5">
+            <Brain size={12} className="text-emerald-400" />
+            <span>{profile.scientificObjective}</span>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="relative w-full flex items-center justify-center gap-4">
+      </main>
+
+      {/* ─── BOTTOM CONTROL BAR: AMBIENT SOUNDS & MEDIA CONTROLS ─── */}
+      <footer className="relative z-10 w-full p-4 sm:p-6 shrink-0 border-t border-white/10 backdrop-blur-md bg-black/25 flex flex-col sm:flex-row items-center justify-between gap-4 max-w-5xl mx-auto">
+        
+        {/* Left: Soundscape selector */}
+        <div className="flex items-center gap-1.5 bg-white/10 p-1 rounded-2xl border border-white/10 backdrop-blur-md">
+          {[
+            { id: "rain", label: "Rain", icon: CloudRain },
+            { id: "ocean", label: "Ocean", icon: Waves },
+            { id: "singing-bowl", label: "Bowl", icon: Bell },
+            { id: "wind", label: "Wind", icon: Wind },
+          ].map((snd) => {
+            const Icon = snd.icon;
+            const isChosen = currentSound === snd.id;
+            return (
+              <button
+                key={snd.id}
+                type="button"
+                onClick={() => handleSoundChange(snd.id as AmbientSoundType)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer",
+                  isChosen
+                    ? "bg-emerald-500 text-stone-900 font-bold shadow-md"
+                    : "text-white/70 hover:text-white hover:bg-white/10"
+                )}
+              >
+                <Icon size={13} />
+                <span>{snd.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Center: Main Media Controls (Restart, Play/Pause, Skip) */}
+        <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => {
@@ -422,10 +489,10 @@ export function MeditationSessionModal({
               setIsRunning(true);
               speakNarration(profile.stages[0]?.narration || profile.guidanceQuote);
             }}
-            className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+            className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer border border-white/10"
             title="Restart session"
           >
-            <RotateCcw size={16} />
+            <RotateCcw size={18} />
           </button>
 
           <button
@@ -443,23 +510,47 @@ export function MeditationSessionModal({
                 setIsRunning(true);
               }
             }}
-            className="flex items-center justify-center size-14 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-lg shadow-emerald-950/40 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+            className="flex items-center justify-center size-16 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-stone-950 font-bold shadow-xl shadow-emerald-950/60 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+            title={isRunning ? "Pause" : "Play"}
           >
-            {isRunning ? <Pause size={22} /> : <Play size={22} className="ml-1" />}
+            {isRunning ? <Pause size={24} className="fill-current" /> : <Play size={24} className="fill-current ml-0.5" />}
           </button>
 
-          {isFinished && (
+          {profile.stages.length > 1 && (
             <button
               type="button"
-              onClick={onClose}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors cursor-pointer"
+              onClick={handleNextStage}
+              className="p-3 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer border border-white/10"
+              title="Skip to next stage"
             >
-              <CheckCircle2 size={14} />
-              <span>Done</span>
+              <SkipForward size={18} />
             </button>
           )}
         </div>
-      </div>
+
+        {/* Right: Done button or completion status */}
+        <div className="flex items-center gap-2">
+          {isFinished ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-bold shadow-lg transition-transform hover:scale-105 cursor-pointer"
+            >
+              <CheckCircle2 size={16} />
+              <span>Session Done</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-xs font-medium border border-white/10 transition-colors cursor-pointer"
+            >
+              Finish Early
+            </button>
+          )}
+        </div>
+
+      </footer>
     </div>
   );
 }
