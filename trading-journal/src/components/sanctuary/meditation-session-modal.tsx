@@ -44,6 +44,14 @@ interface MeditationSessionModalProps {
 
 type BreathPhase = "Inhale" | "Hold" | "Exhale" | "Rest";
 
+const SOUND_OPTIONS: { id: AmbientSoundType; label: string; icon: typeof VolumeX }[] = [
+  { id: "silence", label: "No Sound", icon: VolumeX },
+  { id: "rain", label: "Calm Rain", icon: CloudRain },
+  { id: "ocean", label: "Ocean Waves", icon: Waves },
+  { id: "singing-bowl", label: "Singing Bowl", icon: Bell },
+  { id: "wind", label: "Forest Wind", icon: Wind },
+];
+
 // ─── Voice helpers ────────────────────────────────────────────────────────────
 /**
  * Returns the best available SpeechSynthesisVoice for calm meditation narration.
@@ -172,10 +180,10 @@ export function MeditationSessionModal({
       setBreathPhase("Inhale");
       breathPhaseRef.current = "Inhale";
       setBreathCounter(profile.stages[0]?.breathingPattern?.inhale ?? profile.defaultBreathing.inhale);
-      // Start ambient audio immediately (sets the mood while user reads the card)
-      sanctuaryAudio.play(initialSound);
-      sanctuaryAudio.setVolume(volume);
-      setCurrentSound(initialSound);
+      // Ensure any previous audio is stopped — sound begins only when user clicks start
+      sanctuaryAudio.stop();
+      const chosen = initialSound ?? profile.defaultSound ?? "rain";
+      setCurrentSound(chosen);
     } else {
       sanctuaryAudio.stop();
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -203,6 +211,7 @@ export function MeditationSessionModal({
           clearInterval(timer);
           setIsRunning(false);
           setIsFinished(true);
+          sanctuaryAudio.stop();
           sanctuaryAudio.playGentleChime();
           if (typeof window !== "undefined" && "speechSynthesis" in window) {
             window.speechSynthesis.cancel();
@@ -282,6 +291,15 @@ export function MeditationSessionModal({
     setBreathPhase("Inhale");
     breathPhaseRef.current = "Inhale";
     setBreathCounter(profile.stages[0]?.breathingPattern?.inhale ?? profile.defaultBreathing.inhale);
+
+    // Ambient sound begins playing when the user clicks start
+    if (currentSound !== "silence") {
+      sanctuaryAudio.play(currentSound);
+      sanctuaryAudio.setVolume(volume);
+    } else {
+      sanctuaryAudio.stop();
+    }
+
     // Speak first narration (slight delay lets the browser settle)
     setTimeout(() => {
       speakNarration(profile.stages[0]?.narration || profile.guidanceQuote);
@@ -306,7 +324,12 @@ export function MeditationSessionModal({
 
   const handleSoundChange = (sound: AmbientSoundType) => {
     setCurrentSound(sound);
-    sanctuaryAudio.play(sound);
+    if (sound === "silence") {
+      sanctuaryAudio.stop();
+    } else if (isReady && isRunning) {
+      sanctuaryAudio.play(sound);
+      sanctuaryAudio.setVolume(volume);
+    }
   };
 
   const handleVolumeChange = (val: number) => {
@@ -543,12 +566,41 @@ export function MeditationSessionModal({
               &ldquo;{profile.guidanceQuote}&rdquo;
             </blockquote>
 
+            {/* Sound Selector on Ready Screen */}
+            <div className="flex flex-col items-center gap-2 max-w-lg w-full">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-white/50">
+                Ambient Soundscape (Starts on Begin)
+              </span>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 bg-black/40 p-1.5 rounded-2xl border border-white/15 backdrop-blur-md">
+                {SOUND_OPTIONS.map((snd) => {
+                  const Icon = snd.icon;
+                  const isChosen = currentSound === snd.id;
+                  return (
+                    <button
+                      key={snd.id}
+                      type="button"
+                      onClick={() => handleSoundChange(snd.id)}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer",
+                        isChosen
+                          ? cn(theme.soundActiveBg, theme.soundActiveText, "font-bold shadow-md scale-102")
+                          : "text-white/70 hover:text-white hover:bg-white/10"
+                      )}
+                    >
+                      <Icon size={13} />
+                      <span>{snd.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* BEGIN button */}
             <button
               type="button"
               onClick={handleBeginSession}
               className={cn(
-                "flex items-center gap-3 px-8 py-4 rounded-full font-semibold text-base shadow-2xl",
+                "flex items-center gap-3 px-8 py-4 rounded-full font-semibold text-base shadow-2xl mt-1",
                 "bg-gradient-to-r text-stone-950 transition-transform hover:scale-105 active:scale-95 cursor-pointer",
                 theme.playButtonGradient
               )}
@@ -684,20 +736,15 @@ export function MeditationSessionModal({
       <footer className="relative z-10 w-full p-4 sm:p-6 shrink-0 border-t border-white/10 backdrop-blur-md bg-black/25 flex flex-col sm:flex-row items-center justify-between gap-4 max-w-5xl mx-auto">
 
         {/* Left: Soundscape selector */}
-        <div className="flex items-center gap-1.5 bg-white/10 p-1 rounded-2xl border border-white/10 backdrop-blur-md">
-          {[
-            { id: "rain", label: "Rain", icon: CloudRain },
-            { id: "ocean", label: "Ocean", icon: Waves },
-            { id: "singing-bowl", label: "Bowl", icon: Bell },
-            { id: "wind", label: "Wind", icon: Wind },
-          ].map((snd) => {
+        <div className="flex flex-wrap items-center gap-1.5 bg-white/10 p-1 rounded-2xl border border-white/10 backdrop-blur-md">
+          {SOUND_OPTIONS.map((snd) => {
             const Icon = snd.icon;
             const isChosen = currentSound === snd.id;
             return (
               <button
                 key={snd.id}
                 type="button"
-                onClick={() => handleSoundChange(snd.id as AmbientSoundType)}
+                onClick={() => handleSoundChange(snd.id)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer",
                   isChosen
@@ -725,6 +772,7 @@ export function MeditationSessionModal({
               setBreathPhase("Inhale");
               breathPhaseRef.current = "Inhale";
               setBreathCounter(activePattern.inhale);
+              sanctuaryAudio.stop();
               if (typeof window !== "undefined" && "speechSynthesis" in window) {
                 window.speechSynthesis.cancel();
               }
@@ -744,10 +792,15 @@ export function MeditationSessionModal({
                 if (typeof window !== "undefined" && "speechSynthesis" in window) {
                   window.speechSynthesis.pause();
                 }
+                sanctuaryAudio.stop();
                 setIsRunning(false);
               } else {
                 if (typeof window !== "undefined" && "speechSynthesis" in window) {
                   window.speechSynthesis.resume();
+                }
+                if (currentSound !== "silence") {
+                  sanctuaryAudio.play(currentSound);
+                  sanctuaryAudio.setVolume(volume);
                 }
                 setIsRunning(true);
               }

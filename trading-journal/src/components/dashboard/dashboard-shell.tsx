@@ -6,7 +6,7 @@ import {
   Activity, BookOpen, BriefcaseBusiness, ClipboardList,
   LayoutDashboard, Menu, NotebookPen, PanelLeftClose,
   PanelLeftOpen, Plus, ShieldCheck, Target, Trophy, X,
-  Flower2, Brain,
+  Flower2, BookMarked,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -22,6 +22,7 @@ const navigationGroups = [
     label: "Trading Operations",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Journal", href: "/journal", icon: BookMarked },
       { label: "Trade Log", href: "/trade-log", icon: ClipboardList },
       { label: "Trade Review", href: "/trade-review", icon: BookOpen },
       { label: "Trading Plan", href: "/plan", icon: Target },
@@ -41,7 +42,6 @@ const navigationGroups = [
       { label: "Edge", href: "/edge", icon: Activity },
       { label: "Trader Notes", href: "/trader-notes", icon: NotebookPen },
       { label: "Sanctuary", href: "/sanctuary", icon: Flower2 },
-      { label: "Sanctuary 2", href: "/sanctuary-2", icon: Brain },
     ],
   },
 ];
@@ -107,8 +107,6 @@ export function DashboardShell({
   const navigation = navigationGroups.flatMap((group) => group.items);
   const title = pathname.startsWith("/trader-notes")
     ? "Trader Notes"
-    : pathname.startsWith("/sanctuary-2")
-    ? "Sanctuary 2 — Mental Conditioning"
     : pathname.startsWith("/sanctuary")
     ? "Sanctuary"
     : navigation.find((item) => item.href === pathname)?.label ??
@@ -297,7 +295,7 @@ export function DashboardShell({
               ? "p-4 overflow-hidden w-full max-w-none h-full"
               : pathname === "/sanctuary"
               ? "p-4 overflow-y-auto w-full max-w-none"
-              : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/trade-review" || pathname === "/rule-engine" || pathname === "/propfirm-tracker"
+              : pathname === "/dashboard" || pathname === "/portfolio-hub" || pathname === "/trade-log" || pathname === "/journal" || pathname === "/trade-review" || pathname === "/rule-engine" || pathname === "/propfirm-tracker"
               ? "p-4 overflow-y-auto"
               : "mx-auto max-w-[1440px] p-4 sm:p-7 lg:p-9 overflow-y-auto",
           )}
