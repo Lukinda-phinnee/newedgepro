@@ -10,7 +10,7 @@ import {
   Volume2,
   VolumeX,
   CloudRain,
-  Waves,
+  Droplets,
   Wind,
   Bell,
   CheckCircle2,
@@ -20,7 +20,6 @@ import {
   ChevronLeft,
   Brain,
   ArrowLeft,
-  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -44,10 +43,10 @@ interface MeditationSessionModalProps {
 
 type BreathPhase = "Inhale" | "Hold" | "Exhale" | "Rest";
 
-const SOUND_OPTIONS: { id: AmbientSoundType; label: string; icon: typeof VolumeX }[] = [
+const SOUND_OPTIONS: { id: AmbientSoundType; label: string; icon: typeof VolumeX; isYouTube?: boolean }[] = [
   { id: "silence", label: "No Sound", icon: VolumeX },
-  { id: "rain", label: "Calm Rain", icon: CloudRain },
-  { id: "ocean", label: "Ocean Waves", icon: Waves },
+  { id: "rain", label: "Rain", icon: CloudRain, isYouTube: true },
+  { id: "water", label: "Water Stream", icon: Droplets, isYouTube: true },
   { id: "singing-bowl", label: "Singing Bowl", icon: Bell },
   { id: "wind", label: "Forest Wind", icon: Wind },
 ];
@@ -167,6 +166,11 @@ export function MeditationSessionModal({
     window.speechSynthesis.addEventListener("voiceschanged", load);
     load(); // try immediately in case already loaded
     return () => window.speechSynthesis.removeEventListener("voiceschanged", load);
+  }, []);
+
+  // Initialize YouTube Audio Player
+  useEffect(() => {
+    sanctuaryAudio.attachYouTubePlayer("sanctuary-yt-player-slot");
   }, []);
 
   // Sync state when modal opens
@@ -427,9 +431,9 @@ export function MeditationSessionModal({
   // Phase-specific accent colors for the orb (Inhale = technique color, Hold = amber, Exhale/Rest = neutral)
   const phaseColor = {
     Inhale: { ring: theme.ringInhale, border: theme.orbBorderInhale, text: theme.accentText },
-    Hold:   { ring: "border-amber-400/30 bg-amber-500/10", border: "border-amber-400/40", text: "text-amber-200" },
+    Hold: { ring: "border-amber-400/30 bg-amber-500/10", border: "border-amber-400/40", text: "text-amber-200" },
     Exhale: { ring: "border-white/10 bg-white/5", border: "border-white/20", text: "text-white/70" },
-    Rest:   { ring: "border-white/8 bg-white/3", border: "border-white/15", text: "text-white/50" },
+    Rest: { ring: "border-white/8 bg-white/3", border: "border-white/15", text: "text-white/50" },
   };
   const pc = phaseColor[breathPhase];
 
@@ -451,6 +455,14 @@ export function MeditationSessionModal({
         theme.backdropGradient
       )} />
       <div className="absolute inset-0 bg-radial from-transparent via-black/40 to-black/80 pointer-events-none" />
+
+      {/* ─── HIDDEN YOUTUBE IFRAME HOST ─── */}
+      <div
+        className="fixed -bottom-40 -left-40 size-32 pointer-events-none opacity-0 overflow-hidden"
+        aria-hidden="true"
+      >
+        <div id="sanctuary-yt-player-slot" />
+      </div>
 
       {/* ─── TOP BAR ─── */}
       <header className="relative z-10 w-full flex items-center justify-between p-4 sm:p-8 shrink-0 border-b border-white/10 backdrop-blur-md bg-black/20">
@@ -589,6 +601,16 @@ export function MeditationSessionModal({
                     >
                       <Icon size={13} />
                       <span>{snd.label}</span>
+                      {snd.isYouTube && (
+                        <span
+                          className={cn(
+                            "text-[9px] px-1 py-0.5 rounded font-mono font-bold uppercase leading-none",
+                            isChosen ? "bg-black/25 text-stone-900" : "bg-red-500/25 text-red-200"
+                          )}
+                        >
+                          YT
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -696,8 +718,8 @@ export function MeditationSessionModal({
                       idx === currentStageIdx
                         ? cn("scale-125", `bg-${theme.accent}-400`)
                         : idx < currentStageIdx
-                        ? "bg-white/50"
-                        : "bg-white/20"
+                          ? "bg-white/50"
+                          : "bg-white/20"
                     )}
                   />
                 ))}
@@ -754,6 +776,16 @@ export function MeditationSessionModal({
               >
                 <Icon size={13} />
                 <span>{snd.label}</span>
+                {snd.isYouTube && (
+                  <span
+                    className={cn(
+                      "text-[9px] px-1 py-0.5 rounded font-mono font-bold uppercase leading-none",
+                      isChosen ? "bg-black/25 text-stone-900" : "bg-red-500/25 text-red-200"
+                    )}
+                  >
+                    YT
+                  </span>
+                )}
               </button>
             );
           })}

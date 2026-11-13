@@ -49,7 +49,7 @@ export interface TechniqueProfile {
   subtitle: string;
   category: "attention" | "mindfulness" | "bodyscan" | "breathing";
   defaultDurationMinutes: number;
-  defaultSound: "rain" | "ocean" | "singing-bowl" | "wind" | "silence";
+  defaultSound: "rain" | "water" | "singing-bowl" | "wind" | "silence";
   defaultBreathing: {
     inhale: number;
     hold: number;
@@ -147,7 +147,7 @@ export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
     subtitle: "Emotional Regulation · Pre-Market Poise",
     category: "mindfulness",
     defaultDurationMinutes: 5,
-    defaultSound: "ocean",
+    defaultSound: "water",
     bgImageUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=2400&q=85",
     tradingContext: "15 min Before London / NY Open",
     scientificObjective: "Observe fear, FOMO, and impatience as passing bodily sensations rather than instructions to click buy or sell.",
@@ -321,7 +321,7 @@ export const ALL_SANCTUARY_TECHNIQUES: Record<string, TechniqueProfile> = {
     subtitle: "Somatic Breathwork · 4s Inhale · 6s Exhale",
     category: "breathing",
     defaultDurationMinutes: 3,
-    defaultSound: "ocean",
+    defaultSound: "water",
     bgImageUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=2400&q=85",
     tradingContext: "Mid-Session Volatility or Choppy Range",
     scientificObjective: "Controlled 4-second inhalation followed by a 6-second slow exhalation down-regulates sympathetic adrenaline.",

@@ -70,7 +70,7 @@ const CORE_TECHNIQUES: TradingTechniqueItem[] = [
     tradingContext: "15 min Before London / NY Open",
     bgGradient: "from-[#1b2b3a]/90 via-[#131d27]/85 to-[#0b1016]/95",
     imgUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
-    sound: "ocean",
+    sound: "water",
   },
   {
     id: "body-scan",
@@ -107,7 +107,7 @@ const BREATHING_EXERCISES: BreathingExerciseItem[] = [
     minutes: 3,
     purpose: "Smooth parasympathetic pacing to quickly counteract sudden adrenaline spikes.",
     imgUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80",
-    sound: "ocean",
+    sound: "water",
   },
   {
     id: "extended-exhale",
@@ -465,7 +465,7 @@ export function SanctuaryView() {
             <span>Trading Psychology</span>
             <button
               type="button"
-              onClick={() => handleStartSession("mindfulness", "Mindfulness Meditation", 5, "ocean")}
+              onClick={() => handleStartSession("mindfulness", "Mindfulness Meditation", 5, "water")}
               className="text-emerald-800 dark:text-emerald-300 font-medium hover:underline cursor-pointer"
             >
               Take a 5-min pre-trade pause →

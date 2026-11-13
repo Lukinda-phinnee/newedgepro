@@ -1,7 +1,34 @@
-// Browser-native Web Audio API synthesizer for ambient sanctuary soundscapes
-// Works 100% offline, zero network requests, zero mp3 assets needed.
+// Browser-native Web Audio API synthesizer + YouTube audio integration for Sanctuary soundscapes
+// Combines Web Audio API (offline, generative) with official YouTube tracks for Rain and Water.
 
-export type AmbientSoundType = "rain" | "ocean" | "singing-bowl" | "wind" | "silence";
+export type AmbientSoundType = "rain" | "water" | "singing-bowl" | "wind" | "silence";
+
+export interface YouTubeTrackConfig {
+  videoId: string;
+  title: string;
+}
+
+// User-specified YouTube soundscapes:
+// Rain: https://www.youtube.com/watch?v=yIQd2Ya0Ziw
+// Water (Stream): https://www.youtube.com/watch?v=NWY4fBAeLYw
+export const YOUTUBE_TRACKS: Record<string, YouTubeTrackConfig> = {
+  rain: {
+    videoId: "yIQd2Ya0Ziw",
+    title: "Gentle Rain",
+  },
+  water: {
+    videoId: "NWY4fBAeLYw",
+    title: "Water Stream",
+  },
+};
+
+declare global {
+  interface Window {
+    onYouTubeIframeAPIReady?: () => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    YT?: any;
+  }
+}
 
 class SanctuaryAudioEngine {
   private ctx: AudioContext | null = null;
@@ -11,6 +38,13 @@ class SanctuaryAudioEngine {
   private cleanups: (() => void)[] = [];
   private isMuted: boolean = false;
   private volume: number = 0.6;
+
+  // YouTube IFrame Player integration
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private ytPlayer: any = null;
+  private isYtReady: boolean = false;
+  private currentYtVideoId: string | null = null;
+  private pendingYtVideoId: string | null = null;
 
   private initContext() {
     if (!this.ctx) {
@@ -27,6 +61,130 @@ class SanctuaryAudioEngine {
     }
   }
 
+  // ── YouTube Player Lifecycle ──────────────────────────────────────────────
+  public attachYouTubePlayer(containerId: string = "sanctuary-yt-player-slot") {
+    if (typeof window === "undefined") return;
+    if (this.ytPlayer) return;
+
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    this.loadYouTubeIframeAPI(() => {
+      if (!window.YT || !window.YT.Player) return;
+      try {
+        this.ytPlayer = new window.YT.Player(containerId, {
+          height: "120",
+          width: "200",
+          videoId: "yIQd2Ya0Ziw",
+          playerVars: {
+            autoplay: 0,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            modestbranding: 1,
+            rel: 0,
+            loop: 1,
+            playlist: "yIQd2Ya0Ziw",
+            playsinline: 1,
+            iv_load_policy: 3,
+          },
+          events: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onReady: (event: any) => {
+              this.isYtReady = true;
+              try {
+                event.target.setVolume(this.isMuted ? 0 : Math.round(this.volume * 100));
+              } catch { }
+              if (this.pendingYtVideoId) {
+                const vid = this.pendingYtVideoId;
+                this.pendingYtVideoId = null;
+                this.playYouTubeVideo(vid);
+              }
+            },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onStateChange: (event: any) => {
+              // Ensure video loops smoothly when ending
+              if (window.YT && event.data === window.YT.PlayerState.ENDED) {
+                try {
+                  event.target.seekTo(0);
+                  event.target.playVideo();
+                } catch { }
+              }
+            },
+            onError: () => {
+              // Fallback to local audio synthesizer if YouTube fails or is offline
+              if (this.currentType === "rain") {
+                this.createRainSound();
+              } else if (this.currentType === "water") {
+                this.createOceanWaves();
+              }
+            },
+          },
+        });
+      } catch (err) {
+        console.warn("YouTube player init error:", err);
+      }
+    });
+  }
+
+  private loadYouTubeIframeAPI(callback: () => void) {
+    if (window.YT && window.YT.Player) {
+      callback();
+      return;
+    }
+
+    const existingScript = document.getElementById("youtube-iframe-api");
+    if (!existingScript) {
+      const tag = document.createElement("script");
+      tag.id = "youtube-iframe-api";
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+
+    const prevReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (prevReady) prevReady();
+      callback();
+    };
+  }
+
+  private playYouTubeVideo(videoId: string) {
+    if (!this.ytPlayer || !this.isYtReady) {
+      this.pendingYtVideoId = videoId;
+      return;
+    }
+
+    try {
+      this.ytPlayer.setVolume(this.isMuted ? 0 : Math.round(this.volume * 100));
+      if (this.currentYtVideoId !== videoId) {
+        this.currentYtVideoId = videoId;
+        this.ytPlayer.loadVideoById({
+          videoId,
+          startSeconds: 0,
+        });
+      } else {
+        this.ytPlayer.playVideo();
+      }
+    } catch {
+      this.pendingYtVideoId = videoId;
+    }
+  }
+
+  private pauseYouTubeVideo() {
+    this.pendingYtVideoId = null;
+    if (this.ytPlayer && this.isYtReady) {
+      try {
+        this.ytPlayer.pauseVideo();
+      } catch { }
+    }
+  }
+
+  public isYouTube(type: AmbientSoundType): boolean {
+    return Boolean(YOUTUBE_TRACKS[type]);
+  }
+
+  // ── Master Controls ───────────────────────────────────────────────────────
   public setVolume(val: number) {
     this.volume = Math.max(0, Math.min(1, val));
     if (this.masterGain && this.ctx) {
@@ -36,26 +194,42 @@ class SanctuaryAudioEngine {
         0.05
       );
     }
+    if (this.ytPlayer && this.isYtReady) {
+      try {
+        this.ytPlayer.setVolume(this.isMuted ? 0 : Math.round(this.volume * 100));
+      } catch { }
+    }
   }
 
   public toggleMute(): boolean {
     this.isMuted = !this.isMuted;
     this.setVolume(this.volume);
+    if (this.ytPlayer && this.isYtReady) {
+      try {
+        if (this.isMuted) {
+          this.ytPlayer.mute();
+        } else {
+          this.ytPlayer.unMute();
+        }
+      } catch { }
+    }
     return this.isMuted;
   }
 
   public stop() {
+    this.pauseYouTubeVideo();
+
     this.cleanups.forEach((fn) => {
       try {
         fn();
-      } catch {}
+      } catch { }
     });
     this.cleanups = [];
 
     this.activeNodes.forEach((node) => {
       try {
         node.stop();
-      } catch {}
+      } catch { }
     });
     this.activeNodes = [];
     this.currentType = "silence";
@@ -63,21 +237,27 @@ class SanctuaryAudioEngine {
 
   public play(type: AmbientSoundType) {
     this.initContext();
-    if (!this.ctx || !this.masterGain) return;
 
-    if (this.currentType === type) return;
+    if (this.currentType === type && type !== "silence") {
+      if (YOUTUBE_TRACKS[type]) {
+        this.playYouTubeVideo(YOUTUBE_TRACKS[type].videoId);
+      }
+      return;
+    }
+
     this.stop();
     this.currentType = type;
 
     if (type === "silence") return;
 
+    // Route to YouTube player if configured
+    if (YOUTUBE_TRACKS[type]) {
+      this.playYouTubeVideo(YOUTUBE_TRACKS[type].videoId);
+      return;
+    }
+
+    // Web Audio Synthesizer fallback/modes
     switch (type) {
-      case "rain":
-        this.createRainSound();
-        break;
-      case "ocean":
-        this.createOceanWaves();
-        break;
       case "wind":
         this.createForestWind();
         break;
@@ -87,7 +267,7 @@ class SanctuaryAudioEngine {
     }
   }
 
-  // ── Calm Rainfall Generator (Warm, Soft, No Harsh Static) ──────────────────
+  // ── Calm Rainfall Generator (Synthesizer Fallback) ─────────────────────────
   private createRainSound() {
     if (!this.ctx || !this.masterGain) return;
 
@@ -97,7 +277,6 @@ class SanctuaryAudioEngine {
     const leftChannel = noiseBuffer.getChannelData(0);
     const rightChannel = noiseBuffer.getChannelData(1);
 
-    // Warm pink noise generation for left and right channels (stereo decorrelation)
     for (const channel of [leftChannel, rightChannel]) {
       let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
       for (let i = 0; i < bufferSize; i++) {
@@ -117,18 +296,15 @@ class SanctuaryAudioEngine {
     rainSource.buffer = noiseBuffer;
     rainSource.loop = true;
 
-    // Layer 1: Warm deep rain body (gentle lowpass at 420 Hz removes harsh static)
     const deepFilter = this.ctx.createBiquadFilter();
     deepFilter.type = "lowpass";
     deepFilter.frequency.setValueAtTime(420, this.ctx.currentTime);
 
-    // Layer 2: Delicate foliage whisper (bandpass at 820 Hz with low gain)
     const foliageFilter = this.ctx.createBiquadFilter();
     foliageFilter.type = "bandpass";
     foliageFilter.frequency.setValueAtTime(820, this.ctx.currentTime);
     foliageFilter.Q.setValueAtTime(1.2, this.ctx.currentTime);
 
-    // Subtle slow organic LFO for gentle rain breeze modulation
     const lfo = this.ctx.createOscillator();
     lfo.frequency.setValueAtTime(0.08, this.ctx.currentTime);
     const lfoGain = this.ctx.createGain();
@@ -142,7 +318,6 @@ class SanctuaryAudioEngine {
     const deepGain = this.ctx.createGain();
     deepGain.gain.setValueAtTime(0.38, this.ctx.currentTime);
 
-    // Master rain gain with smooth fade-in
     const rainGain = this.ctx.createGain();
     const now = this.ctx.currentTime;
     rainGain.gain.setValueAtTime(0.001, now);
@@ -169,12 +344,12 @@ class SanctuaryAudioEngine {
           rainSource.disconnect();
           lfo.disconnect();
           rainGain.disconnect();
-        } catch {}
+        } catch { }
       },
     });
   }
 
-  // ── Calm Ocean Waves Generator (Natural ~9.5s Breathing Cadence) ────────────
+  // ── Calm Ocean/Water Waves Generator (Synthesizer Fallback) ────────────────
   private createOceanWaves() {
     if (!this.ctx || !this.masterGain) return;
 
@@ -184,7 +359,6 @@ class SanctuaryAudioEngine {
     const left = noiseBuffer.getChannelData(0);
     const right = noiseBuffer.getChannelData(1);
 
-    // Generate warm brown noise for deep wave rush (no high-frequency harshness)
     for (const ch of [left, right]) {
       let lastOut = 0.0;
       for (let i = 0; i < bufferSize; i++) {
@@ -199,32 +373,26 @@ class SanctuaryAudioEngine {
     waveSource.buffer = noiseBuffer;
     waveSource.loop = true;
 
-    // Filter that opens from deep ocean rumble (140 Hz) to soft foamy crest (440 Hz)
     const waveFilter = this.ctx.createBiquadFilter();
     waveFilter.type = "lowpass";
     waveFilter.frequency.setValueAtTime(280, this.ctx.currentTime);
 
-    // Dynamic wave gain: swells from ~0.06 to 0.38 on wave crest
     const waveSwellGain = this.ctx.createGain();
     waveSwellGain.gain.setValueAtTime(0.22, this.ctx.currentTime);
 
-    // LFO running at ~0.105 Hz (~9.5 second natural wave cycle)
     const lfo = this.ctx.createOscillator();
     lfo.frequency.setValueAtTime(0.105, this.ctx.currentTime);
 
-    // Modulate filter cutoff (swings ±150 Hz around 280 Hz)
     const lfoFilterGain = this.ctx.createGain();
     lfoFilterGain.gain.setValueAtTime(150, this.ctx.currentTime);
     lfo.connect(lfoFilterGain);
     lfoFilterGain.connect(waveFilter.frequency);
 
-    // Modulate swell gain (swings ±0.16 around 0.22)
     const lfoGainAmp = this.ctx.createGain();
     lfoGainAmp.gain.setValueAtTime(0.16, this.ctx.currentTime);
     lfo.connect(lfoGainAmp);
     lfoGainAmp.connect(waveSwellGain.gain);
 
-    // Soft surf spray layer (bandpass at 420 Hz, subtle foamy wash)
     const sprayFilter = this.ctx.createBiquadFilter();
     sprayFilter.type = "bandpass";
     sprayFilter.frequency.setValueAtTime(420, this.ctx.currentTime);
@@ -260,12 +428,12 @@ class SanctuaryAudioEngine {
           waveSource.disconnect();
           lfo.disconnect();
           oceanMaster.disconnect();
-        } catch {}
+        } catch { }
       },
     });
   }
 
-  // ── Forest Wind Generator (Preserved Exactly) ─────────────────────────────
+  // ── Forest Wind Generator ─────────────────────────────────────────────────
   private createForestWind() {
     if (!this.ctx || !this.masterGain) return;
 
@@ -286,7 +454,6 @@ class SanctuaryAudioEngine {
     filter.frequency.setValueAtTime(400, this.ctx.currentTime);
     filter.Q.setValueAtTime(3.0, this.ctx.currentTime);
 
-    // Slow wind sway LFO
     const lfo = this.ctx.createOscillator();
     lfo.frequency.setValueAtTime(0.2, this.ctx.currentTime);
 
@@ -312,34 +479,32 @@ class SanctuaryAudioEngine {
           lfo.stop();
           whiteNoise.disconnect();
           lfo.disconnect();
-        } catch {}
+        } catch { }
       },
     });
   }
 
-  // ── Tibetan Singing Bowl Generator (Warm Resonance & Acoustic Strike) ─────
+  // ── Tibetan Singing Bowl Generator ───────────────────────────────────────
   private createSingingBowlSound() {
     if (!this.ctx || !this.masterGain) return;
 
-    const baseFreq = 216; // 216 Hz warm calming fundamental
+    const baseFreq = 216;
     const bowlMaster = this.ctx.createGain();
     const now = this.ctx.currentTime;
     bowlMaster.gain.setValueAtTime(0.001, now);
     bowlMaster.gain.linearRampToValueAtTime(0.35, now + 0.6);
     bowlMaster.connect(this.masterGain);
 
-    // Warm lowpass filter to prevent any harsh high-frequency piercing tones
     const lowpass = this.ctx.createBiquadFilter();
     lowpass.type = "lowpass";
     lowpass.frequency.setValueAtTime(550, this.ctx.currentTime);
     lowpass.connect(bowlMaster);
 
     const droneOscs: OscillatorNode[] = [];
-    // Warm harmonics: 216 Hz (fundamental), 324 Hz (peaceful fifth), 432 Hz (soft octave)
     const droneHarmonics = [
       { freq: baseFreq, gain: 0.16 },
-      { freq: baseFreq * 1.5, gain: 0.04 }, // 324 Hz
-      { freq: baseFreq * 2.0, gain: 0.03 }, // 432 Hz
+      { freq: baseFreq * 1.5, gain: 0.04 },
+      { freq: baseFreq * 2.0, gain: 0.03 },
     ];
 
     droneHarmonics.forEach((h, i) => {
@@ -348,7 +513,6 @@ class SanctuaryAudioEngine {
       osc.type = "sine";
       osc.frequency.setValueAtTime(h.freq, this.ctx.currentTime);
 
-      // Gentle subtle beating / shimmer
       const trem = this.ctx.createOscillator();
       trem.frequency.setValueAtTime(0.12 + i * 0.05, this.ctx.currentTime);
       const tremGain = this.ctx.createGain();
@@ -368,7 +532,6 @@ class SanctuaryAudioEngine {
       droneOscs.push(trem);
     });
 
-    // Periodic Warm Mallet Strike (plays on start and repeats softly every 14s)
     const strikeNodes: { stop: () => void }[] = [];
 
     const triggerStrike = () => {
@@ -389,7 +552,7 @@ class SanctuaryAudioEngine {
 
         const gainNode = this.ctx.createGain();
         gainNode.gain.setValueAtTime(0.0001, strikeTime);
-        gainNode.gain.linearRampToValueAtTime(sh.peak, strikeTime + 0.04); // soft acoustic mallet attack
+        gainNode.gain.linearRampToValueAtTime(sh.peak, strikeTime + 0.04);
         gainNode.gain.exponentialRampToValueAtTime(0.0001, strikeTime + sh.decay);
 
         osc.connect(gainNode);
@@ -404,16 +567,14 @@ class SanctuaryAudioEngine {
               osc.stop();
               osc.disconnect();
               gainNode.disconnect();
-            } catch {}
+            } catch { }
           },
         });
       });
     };
 
-    // Immediate initial strike on start
     triggerStrike();
 
-    // Repeat soft strike every 14 seconds
     const intervalId = setInterval(() => {
       triggerStrike();
     }, 14000);
@@ -430,10 +591,10 @@ class SanctuaryAudioEngine {
             try {
               o.stop();
               o.disconnect();
-            } catch {}
+            } catch { }
           });
           bowlMaster.disconnect();
-        } catch {}
+        } catch { }
       },
     });
   }
@@ -447,7 +608,7 @@ class SanctuaryAudioEngine {
 
     const osc = this.ctx.createOscillator();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(528, this.ctx.currentTime); // 528 Hz transformation frequency
+    osc.frequency.setValueAtTime(528, this.ctx.currentTime);
 
     const now = this.ctx.currentTime;
     chimeGain.gain.setValueAtTime(0, now);
