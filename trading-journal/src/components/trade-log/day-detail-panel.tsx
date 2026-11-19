@@ -8,11 +8,15 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Flame,
+  Moon,
   Plus,
   Search,
   ShieldAlert,
   ShieldCheck,
+  Sun,
   X,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +48,13 @@ export function DayDetailPanel({
   // Selected trade for detail popover / inspection
   const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
 
+  // Routine completion status for this day (Pre, During, Post)
+  const [dayRoutines, setDayRoutines] = useState<{
+    premarket: { completed: boolean; count: number; total: number };
+    intraday: { completed: boolean; count: number; total: number };
+    postmarket: { completed: boolean; count: number; total: number };
+  } | null>(null);
+
   // Handle ESC key to close panel
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -54,6 +65,51 @@ export function DayDetailPanel({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onOpenChange]);
+
+  // Fetch routine completion status when the selected day changes
+  useEffect(() => {
+    if (!day?.date) {
+      setDayRoutines(null);
+      return;
+    }
+    let active = true;
+    fetch(`/api/routines/completions?date=${day.date}`, { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok || !active) return;
+        const data = await res.json();
+        const rawCompletions = (data.completions ?? []) as Array<{
+          routine_type: string;
+          all_completed: boolean;
+          completed_steps?: string[];
+        }>;
+        const routinesConfig = data.routines;
+
+        const getStatus = (type: "premarket" | "intraday" | "postmarket") => {
+          const comp = rawCompletions.find(
+            (c) => c.routine_type === type || (type === "intraday" && c.routine_type === "duringmarket")
+          );
+          const total = routinesConfig?.[type]?.steps?.length ?? 4;
+          const count = comp?.completed_steps?.length ?? (comp?.all_completed ? total : 0);
+          return {
+            completed: comp?.all_completed ?? false,
+            count,
+            total,
+          };
+        };
+
+        if (active) {
+          setDayRoutines({
+            premarket: getStatus("premarket"),
+            intraday: getStatus("intraday"),
+            postmarket: getStatus("postmarket"),
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [day?.date]);
 
   // Compute metrics for the selected day
   const metrics = useMemo(() => {
@@ -283,12 +339,100 @@ export function DayDetailPanel({
                 </span>
               </div>
 
-              {/* Pre-Market Routine */}
-              <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/50 px-4 py-3 text-xs transition hover:bg-card">
-                <span className="font-semibold text-foreground">Pre-Market Routine</span>
-                <span className="font-medium text-muted-foreground">
-                  Not tracked
-                </span>
+              {/* Daily Routines Tracking Card */}
+              <div className="rounded-xl border border-border/70 bg-card/50 p-3.5 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-foreground">Daily Routines</span>
+                    {dayRoutines && (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        ({[dayRoutines.premarket.completed, dayRoutines.intraday.completed, dayRoutines.postmarket.completed].filter(Boolean).length}/3 completed)
+                      </span>
+                    )}
+                  </div>
+                  {dayRoutines && (
+                    <span
+                      className={`text-[10px] font-semibold rounded-md px-1.5 py-0.5 border ${
+                        dayRoutines.premarket.completed && dayRoutines.intraday.completed && dayRoutines.postmarket.completed
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                          : dayRoutines.premarket.completed || dayRoutines.intraday.completed || dayRoutines.postmarket.completed
+                          ? "bg-violet-500/15 text-violet-400 border-violet-500/30"
+                          : "bg-muted text-muted-foreground border-border/60"
+                      }`}
+                    >
+                      {dayRoutines.premarket.completed && dayRoutines.intraday.completed && dayRoutines.postmarket.completed
+                        ? "Fully Disciplined 🔥"
+                        : dayRoutines.premarket.completed || dayRoutines.intraday.completed || dayRoutines.postmarket.completed
+                        ? "Partial Routine"
+                        : "Routines Skipped"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                  {/* Pre-Market */}
+                  <div
+                    className={`rounded-lg border p-2 text-center transition-colors ${
+                      dayRoutines?.premarket.completed
+                        ? "border-emerald-500/30 bg-emerald-500/10"
+                        : "border-border/60 bg-muted/20"
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
+                      <Sun size={11} className={dayRoutines?.premarket.completed ? "text-emerald-400" : "text-amber-400"} />
+                      <span>Pre-Market</span>
+                    </div>
+                    <div
+                      className={`text-xs font-bold ${
+                        dayRoutines?.premarket.completed ? "text-emerald-400" : "text-muted-foreground/70"
+                      }`}
+                    >
+                      {dayRoutines?.premarket.completed ? "✓ Done" : "Skipped"}
+                    </div>
+                  </div>
+
+                  {/* During-Market */}
+                  <div
+                    className={`rounded-lg border p-2 text-center transition-colors ${
+                      dayRoutines?.intraday.completed
+                        ? "border-emerald-500/30 bg-emerald-500/10"
+                        : "border-border/60 bg-muted/20"
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
+                      <Zap size={11} className={dayRoutines?.intraday.completed ? "text-emerald-400" : "text-violet-400"} />
+                      <span>During</span>
+                    </div>
+                    <div
+                      className={`text-xs font-bold ${
+                        dayRoutines?.intraday.completed ? "text-emerald-400" : "text-muted-foreground/70"
+                      }`}
+                    >
+                      {dayRoutines?.intraday.completed ? "✓ Done" : "Skipped"}
+                    </div>
+                  </div>
+
+                  {/* Post-Market */}
+                  <div
+                    className={`rounded-lg border p-2 text-center transition-colors ${
+                      dayRoutines?.postmarket.completed
+                        ? "border-emerald-500/30 bg-emerald-500/10"
+                        : "border-border/60 bg-muted/20"
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
+                      <Moon size={11} className={dayRoutines?.postmarket.completed ? "text-emerald-400" : "text-indigo-400"} />
+                      <span>After</span>
+                    </div>
+                    <div
+                      className={`text-xs font-bold ${
+                        dayRoutines?.postmarket.completed ? "text-emerald-400" : "text-muted-foreground/70"
+                      }`}
+                    >
+                      {dayRoutines?.postmarket.completed ? "✓ Done" : "Skipped"}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Trades Journaled */}

@@ -36,7 +36,7 @@ const initialSettings: AccountSettings = {
 };
 const timezones = ["Europe/Paris", "Europe/London", "Europe/Berlin", "Europe/Athens", "Asia/Jerusalem", "Asia/Dubai", "Asia/Tokyo", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Australia/Sydney", "UTC"];
 const currencies = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "NZD"];
-const tabs = ["Account", "Pre-Market Routine", "Journaling", "Trading Preferences", "Notifications", "Integrations", "Data and Privacy", "Security", "Billing", "Support", "About"];
+const tabs = ["Account", "Daily Routines", "Journaling", "Trading Preferences", "Notifications", "Integrations", "Data and Privacy", "Security", "Billing", "Support", "About"];
 
 function getInitials(name: string | null, email: string) {
   return (name?.trim() || email.split("@")[0] || "U")
@@ -184,7 +184,7 @@ export function SettingsPage({ name: initialName, email }: SettingsPageProps) {
       </div>
     </nav>
 
-    {activeTab === "Pre-Market Routine" ? <PreMarketRoutineSettings/> : activeTab === "About" ? <AboutSettings/> : activeTab === "Account" ? <section role="tabpanel" aria-label="Account settings" className="pt-6">
+    {activeTab === "Daily Routines" || activeTab === "Pre-Market Routine" ? <PreMarketRoutineSettings/> : activeTab === "About" ? <AboutSettings/> : activeTab === "Account" ? <section role="tabpanel" aria-label="Account settings" className="pt-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-medium text-foreground">Account</h2>
         <div className="flex items-center gap-2"><ProfileActions/>{editing ? <><Button size="sm" onClick={saveAccount} disabled={saving}>{saving ? "Saving…" : "Save"}</Button><Button size="sm" variant="outline" onClick={() => { setEditing(false); setDraft(settings); setNameDraft(name); }}>Cancel</Button></> : <Button size="sm" variant="default" onClick={() => openEditor()}><PencilLine size={14}/>Edit</Button>}</div>

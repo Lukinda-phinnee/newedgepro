@@ -124,41 +124,23 @@ export default function SignUpForm({ onSwitch }: Props) {
       </div>
 
       <form id="sign-up-form" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-        <AnimatePresence>
-          {isSuccess && (
-            <motion.div
-              key="success"
-              role="status"
-              aria-live="polite"
-              initial={{ opacity: 0, height: 0, y: -6 }}
-              animate={{ opacity: 1, height: "auto", y: 0 }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-600 shadow-xs dark:text-emerald-400">
-                <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
-                <span>Account created successfully. Redirecting to your workspace…</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Server error */}
-        <AnimatePresence>
-          {serverError && (
-            <motion.div
-              key="err"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500 dark:text-red-400">
-                {serverError}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Server error — fixed-height slot so content never shifts */}
+        <div className="min-h-[44px]">
+          <AnimatePresence>
+            {serverError && (
+              <motion.div
+                key="err"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500 dark:text-red-400">
+                  {serverError}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Name */}
         <div className="space-y-2">
@@ -171,9 +153,9 @@ export default function SignUpForm({ onSwitch }: Props) {
             {...register("name")}
             className={errors.name ? "border-red-500/50 focus:border-red-500 focus:ring-red-500/20" : ""}
           />
-          {errors.name && (
-            <p className="text-xs text-red-500 dark:text-red-400">{errors.name.message}</p>
-          )}
+          <p className={`text-xs min-h-[16px] ${errors.name ? "text-red-500 dark:text-red-400" : "text-transparent"}`}>
+            {errors.name?.message ?? "\u00A0"}
+          </p>
         </div>
 
         {/* Email */}
@@ -187,9 +169,9 @@ export default function SignUpForm({ onSwitch }: Props) {
             {...register("email")}
             className={errors.email ? "border-red-500/50 focus:border-red-500 focus:ring-red-500/20" : ""}
           />
-          {errors.email && (
-            <p className="text-xs text-red-500 dark:text-red-400">{errors.email.message}</p>
-          )}
+          <p className={`text-xs min-h-[16px] ${errors.email ? "text-red-500 dark:text-red-400" : "text-transparent"}`}>
+            {errors.email?.message ?? "\u00A0"}
+          </p>
         </div>
 
         {/* Password */}
@@ -214,9 +196,9 @@ export default function SignUpForm({ onSwitch }: Props) {
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </button>
           </div>
-          {errors.password && (
-            <p className="text-xs text-red-500 dark:text-red-400">{errors.password.message}</p>
-          )}
+          <p className={`text-xs min-h-[16px] ${errors.password ? "text-red-500 dark:text-red-400" : "text-transparent"}`}>
+            {errors.password?.message ?? "\u00A0"}
+          </p>
           <PasswordStrengthBar password={passwordValue} />
         </div>
 
@@ -242,9 +224,9 @@ export default function SignUpForm({ onSwitch }: Props) {
               {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </button>
           </div>
-          {errors.confirmPassword && (
-            <p className="text-xs text-red-500 dark:text-red-400">{errors.confirmPassword.message}</p>
-          )}
+          <p className={`text-xs min-h-[16px] ${errors.confirmPassword ? "text-red-500 dark:text-red-400" : "text-transparent"}`}>
+            {errors.confirmPassword?.message ?? "\u00A0"}
+          </p>
         </div>
 
         {/* Submit */}
@@ -253,10 +235,10 @@ export default function SignUpForm({ onSwitch }: Props) {
           type="submit"
           size="lg"
           disabled={isSubmitting || isSuccess}
-          className="w-full mt-2 transition-all"
+          className={`w-full mt-2 transition-all ${isSuccess ? "bg-emerald-600 hover:bg-emerald-600 text-white" : ""}`}
         >
           {isSuccess ? (
-            <><CheckCircle2 className="mr-2 size-4" />Redirecting...</>
+            <><CheckCircle2 className="mr-2 size-4" />Account created — Redirecting…</>
           ) : isSubmitting ? (
             <><Loader2 className="mr-2 size-4 animate-spin" />Creating account...</>
           ) : (

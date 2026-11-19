@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,6 +8,7 @@ import {
   TrendingDown,
   Calendar as CalendarIcon,
   Sparkles,
+  Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DAYS_OF_WEEK } from "@/lib/trade-calendar";
@@ -33,12 +34,84 @@ export function TradeCalendarView({
 }: TradeCalendarViewProps) {
   const [selectedDay, setSelectedDay] = useState<DayTradeSummary | null>(null);
   const [dayModalOpen, setDayModalOpen] = useState(false);
+  const [monthRoutines, setMonthRoutines] = useState<Map<string, { allDone: boolean; count: number }>>(new Map());
+
+  // Fetch routine completions for this month
+  useEffect(() => {
+    let active = true;
+    const mStr = `${monthSummary.year}-${String(monthSummary.month + 1).padStart(2, "0")}`;
+    fetch(`/api/routines/completions?month=${mStr}`, { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok || !active) return;
+        const data = await res.json();
+        const completions = (data.completions ?? []) as Array<{
+          date: string;
+          all_completed: boolean;
+        }>;
+        const map = new Map<string, { allDone: boolean; count: number }>();
+        for (const c of completions) {
+          const d = String(c.date).slice(0, 10);
+          const existing = map.get(d) ?? { allDone: true, count: 0 };
+          if (c.all_completed) {
+            existing.count += 1;
+          } else {
+            existing.allDone = false;
+          }
+          map.set(d, existing);
+        }
+        if (active) setMonthRoutines(map);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [monthSummary.year, monthSummary.month]);
 
   // Flatten calendar days to enable < and > navigation across dates
   const allDays = useMemo(
     () => monthSummary.weeks.flatMap((w) => w.days),
     [monthSummary.weeks]
   );
+
+  // Compute correlation between routine completion and trade performance
+  const routineImpact = useMemo(() => {
+    const tradedDays = allDays.filter((d) => d.isCurrentMonth && d.tradeCount > 0);
+    if (tradedDays.length === 0) return null;
+
+    let routineDaysTrades = 0;
+    let routineDaysWins = 0;
+    let routineDaysPnl = 0;
+
+    let skippedDaysTrades = 0;
+    let skippedDaysWins = 0;
+    let skippedDaysPnl = 0;
+
+    for (const d of tradedDays) {
+      const routineInfo = monthRoutines.get(d.date);
+      const done = routineInfo && routineInfo.count > 0;
+      if (done) {
+        routineDaysTrades += d.tradeCount;
+        routineDaysWins += d.wins;
+        routineDaysPnl += d.totalPnl;
+      } else {
+        skippedDaysTrades += d.tradeCount;
+        skippedDaysWins += d.wins;
+        skippedDaysPnl += d.totalPnl;
+      }
+    }
+
+    const routineWinRate = routineDaysTrades > 0 ? Math.round((routineDaysWins / routineDaysTrades) * 100) : null;
+    const skippedWinRate = skippedDaysTrades > 0 ? Math.round((skippedDaysWins / skippedDaysTrades) * 100) : null;
+
+    return {
+      routineDaysTrades,
+      routineWinRate,
+      routineDaysPnl,
+      skippedDaysTrades,
+      skippedWinRate,
+      skippedDaysPnl,
+    };
+  }, [allDays, monthRoutines]);
 
   const handleDayClick = (day: DayTradeSummary) => {
     setSelectedDay(day);
@@ -140,6 +213,20 @@ export function TradeCalendarView({
               {monthSummary.profitFactor > 0 ? monthSummary.profitFactor.toFixed(2) : "—"}
             </span>
           </div>
+
+          {/* Routine Adherence vs Performance correlation pill */}
+          {routineImpact && routineImpact.routineDaysTrades > 0 && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-400">
+              <Flame size={13} className="shrink-0" />
+              <span>Routine Days WR:</span>
+              <span className="font-bold">{routineImpact.routineWinRate}%</span>
+              {routineImpact.skippedWinRate !== null && (
+                <span className="text-[10px] text-muted-foreground/80 font-normal">
+                  (vs {routineImpact.skippedWinRate}% skipped)
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>      {/* Main Layout: Calendar Grid + Inline Side Detail Panel */}
       <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-stretch">
@@ -217,19 +304,37 @@ export function TradeCalendarView({
                               {day.dayOfMonth}
                             </span>
 
-                            {hasTrades && (
-                              <span
-                                className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                                  isProfitable
-                                    ? "bg-emerald-500/20 text-emerald-400"
-                                    : isLosing
-                                    ? "bg-rose-500/20 text-rose-400"
-                                    : "bg-secondary text-muted-foreground"
-                                }`}
-                              >
-                                {day.tradeCount}T
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              {/* Routine completed flame indicator */}
+                              {(() => {
+                                const rInfo = monthRoutines.get(day.date);
+                                if (rInfo && rInfo.count > 0) {
+                                  return (
+                                    <span
+                                      title={`${rInfo.count} routine${rInfo.count > 1 ? "s" : ""} completed`}
+                                      className="flex items-center text-emerald-500 dark:text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.3)]"
+                                    >
+                                      <Flame size={12} />
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+
+                              {hasTrades && (
+                                <span
+                                  className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                                    isProfitable
+                                      ? "bg-emerald-500/20 text-emerald-400"
+                                      : isLosing
+                                      ? "bg-rose-500/20 text-rose-400"
+                                      : "bg-secondary text-muted-foreground"
+                                  }`}
+                                >
+                                  {day.tradeCount}T
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Middle: Day P&L or Empty State */}

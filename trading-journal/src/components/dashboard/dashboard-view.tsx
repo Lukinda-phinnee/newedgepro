@@ -24,6 +24,7 @@ import type { TradingAccount } from "@/types/account";
 import type { RuleEngineStatus, RuleEngineCompliance } from "@/types/rules";
 import { cn } from "@/lib/utils";
 import { buildMonthCalendar, DAYS_OF_WEEK, formatDateKey } from "@/lib/trade-calendar";
+import { RoutineBanner } from "@/components/dashboard/routine-banner";
 
 // Apple §4: Spring configs
 const springCard = { type: "spring" as const, damping: 26, stiffness: 260 };
@@ -792,6 +793,14 @@ export function DashboardView({
 
   return (
     <div className="w-full space-y-5">
+      {/* ─── Daily Routine Tracker Banner ─── */}
+      <RoutineBanner
+        visible={true}
+        tradingWindowStart={strategies.find((s) => s.killZoneStart)?.killZoneStart ?? "09:30"}
+        tradingWindowEnd={strategies.find((s) => s.killZoneEnd)?.killZoneEnd ?? "16:00"}
+        timezone={strategies.find((s) => s.timeZone)?.timeZone ?? "Europe/Paris"}
+      />
+
       {/* ─── Metric Cards Row ─── */}
       <motion.div
         className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
