@@ -8,7 +8,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Flame,
   Moon,
   Plus,
   Search,
@@ -20,7 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { DayTradeSummary, Trade } from "@/types/trade";
+import type { DayTradeSummary } from "@/types/trade";
 
 interface DayDetailPanelProps {
   day: DayTradeSummary | null;
@@ -50,10 +49,12 @@ export function DayDetailPanel({
 
   // Routine completion status for this day (Pre, During, Post)
   const [dayRoutines, setDayRoutines] = useState<{
-    premarket: { completed: boolean; count: number; total: number };
-    intraday: { completed: boolean; count: number; total: number };
-    postmarket: { completed: boolean; count: number; total: number };
+    premarket: { completed: boolean; count: number; total: number; enabled: boolean };
+    intraday: { completed: boolean; count: number; total: number; enabled: boolean };
+    postmarket: { completed: boolean; count: number; total: number; enabled: boolean };
   } | null>(null);
+  const [routinesLoading, setRoutinesLoading] = useState(false);
+  const [routinesUnavailable, setRoutinesUnavailable] = useState(false);
 
   // Handle ESC key to close panel
   useEffect(() => {
@@ -70,12 +71,18 @@ export function DayDetailPanel({
   useEffect(() => {
     if (!day?.date) {
       setDayRoutines(null);
+      setRoutinesLoading(false);
+      setRoutinesUnavailable(false);
       return;
     }
     let active = true;
+    setDayRoutines(null);
+    setRoutinesLoading(true);
+    setRoutinesUnavailable(false);
     fetch(`/api/routines/completions?date=${day.date}`, { cache: "no-store" })
       .then(async (res) => {
-        if (!res.ok || !active) return;
+        if (!res.ok) throw new Error("Routine data unavailable");
+        if (!active) return;
         const data = await res.json();
         const rawCompletions = (data.completions ?? []) as Array<{
           routine_type: string;
@@ -91,9 +98,10 @@ export function DayDetailPanel({
           const total = routinesConfig?.[type]?.steps?.length ?? 4;
           const count = comp?.completed_steps?.length ?? (comp?.all_completed ? total : 0);
           return {
-            completed: comp?.all_completed ?? false,
+            completed: Boolean(comp?.all_completed) || (total > 0 && count >= total),
             count,
             total,
+            enabled: routinesConfig?.[type]?.enabled ?? true,
           };
         };
 
@@ -103,9 +111,15 @@ export function DayDetailPanel({
             intraday: getStatus("intraday"),
             postmarket: getStatus("postmarket"),
           });
+          setRoutinesLoading(false);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) {
+          setRoutinesUnavailable(true);
+          setRoutinesLoading(false);
+        }
+      });
     return () => {
       active = false;
     };
@@ -126,6 +140,7 @@ export function DayDetailPanel({
     }
 
     const rValues = day.trades
+      .filter((t) => t.status === "closed" && t.exitPrice !== null && t.exitPrice !== undefined && t.stopLoss !== null && t.stopLoss !== undefined)
       .map((t) => t.rMultiple)
       .filter((r): r is number => r !== undefined && !isNaN(r));
 
@@ -169,18 +184,41 @@ export function DayDetailPanel({
     day: "numeric",
   });
 
-  const isProfitable = metrics.netPnl > 0;
   const isLosing = metrics.netPnl < 0;
-  const reviewedTrades = day.trades.filter((trade) => trade.followedRules);
+  const reviewedTrades = day.trades.filter((trade) => trade.reviewStatus === "reviewed" && trade.followedRules);
   const planAdherence = reviewedTrades.length > 0
     ? Math.round((reviewedTrades.filter((trade) => trade.followedRules === "yes").length
       + reviewedTrades.filter((trade) => trade.followedRules === "partial").length * 0.5)
       / reviewedTrades.length * 100)
     : null;
-  const guardrailViolations = day.trades.reduce((total, trade) => total + Math.max(
+  const guardrailRecordedTrades = day.trades.filter((trade) => trade.ruleVerdict != null);
+  const guardrailUnrecordedCount = day.trades.length - guardrailRecordedTrades.length;
+  const guardrailViolations = guardrailRecordedTrades.reduce((total, trade) => total + Math.max(
     trade.ruleViolationsCount ?? 0,
     trade.ruleVerdict === "WARN" || trade.ruleVerdict === "BLOCK" ? 1 : 0,
   ), 0);
+  const money = (amount: number) => new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  const routineStateClasses = (routine: { completed: boolean; count: number; enabled: boolean } | undefined) => {
+    if (routinesLoading || routinesUnavailable || !routine) return "border-border/60 bg-muted/20";
+    if (!routine.enabled) return "border-border/60 bg-muted/20 opacity-60";
+    if (routine.completed) return "border-emerald-500/40 bg-emerald-500/15";
+    if (routine.count > 0) return "border-amber-500/40 bg-amber-500/15";
+    return "border-rose-500/30 bg-rose-500/10";
+  };
+  const routineStateColor = (routine: { completed: boolean; count: number; enabled: boolean } | undefined) => {
+    if (routinesLoading || routinesUnavailable || !routine) return "text-muted-foreground";
+    if (!routine.enabled) return "text-muted-foreground";
+    if (routine.completed) return "text-emerald-400";
+    if (routine.count > 0) return "text-amber-400";
+    return "text-rose-400";
+  };
+  const routineStateDescription = (routine: { completed: boolean; count: number; enabled: boolean } | undefined) =>
+    routinesLoading ? "loading" : routinesUnavailable || !routine ? "unavailable" : !routine.enabled ? "disabled" : routine.completed ? "complete" : routine.count > 0 ? "partially complete" : "skipped";
 
   return (
     <aside
@@ -244,11 +282,8 @@ export function DayDetailPanel({
                     : "text-emerald-500 dark:text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.25)]"
                 }`}
               >
-                {isLosing ? "-" : "+"}
-                ${Math.abs(metrics.netPnl).toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {metrics.netPnl < 0 ? "-" : metrics.netPnl > 0 ? "+" : ""}
+                {money(Math.abs(metrics.netPnl))}
               </div>
               <div className="mt-1 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
                 NET PNL
@@ -333,9 +368,9 @@ export function DayDetailPanel({
               {/* Guardrail Violations */}
               <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/50 px-4 py-3 text-xs transition hover:bg-card">
                 <span className="font-semibold text-foreground">Guardrail Violations</span>
-                <span className={`flex items-center gap-1 font-medium ${guardrailViolations > 0 ? "text-rose-500 dark:text-rose-400" : "text-emerald-500 dark:text-emerald-400"}`}>
-                  {guardrailViolations > 0 ? <AlertTriangle size={15} /> : <Check size={18} strokeWidth={2.5} />}
-                  {guardrailViolations === 0 ? "No violations" : `${guardrailViolations} violation${guardrailViolations === 1 ? "" : "s"}`}
+                <span className={`flex items-center gap-1 font-medium ${guardrailRecordedTrades.length === 0 ? "text-muted-foreground" : guardrailViolations > 0 ? "text-rose-500 dark:text-rose-400" : "text-emerald-500 dark:text-emerald-400"}`}>
+                  {guardrailRecordedTrades.length === 0 ? null : guardrailViolations > 0 ? <AlertTriangle size={15} /> : <Check size={18} strokeWidth={2.5} />}
+                  {guardrailRecordedTrades.length === 0 ? "Not recorded" : `${guardrailViolations === 0 ? "No violations" : `${guardrailViolations} violation${guardrailViolations === 1 ? "" : "s"}`}${guardrailUnrecordedCount > 0 ? ` · ${guardrailUnrecordedCount} unrecorded` : ""}`}
                 </span>
               </div>
 
@@ -344,93 +379,54 @@ export function DayDetailPanel({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="font-semibold text-foreground">Daily Routines</span>
-                    {dayRoutines && (
+                    {routinesLoading && <span className="text-[10px] text-muted-foreground">Loading…</span>}
+                    {routinesUnavailable && <span className="text-[10px] text-muted-foreground">Unavailable</span>}
+                    {dayRoutines && !routinesLoading && !routinesUnavailable && (
                       <span className="text-[10px] text-muted-foreground font-mono">
-                        ({[dayRoutines.premarket.completed, dayRoutines.intraday.completed, dayRoutines.postmarket.completed].filter(Boolean).length}/3 completed)
+                        ({[dayRoutines.premarket, dayRoutines.intraday, dayRoutines.postmarket].filter((routine) => routine.enabled && routine.completed).length}/{[dayRoutines.premarket, dayRoutines.intraday, dayRoutines.postmarket].filter((routine) => routine.enabled).length} completed)
                       </span>
                     )}
                   </div>
-                  {dayRoutines && (
-                    <span
-                      className={`text-[10px] font-semibold rounded-md px-1.5 py-0.5 border ${
-                        dayRoutines.premarket.completed && dayRoutines.intraday.completed && dayRoutines.postmarket.completed
-                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                          : dayRoutines.premarket.completed || dayRoutines.intraday.completed || dayRoutines.postmarket.completed
-                          ? "bg-violet-500/15 text-violet-400 border-violet-500/30"
-                          : "bg-muted text-muted-foreground border-border/60"
-                      }`}
-                    >
-                      {dayRoutines.premarket.completed && dayRoutines.intraday.completed && dayRoutines.postmarket.completed
-                        ? "Fully Disciplined 🔥"
-                        : dayRoutines.premarket.completed || dayRoutines.intraday.completed || dayRoutines.postmarket.completed
-                        ? "Partial Routine"
-                        : "Routines Skipped"}
-                    </span>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-1.5 pt-0.5">
                   {/* Pre-Market */}
                   <div
-                    className={`rounded-lg border p-2 text-center transition-colors ${
-                      dayRoutines?.premarket.completed
-                        ? "border-emerald-500/30 bg-emerald-500/10"
-                        : "border-border/60 bg-muted/20"
-                    }`}
+                    aria-label={`Pre-Market routine: ${routineStateDescription(dayRoutines?.premarket)}`}
+                    title={routineStateDescription(dayRoutines?.premarket)}
+                    className={`rounded-lg border p-2 text-center transition-colors ${routineStateClasses(dayRoutines?.premarket)}`}
                   >
                     <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
-                      <Sun size={11} className={dayRoutines?.premarket.completed ? "text-emerald-400" : "text-amber-400"} />
+                      <Sun size={11} className={routineStateColor(dayRoutines?.premarket)} />
                       <span>Pre-Market</span>
                     </div>
-                    <div
-                      className={`text-xs font-bold ${
-                        dayRoutines?.premarket.completed ? "text-emerald-400" : "text-muted-foreground/70"
-                      }`}
-                    >
-                      {dayRoutines?.premarket.completed ? "✓ Done" : "Skipped"}
-                    </div>
+                    <div className={`mx-auto h-1.5 w-8 rounded-full ${routineStateColor(dayRoutines?.premarket).replace("text-", "bg-")}`} />
                   </div>
 
                   {/* During-Market */}
                   <div
-                    className={`rounded-lg border p-2 text-center transition-colors ${
-                      dayRoutines?.intraday.completed
-                        ? "border-emerald-500/30 bg-emerald-500/10"
-                        : "border-border/60 bg-muted/20"
-                    }`}
+                    aria-label={`During routine: ${routineStateDescription(dayRoutines?.intraday)}`}
+                    title={routineStateDescription(dayRoutines?.intraday)}
+                    className={`rounded-lg border p-2 text-center transition-colors ${routineStateClasses(dayRoutines?.intraday)}`}
                   >
                     <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
-                      <Zap size={11} className={dayRoutines?.intraday.completed ? "text-emerald-400" : "text-violet-400"} />
+                      <Zap size={11} className={routineStateColor(dayRoutines?.intraday)} />
                       <span>During</span>
                     </div>
-                    <div
-                      className={`text-xs font-bold ${
-                        dayRoutines?.intraday.completed ? "text-emerald-400" : "text-muted-foreground/70"
-                      }`}
-                    >
-                      {dayRoutines?.intraday.completed ? "✓ Done" : "Skipped"}
-                    </div>
+                    <div className={`mx-auto h-1.5 w-8 rounded-full ${routineStateColor(dayRoutines?.intraday).replace("text-", "bg-")}`} />
                   </div>
 
                   {/* Post-Market */}
                   <div
-                    className={`rounded-lg border p-2 text-center transition-colors ${
-                      dayRoutines?.postmarket.completed
-                        ? "border-emerald-500/30 bg-emerald-500/10"
-                        : "border-border/60 bg-muted/20"
-                    }`}
+                    aria-label={`After routine: ${routineStateDescription(dayRoutines?.postmarket)}`}
+                    title={routineStateDescription(dayRoutines?.postmarket)}
+                    className={`rounded-lg border p-2 text-center transition-colors ${routineStateClasses(dayRoutines?.postmarket)}`}
                   >
                     <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
-                      <Moon size={11} className={dayRoutines?.postmarket.completed ? "text-emerald-400" : "text-indigo-400"} />
+                      <Moon size={11} className={routineStateColor(dayRoutines?.postmarket)} />
                       <span>After</span>
                     </div>
-                    <div
-                      className={`text-xs font-bold ${
-                        dayRoutines?.postmarket.completed ? "text-emerald-400" : "text-muted-foreground/70"
-                      }`}
-                    >
-                      {dayRoutines?.postmarket.completed ? "✓ Done" : "Skipped"}
-                    </div>
+                    <div className={`mx-auto h-1.5 w-8 rounded-full ${routineStateColor(dayRoutines?.postmarket).replace("text-", "bg-")}`} />
                   </div>
                 </div>
               </div>
@@ -448,7 +444,7 @@ export function DayDetailPanel({
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold tracking-wider text-foreground uppercase">
-                  TRADES
+                  TRADES OPENED ON THIS DATE
                 </div>
                 <div className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
                   TAP A TRADE TO SEE DETAILS
@@ -588,7 +584,7 @@ export function DayDetailPanel({
 
                             {/* Emotions / Strategy */}
                             <div className="truncate pr-2 text-[11px] text-muted-foreground">
-                              {t.notes?.slice(0, 20) || t.strategy || "Disciplined"}
+                              {[t.entryEmotion && `Entry: ${t.entryEmotion}`, t.exitEmotion && `Exit: ${t.exitEmotion}`].filter(Boolean).join(" · ") || "Not recorded"}
                             </div>
 
                             {/* PnL */}
@@ -602,10 +598,7 @@ export function DayDetailPanel({
                               }`}
                             >
                               {tradeProfit ? "+" : ""}
-                              ${Math.abs(t.pnl).toLocaleString("en-US", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
+                              {money(Math.abs(t.pnl))}
                             </div>
                           </div>
 
@@ -618,7 +611,7 @@ export function DayDetailPanel({
                                     Entry:
                                   </span>{" "}
                                   <span className="font-semibold text-foreground">
-                                    ${t.entryPrice.toLocaleString("en-US")}
+                                    {money(t.entryPrice)}
                                   </span>
                                 </div>
                                 <div>
@@ -626,8 +619,8 @@ export function DayDetailPanel({
                                     Exit:
                                   </span>{" "}
                                   <span className="font-semibold text-foreground">
-                                    {t.exitPrice
-                                      ? `$${t.exitPrice.toLocaleString("en-US")}`
+                                    {t.exitPrice !== null
+                                      ? money(t.exitPrice)
                                       : "Open"}
                                   </span>
                                 </div>
@@ -636,7 +629,7 @@ export function DayDetailPanel({
                                     Size:
                                   </span>{" "}
                                   <span className="font-semibold text-foreground">
-                                    {t.quantity} contracts
+                                    {t.quantity}
                                   </span>
                                 </div>
                                 <div>
@@ -644,8 +637,8 @@ export function DayDetailPanel({
                                     Stop:
                                   </span>{" "}
                                   <span className="font-semibold text-foreground">
-                                    {t.stopLoss
-                                      ? `$${t.stopLoss.toLocaleString("en-US")}`
+                                    {t.stopLoss !== null
+                                      ? money(t.stopLoss)
                                       : "None"}
                                   </span>
                                 </div>
@@ -675,20 +668,24 @@ export function DayDetailPanel({
                                     {/* Rule Discipline Pill */}
                                     <div className="flex items-center gap-1.5 border-l border-border/60 pl-2">
                                       <span className="text-[10px] text-muted-foreground uppercase font-semibold">Rules:</span>
-                                      {t.ruleVerdict === "BLOCK" || (!t.ruleVerdict && t.followedRules === "no") ? (
+                                      {t.ruleVerdict === "BLOCK" || (!t.ruleVerdict && t.reviewStatus === "reviewed" && t.followedRules === "no") ? (
                                         <span className="inline-flex items-center gap-1 rounded border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-300">
                                           <AlertTriangle size={10} className="text-rose-400" />
                                           Violated
                                         </span>
-                                      ) : t.ruleVerdict === "WARN" || (!t.ruleVerdict && t.followedRules === "partial") ? (
+                                      ) : t.ruleVerdict === "WARN" || (!t.ruleVerdict && t.reviewStatus === "reviewed" && t.followedRules === "partial") ? (
                                         <span className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
                                           <ShieldAlert size={10} className="text-amber-400" />
                                           Warning
                                         </span>
-                                      ) : (
+                                      ) : t.ruleVerdict === "ACCEPT" || (!t.ruleVerdict && t.reviewStatus === "reviewed" && t.followedRules === "yes") ? (
                                         <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                                           <ShieldCheck size={10} className="text-emerald-400" />
                                           Compliant
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/30 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                                          Not recorded
                                         </span>
                                       )}
                                     </div>

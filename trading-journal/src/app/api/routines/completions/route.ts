@@ -16,9 +16,41 @@ const bodySchema = z.object({
   completed: z.boolean(),
 });
 
+let routineSchemaEnsured = false;
+let routineSchemaEnsurePromise: Promise<void> | null = null;
+
+async function ensureRoutineSchema() {
+  if (routineSchemaEnsured) return;
+  if (!routineSchemaEnsurePromise) {
+    routineSchemaEnsurePromise = (async () => {
+      await sql`ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS pre_market_routine JSONB`;
+      await sql`ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS during_market_routine JSONB`;
+      await sql`ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS post_market_routine JSONB`;
+      await sql`CREATE TABLE IF NOT EXISTS routine_completions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT NOT NULL,
+        date DATE NOT NULL,
+        routine_type TEXT NOT NULL DEFAULT 'premarket',
+        completed_steps TEXT[] NOT NULL DEFAULT '{}',
+        all_completed BOOLEAN NOT NULL DEFAULT FALSE,
+        completed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT routine_completions_user_date_type_key UNIQUE (user_id, date, routine_type)
+      )`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_routine_completions_user_date ON routine_completions (user_id, date)`;
+      routineSchemaEnsured = true;
+    })().finally(() => {
+      routineSchemaEnsurePromise = null;
+    });
+  }
+  await routineSchemaEnsurePromise;
+}
+
 export async function GET(request: Request) {
   const { data: session } = await auth.getSession();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  await ensureRoutineSchema();
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
   const month = searchParams.get("month"); // e.g. "2026-11"
@@ -66,6 +98,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { data: session } = await auth.getSession();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  await ensureRoutineSchema();
 
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
