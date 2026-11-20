@@ -8,6 +8,12 @@ import type {
   UpdateStrategyInput,
 } from "@/types/strategy";
 
+function numberOrDefault(value: unknown, fallback: number): number {
+  if (value === null || value === undefined || value === "") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function mapStrategyRow(row: Record<string, unknown>): Strategy {
   const parseJson = <T>(val: unknown, fallback: T): T => {
     if (!val) return fallback;
@@ -38,14 +44,14 @@ function mapStrategyRow(row: Record<string, unknown>): Strategy {
     reviewedAt: row.reviewed_at ? (row.reviewed_at instanceof Date ? row.reviewed_at.toISOString() : String(row.reviewed_at)) : null,
     assetUniverse: parseJson<string[]>(row.asset_universe, ["NQ", "ES"]),
     marketRegime: String(row.market_regime || "Trending & High Volatility"),
-    edgeScore: Number(row.edge_score) || 85,
-    expectancyR: Number(row.expectancy_r) || 0.85,
-    winRateTarget: Number(row.win_rate_target) || 60,
-    profitFactor: Number(row.profit_factor) || 2.1,
-    sampleSize: Number(row.sample_size) || 40,
+    edgeScore: numberOrDefault(row.edge_score, 85),
+    expectancyR: numberOrDefault(row.expectancy_r, 0.85),
+    winRateTarget: numberOrDefault(row.win_rate_target, 60),
+    profitFactor: numberOrDefault(row.profit_factor, 2.1),
+    sampleSize: numberOrDefault(row.sample_size, 0),
     edgeStateNotes: row.edge_state_notes ? String(row.edge_state_notes) : null,
-    maxRiskPercent: Number(row.max_risk_percent) || 1.0,
-    minRrRatio: Number(row.min_rr_ratio) || 2.0,
+    maxRiskPercent: numberOrDefault(row.max_risk_percent, 1.0),
+    minRrRatio: numberOrDefault(row.min_rr_ratio, 2.0),
     invalidationRule: row.invalidation_rule ? String(row.invalidation_rule) : null,
     stopLossLogic: row.stop_loss_logic ? String(row.stop_loss_logic) : null,
     killSwitchRule: row.kill_switch_rule ? String(row.kill_switch_rule) : null,
@@ -54,7 +60,10 @@ function mapStrategyRow(row: Record<string, unknown>): Strategy {
     killZoneEnd: String(row.kill_zone_end || "11:30"),
     timeZone: String(row.time_zone || "EST (UTC-5)"),
     daysOfWeek: parseJson<string[]>(row.days_of_week, ["Tuesday", "Wednesday", "Thursday"]),
-    newsBlackoutRule: row.news_blackout_rule ? String(row.news_blackout_rule) : null,
+    newsBlackoutRule:
+      row.news_blackout_rule && String(row.news_blackout_rule) !== "Blackout 15m before/after high-impact news"
+        ? String(row.news_blackout_rule)
+        : null,
     entryChecklist: parseJson(row.entry_checklist, []),
     entryModelImages: parseJson(row.entry_model_images, []),
     disqualifiers: parseJson(row.disqualifiers, []),
@@ -169,7 +178,7 @@ export async function createStrategy(
       ${input.expectancyR ?? 0.85},
       ${input.winRateTarget ?? 60.0},
       ${input.profitFactor ?? 2.10},
-      ${input.sampleSize ?? 30},
+      ${input.sampleSize ?? 0},
       ${input.edgeStateNotes || null},
       ${input.maxRiskPercent ?? 1.0},
       ${input.minRrRatio ?? 2.0},

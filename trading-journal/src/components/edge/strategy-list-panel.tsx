@@ -6,6 +6,7 @@ import {
   Archive,
   ArchiveRestore,
   Check,
+  ChevronDown,
   Clock,
   Copy,
   Edit3,
@@ -68,6 +69,7 @@ export function StrategyListPanel({
   onCopyPlaybook,
 }: StrategyListPanelProps) {
   const [search, setSearch] = useState("");
+  const [archivedCollapsed, setArchivedCollapsed] = useState(true);
   const [activeMenu, setActiveMenu] = useState<MenuPosition | null>(null);
   const [strategyToDelete, setStrategyToDelete] = useState<Strategy | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -119,6 +121,12 @@ export function StrategyListPanel({
     [strategies, search]
   );
 
+  useEffect(() => {
+    if (search.trim() || archivedStrategies.some((strategy) => strategy.id === selectedStrategyId)) {
+      setArchivedCollapsed(false);
+    }
+  }, [search, archivedStrategies, selectedStrategyId]);
+
   const handleOpenMenu = (e: React.MouseEvent, strategy: Strategy) => {
     e.stopPropagation();
     if (activeMenu?.id === strategy.id) {
@@ -162,7 +170,7 @@ export function StrategyListPanel({
 
   return (
     <>
-      <aside className="flex flex-col h-full w-full border-r border-border/70 bg-card text-card-foreground overflow-hidden select-none">
+      <aside className="edge-type-scale flex flex-col h-full w-full border-r border-border/70 bg-card text-card-foreground overflow-hidden select-none">
         {/* Header & Primary Add Strategy Button */}
         <div className="p-3 pb-2.5 space-y-2.5 border-b border-border/60 shrink-0">
           <div className="flex items-center justify-between px-0.5">
@@ -294,13 +302,27 @@ export function StrategyListPanel({
 
           {/* Archived Section */}
           {archivedStrategies.length > 0 && (
-            <>
-              <div className="px-3 pt-4 pb-1 flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60">
+            <section className="pt-3">
+              <button
+                type="button"
+                aria-expanded={!archivedCollapsed}
+                onClick={() => setArchivedCollapsed((collapsed) => !collapsed)}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/40"
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
                   Archived ({archivedStrategies.length})
                 </span>
-              </div>
+                <ChevronDown
+                  size={13}
+                  className={cn("text-muted-foreground transition-transform duration-200", archivedCollapsed && "-rotate-90")}
+                />
+              </button>
 
+              <div className={cn(
+                "grid transition-[grid-template-rows] duration-200 ease-out",
+                archivedCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+              )}>
+                <div className="min-h-0 overflow-hidden">
               {archivedStrategies.map((item) => {
                 const isSelected = item.id === selectedStrategyId;
                 const isMenuOpen = activeMenu?.id === item.id;
@@ -358,7 +380,9 @@ export function StrategyListPanel({
                   </div>
                 );
               })}
-            </>
+                </div>
+              </div>
+            </section>
           )}
         </div>
       </aside>

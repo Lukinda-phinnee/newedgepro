@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -11,16 +12,62 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Strategy, StrategyStatus } from "@/types/strategy";
+import type { Strategy } from "@/types/strategy";
+import type { Trade } from "@/types/trade";
 import { cn } from "@/lib/utils";
+import { useActiveAccount } from "@/components/active-account-context";
 
 interface StrategyRightPanelProps {
   strategy: Strategy;
 }
 
 export function StrategyRightPanel({ strategy }: StrategyRightPanelProps) {
+  const { activeAccount } = useActiveAccount();
+  const [trades, setTrades] = useState<Trade[] | null>(null);
+  const tradeAccountId = strategy.accountId ?? activeAccount?.id ?? null;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setTrades(null);
+    const query = tradeAccountId ? `?accountId=${encodeURIComponent(tradeAccountId)}` : "";
+    const loadTrades = async () => {
+      try {
+        const response = await fetch(`/api/trades${query}`, { signal: controller.signal, cache: "no-store" });
+        if (!response.ok) throw new Error("Unable to load plan trades");
+        const data = (await response.json()) as { trades?: Trade[] };
+        setTrades(data.trades ?? []);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setTrades([]);
+      }
+    };
+    void loadTrades();
+    window.addEventListener("trade-log:updated", loadTrades);
+    return () => {
+      controller.abort();
+      window.removeEventListener("trade-log:updated", loadTrades);
+    };
+  }, [tradeAccountId, strategy.id, strategy.name]);
+
+  const planTrades = useMemo(
+    () => (trades ?? []).filter((trade) => trade.strategy?.trim().toLocaleLowerCase() === strategy.name.trim().toLocaleLowerCase()),
+    [trades, strategy.name],
+  );
+  const closedPlanTrades = planTrades.filter((trade) => trade.status === "closed");
+  const winningTrades = closedPlanTrades.filter((trade) => trade.pnl > 0);
+  const grossProfit = winningTrades.reduce((total, trade) => total + trade.pnl, 0);
+  const grossLoss = Math.abs(closedPlanTrades.filter((trade) => trade.pnl < 0).reduce((total, trade) => total + trade.pnl, 0));
+  const rMultiples = closedPlanTrades
+    .map((trade) => trade.rMultiple)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const hasClosedTrades = closedPlanTrades.length > 0;
+  const hasLoggedTrades = planTrades.length > 0;
+  const actualWinRate = hasClosedTrades ? (winningTrades.length / closedPlanTrades.length) * 100 : null;
+  const actualExpectancy = rMultiples.length > 0 ? rMultiples.reduce((total, value) => total + value, 0) / rMultiples.length : null;
+  const actualProfitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : null;
+
   return (
-    <aside className="flex flex-col gap-4 w-full">
+    <aside className="edge-type-scale flex flex-col gap-4 w-full">
       {/* ─── Plan Stats (Edge State) ─── */}
       <div className="rounded-xl border border-border/70 bg-card/60 overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
@@ -28,52 +75,63 @@ export function StrategyRightPanel({ strategy }: StrategyRightPanelProps) {
             <Activity size={13} className="text-violet-400" />
             Plan Stats
           </span>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground p-0.5 transition-colors cursor-pointer"
-            title="Edit stats"
-          >
-            <Edit3 size={12} />
-          </button>
+          <Badge variant="muted" size="sm" className="text-[9px]">
+            {strategy.status === "ACTIVE"
+              ? "Active"
+              : strategy.status === "CALIBRATING"
+              ? "Calibrating"
+              : strategy.status === "PROBATION"
+              ? "Probation"
+              : "Archived"}
+          </Badge>
         </div>
 
         <div className="grid grid-cols-2 gap-px bg-border/40">
           <div className="bg-card/60 px-4 py-3">
             <span className="text-xl font-bold font-mono text-foreground tracking-tight">
-              {strategy.sampleSize}
+              {trades === null ? "—" : planTrades.length}
             </span>
             <span className="text-[10px] text-muted-foreground block mt-0.5">
-              Trades Taken
+              Trades Logged
             </span>
           </div>
           <div className="bg-card/60 px-4 py-3">
             <span className="text-xl font-bold font-mono text-foreground tracking-tight">
-              {strategy.winRateTarget}%
+              {hasLoggedTrades
+                ? actualWinRate === null ? "—" : `${actualWinRate.toFixed(1)}%`
+                : `${strategy.winRateTarget}%`}
             </span>
             <span className="text-[10px] text-muted-foreground block mt-0.5">
-              Win Rate
+              {hasLoggedTrades ? actualWinRate === null ? "Win Rate (after close)" : "Win Rate" : "Win Rate Target"}
             </span>
           </div>
           <div className="bg-card/60 px-4 py-3">
             <span
               className={cn(
                 "text-lg font-bold font-mono tracking-tight",
-                strategy.expectancyR >= 0 ? "text-emerald-400" : "text-rose-400"
+                (actualExpectancy ?? strategy.expectancyR) >= 0 ? "text-emerald-400" : "text-rose-400"
               )}
             >
-              {strategy.expectancyR >= 0 ? "+" : ""}
-              {strategy.expectancyR}R
+              {actualExpectancy === null
+                ? hasLoggedTrades
+                  ? "—"
+                  : `${strategy.expectancyR >= 0 ? "+" : ""}${strategy.expectancyR}R`
+                : `${actualExpectancy >= 0 ? "+" : ""}${actualExpectancy.toFixed(2)}R`}
             </span>
             <span className="text-[10px] text-muted-foreground block mt-0.5">
-              Expectancy
+              {hasLoggedTrades ? "Actual Expectancy" : "Expectancy Target"}
             </span>
           </div>
           <div className="bg-card/60 px-4 py-3">
             <span className="text-lg font-bold font-mono text-foreground tracking-tight">
-              {strategy.profitFactor.toFixed(2)}
+              {actualProfitFactor === null
+                ? hasLoggedTrades ? "—" : strategy.profitFactor.toFixed(2)
+                : actualProfitFactor === Infinity
+                ? "∞"
+                : actualProfitFactor.toFixed(2)}
             </span>
             <span className="text-[10px] text-muted-foreground block mt-0.5">
-              Profit Factor
+              {hasLoggedTrades ? "Actual Profit Factor" : "Profit Factor Target"}
             </span>
           </div>
         </div>
@@ -127,13 +185,13 @@ export function StrategyRightPanel({ strategy }: StrategyRightPanelProps) {
       <div className="rounded-xl border border-border/70 bg-card/60 overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
           <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <Clock size={13} className="text-sky-400" />
+            <Clock size={13} className="text-sky-600 dark:text-sky-400" />
             Trading Window
           </span>
         </div>
 
         <div className="px-4 pb-4 space-y-2.5">
-          <div className="flex items-center justify-center gap-2 py-2 rounded-lg bg-white/[0.03] border border-border/40">
+          <div className="flex items-center justify-center gap-2 py-2 rounded-lg bg-muted/50 border border-border/70">
             <span className="text-lg font-bold font-mono text-foreground tracking-tight">
               {strategy.killZoneStart}
             </span>
@@ -151,7 +209,7 @@ export function StrategyRightPanel({ strategy }: StrategyRightPanelProps) {
             {strategy.tradingSessions.map((s) => (
               <Badge
                 key={s}
-                variant="muted"
+                variant="violet"
                 size="sm"
                 className="text-[9px]"
               >
@@ -172,8 +230,8 @@ export function StrategyRightPanel({ strategy }: StrategyRightPanelProps) {
                   className={cn(
                     "flex-1 text-center py-1 text-[10px] font-medium rounded",
                     isActive
-                      ? "bg-violet-500/15 text-violet-300 border border-violet-500/30"
-                      : "bg-white/[0.02] text-muted-foreground/50 border border-border/30"
+                      ? "bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/30"
+                      : "bg-muted/40 text-muted-foreground border border-border/60"
                   )}
                 >
                   {d}

@@ -380,6 +380,15 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* Keep Edge strategy panels readable and consistent across light and dark themes. */
+.edge-type-scale :where(*) {
+  font-size: 14px !important;
+}
+
+.edge-type-scale h1 {
+  font-size: 16px !important;
+}
+
 @media (prefers-contrast: more) {
   .border-border\/70,
   .border-border\/80,

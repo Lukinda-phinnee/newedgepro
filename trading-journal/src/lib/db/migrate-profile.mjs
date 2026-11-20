@@ -19,12 +19,16 @@ await sql.query(`CREATE TABLE IF NOT EXISTS user_profile_settings (
   theme VARCHAR(8) NOT NULL DEFAULT 'dark' CHECK (theme IN ('light', 'dark', 'system')),
   avatar_data TEXT,
   pre_market_routine JSONB,
+  during_market_routine JSONB,
+  post_market_routine JSONB,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )`);
 await sql.query("ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS phone_country_code VARCHAR(5) NOT NULL DEFAULT '+1'");
 await sql.query("ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS phone_region VARCHAR(2) NOT NULL DEFAULT 'US'");
 await sql.query("ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS theme VARCHAR(8) NOT NULL DEFAULT 'dark'");
 await sql.query("ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS pre_market_routine JSONB");
+await sql.query("ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS during_market_routine JSONB");
+await sql.query("ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS post_market_routine JSONB");
 await sql.query(`CREATE TABLE IF NOT EXISTS app_information (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   app_name VARCHAR(120) NOT NULL,

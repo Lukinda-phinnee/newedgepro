@@ -64,17 +64,52 @@ class SanctuaryAudioEngine {
   // ── YouTube Player Lifecycle ──────────────────────────────────────────────
   public attachYouTubePlayer(containerId: string = "sanctuary-yt-player-slot") {
     if (typeof window === "undefined") return;
-    if (this.ytPlayer) return;
 
-    const container = document.getElementById(containerId);
-    if (!container) return;
+    // If player already exists and its iframe is connected to the DOM, do nothing
+    if (this.ytPlayer) {
+      try {
+        const iframe =
+          typeof this.ytPlayer.getIframe === "function"
+            ? this.ytPlayer.getIframe()
+            : document.getElementById(containerId);
+        if (iframe && document.contains(iframe)) {
+          return;
+        }
+        this.ytPlayer.destroy?.();
+      } catch { }
+      this.ytPlayer = null;
+      this.isYtReady = false;
+    }
+
+    // Ensure target slot container exists in DOM (auto-create persistent host if missing)
+    let container = document.getElementById(containerId);
+    if (!container) {
+      let host = document.getElementById("sanctuary-yt-host");
+      if (!host) {
+        host = document.createElement("div");
+        host.id = "sanctuary-yt-host";
+        host.style.position = "fixed";
+        host.style.top = "-9999px";
+        host.style.left = "-9999px";
+        host.style.width = "300px";
+        host.style.height = "200px";
+        host.style.overflow = "hidden";
+        host.style.pointerEvents = "none";
+        host.style.zIndex = "-1";
+        host.setAttribute("aria-hidden", "true");
+        document.body.appendChild(host);
+      }
+      container = document.createElement("div");
+      container.id = containerId;
+      host.appendChild(container);
+    }
 
     this.loadYouTubeIframeAPI(() => {
       if (!window.YT || !window.YT.Player) return;
       try {
         this.ytPlayer = new window.YT.Player(containerId, {
-          height: "120",
-          width: "200",
+          height: "200",
+          width: "300",
           videoId: "yIQd2Ya0Ziw",
           playerVars: {
             autoplay: 0,
@@ -87,12 +122,19 @@ class SanctuaryAudioEngine {
             playlist: "yIQd2Ya0Ziw",
             playsinline: 1,
             iv_load_policy: 3,
+            enablejsapi: 1,
+            origin: typeof window !== "undefined" ? window.location.origin : undefined,
           },
           events: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onReady: (event: any) => {
               this.isYtReady = true;
               try {
+                const iframe = event.target.getIframe?.();
+                if (iframe) {
+                  iframe.setAttribute("allow", "autoplay; encrypted-media");
+                }
+                event.target.unMute();
                 event.target.setVolume(this.isMuted ? 0 : Math.round(this.volume * 100));
               } catch { }
               if (this.pendingYtVideoId) {
@@ -103,21 +145,19 @@ class SanctuaryAudioEngine {
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onStateChange: (event: any) => {
-              // Ensure video loops smoothly when ending
               if (window.YT && event.data === window.YT.PlayerState.ENDED) {
                 try {
                   event.target.seekTo(0);
                   event.target.playVideo();
                 } catch { }
+              } else if (window.YT && event.data === window.YT.PlayerState.PLAYING) {
+                // YouTube audio playing successfully — stop any local synth fallback
+                this.stopSynthesizerNodes();
               }
             },
-            onError: () => {
-              // Fallback to local audio synthesizer if YouTube fails or is offline
-              if (this.currentType === "rain") {
-                this.createRainSound();
-              } else if (this.currentType === "water") {
-                this.createOceanWaves();
-              }
+            onError: (err: any) => {
+              console.warn("YouTube player error, triggering fallback soundscape:", err);
+              this.triggerLocalFallback(this.currentType);
             },
           },
         });
@@ -128,10 +168,21 @@ class SanctuaryAudioEngine {
   }
 
   private loadYouTubeIframeAPI(callback: () => void) {
+    if (typeof window === "undefined") return;
+
     if (window.YT && window.YT.Player) {
       callback();
       return;
     }
+
+    // Polling fallback in case onYouTubeIframeAPIReady fired early or script already exists
+    const interval = setInterval(() => {
+      if (window.YT && window.YT.Player) {
+        clearInterval(interval);
+        callback();
+      }
+    }, 100);
+    setTimeout(() => clearInterval(interval), 10000);
 
     const existingScript = document.getElementById("youtube-iframe-api");
     if (!existingScript) {
@@ -144,18 +195,49 @@ class SanctuaryAudioEngine {
 
     const prevReady = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
-      if (prevReady) prevReady();
+      if (prevReady) {
+        try { prevReady(); } catch { }
+      }
+      clearInterval(interval);
       callback();
     };
+  }
+
+  private stopSynthesizerNodes() {
+    this.cleanups.forEach((fn) => {
+      try {
+        fn();
+      } catch { }
+    });
+    this.cleanups = [];
+
+    this.activeNodes.forEach((node) => {
+      try {
+        node.stop();
+      } catch { }
+    });
+    this.activeNodes = [];
+  }
+
+  private triggerLocalFallback(type: AmbientSoundType) {
+    this.stopSynthesizerNodes();
+    if (type === "rain") {
+      this.createRainSound();
+    } else if (type === "water") {
+      this.createOceanWaves();
+    }
   }
 
   private playYouTubeVideo(videoId: string) {
     if (!this.ytPlayer || !this.isYtReady) {
       this.pendingYtVideoId = videoId;
+      // Start local synthesized soundscape immediately so user gets audio right away without lag
+      this.triggerLocalFallback(this.currentType);
       return;
     }
 
     try {
+      this.ytPlayer.unMute();
       this.ytPlayer.setVolume(this.isMuted ? 0 : Math.round(this.volume * 100));
       if (this.currentYtVideoId !== videoId) {
         this.currentYtVideoId = videoId;
@@ -164,10 +246,14 @@ class SanctuaryAudioEngine {
           startSeconds: 0,
         });
       } else {
-        this.ytPlayer.playVideo();
+        const state = typeof this.ytPlayer.getPlayerState === "function" ? this.ytPlayer.getPlayerState() : -1;
+        if (state !== 1) { // 1 = PLAYING
+          this.ytPlayer.playVideo();
+        }
       }
-    } catch {
-      this.pendingYtVideoId = videoId;
+    } catch (err) {
+      console.warn("YouTube playVideo failed, switching to local fallback:", err);
+      this.triggerLocalFallback(this.currentType);
     }
   }
 

@@ -94,11 +94,11 @@ interface StrategyDetailProps {
 }
 
 const TRADE_MANAGEMENT_RULE_TYPES = [
-  { value: "BREAKEVEN", label: "Breakeven", color: "bg-blue-500/15 border-blue-500/30 text-blue-400" },
-  { value: "TRAILING", label: "Trailing Stop", color: "bg-violet-500/15 border-violet-500/30 text-violet-400" },
-  { value: "SCALE_OUT", label: "Scale-Out", color: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" },
-  { value: "POSITION_SIZE", label: "Add Size", color: "bg-cyan-500/15 border-cyan-500/30 text-cyan-400" },
-  { value: "TIME_STOP", label: "Time Stop", color: "bg-amber-500/15 border-amber-500/30 text-amber-400" },
+  { value: "BREAKEVEN", label: "Breakeven", color: "bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300" },
+  { value: "TRAILING", label: "Trailing Stop", color: "bg-violet-500/15 border-violet-500/30 text-violet-700 dark:text-violet-300" },
+  { value: "SCALE_OUT", label: "Scale-Out", color: "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300" },
+  { value: "POSITION_SIZE", label: "Add Size", color: "bg-cyan-500/15 border-cyan-500/30 text-cyan-700 dark:text-cyan-300" },
+  { value: "TIME_STOP", label: "Time Stop", color: "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300" },
   { value: "GENERAL", label: "General Rule", color: "bg-muted border-border/70 text-foreground" },
 ];
 
@@ -563,7 +563,7 @@ export function StrategyDetail({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="edge-type-scale flex flex-col h-full">
       {/* ─── Top Header ─── */}
       <div className="flex items-center justify-between px-5 lg:px-6 pt-3 pb-3 border-b border-border/60 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -946,7 +946,7 @@ export function StrategyDetail({
             <div className="space-y-2">
               {thesisSteps.map((sentence, idx) => (
                 <div key={idx} className="group flex items-start gap-3">
-                  <span className="flex size-5 items-center justify-center rounded bg-violet-500/10 text-violet-400 text-[10px] font-bold font-mono shrink-0 mt-0.5">
+                  <span className="flex size-5 items-center justify-center rounded bg-violet-500/10 text-violet-700 dark:text-violet-300 text-[10px] font-bold font-mono shrink-0 mt-0.5">
                     {idx + 1}
                   </span>
 
@@ -1020,7 +1020,7 @@ export function StrategyDetail({
               {/* Inline Add Charting Step */}
               {isAddingThesisStep ? (
                 <div className="flex items-center gap-2 pt-2">
-                  <span className="flex size-5 items-center justify-center rounded bg-violet-500/20 text-violet-400 text-[10px] font-bold font-mono shrink-0">
+                  <span className="flex size-5 items-center justify-center rounded bg-violet-500/20 text-violet-700 dark:text-violet-300 text-[10px] font-bold font-mono shrink-0">
                     {thesisSteps.length + 1}
                   </span>
                   <Input
@@ -1303,10 +1303,10 @@ export function StrategyDetail({
                             className={cn(
                               "text-[9px] font-mono px-1.5 py-0.2 rounded border uppercase font-semibold",
                               item.phase === "PRE_CONDITION"
-                                ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25"
                                 : item.phase === "CONFIRMATION"
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : "bg-violet-500/10 text-violet-400 border-violet-500/20"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25"
+                                : "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/25"
                             )}
                           >
                             {item.phase.replace("_", " ")}
@@ -2075,7 +2075,7 @@ export function StrategyDetail({
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 uppercase font-bold">
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/25 uppercase font-bold">
                             {dis.severity.replace("_", " ")}
                           </span>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -2305,7 +2305,7 @@ export function StrategyDetail({
                 <h3 className="text-sm font-semibold text-foreground">
                   Version History
                 </h3>
-                <span className="text-[10px] font-mono text-violet-400 bg-violet-500/10 px-1.5 rounded border border-violet-500/20 ml-1 font-semibold">
+                <span className="text-[10px] font-mono text-violet-700 dark:text-violet-300 bg-violet-500/10 px-1.5 rounded border border-violet-500/25 ml-1 font-semibold">
                   {strategy.version}
                 </span>
               </div>
@@ -2368,7 +2368,7 @@ export function StrategyDetail({
                   key={ref.id}
                   className="flex items-start gap-3 text-sm"
                 >
-                  <span className="text-[10px] font-mono font-bold text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
+                  <span className="text-[10px] font-mono font-bold text-violet-700 dark:text-violet-300 bg-violet-500/10 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
                     {ref.version}
                   </span>
                   <div className="min-w-0">

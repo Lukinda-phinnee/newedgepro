@@ -16,17 +16,13 @@ import type { TradingAccount } from "@/types/account";
 import type { Trade } from "@/types/trade";
 
 interface AccountPerformanceRowProps {
-  accounts: TradingAccount[];
   selectedAccount: TradingAccount;
-  onSelectAccount: (accountId: string) => void;
 }
 
 type Timeframe = "daily" | "weekly" | "monthly" | "yearly";
 
 export function AccountPerformanceRow({
-  accounts,
   selectedAccount,
-  onSelectAccount,
 }: AccountPerformanceRowProps) {
   const [timeframe, setTimeframe] = useState<Timeframe>("monthly");
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -325,11 +321,7 @@ export function AccountPerformanceRow({
                 </span>
                 <span
                   className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                    dailyLossUsedPercent > 75
-                      ? "border-rose-500/30 bg-rose-500/15 text-rose-500"
-                      : dailyLossUsedPercent > 45
-                      ? "border-amber-500/30 bg-amber-500/15 text-amber-500"
-                      : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    "border-rose-500/30 bg-rose-500/15 text-rose-500"
                   }`}
                 >
                   {dailyLossUsedPercent > 75
@@ -342,11 +334,7 @@ export function AccountPerformanceRow({
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted dark:bg-white/[0.08]">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${
-                    dailyLossUsedPercent > 75
-                      ? "bg-rose-500"
-                      : dailyLossUsedPercent > 45
-                      ? "bg-amber-400"
-                      : "bg-emerald-500"
+                    "bg-rose-500"
                   }`}
                   style={{ width: `${dailyLossUsedPercent}%` }}
                 />
@@ -371,11 +359,7 @@ export function AccountPerformanceRow({
                 </span>
                 <span
                   className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                    drawdownUsedPercent > 70
-                      ? "border-rose-500/30 bg-rose-500/15 text-rose-500"
-                      : drawdownUsedPercent > 35
-                      ? "border-amber-500/30 bg-amber-500/15 text-amber-500"
-                      : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    "border-rose-500/30 bg-rose-500/15 text-rose-500"
                   }`}
                 >
                   {drawdownUsedPercent > 70
@@ -388,11 +372,7 @@ export function AccountPerformanceRow({
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted dark:bg-white/[0.08]">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${
-                    drawdownUsedPercent > 70
-                      ? "bg-rose-500"
-                      : drawdownUsedPercent > 35
-                      ? "bg-amber-400"
-                      : "bg-violet-500"
+                    "bg-rose-500"
                   }`}
                   style={{ width: `${Math.max(4, drawdownUsedPercent)}%` }}
                 />
@@ -417,11 +397,7 @@ export function AccountPerformanceRow({
                 </span>
                 <span
                   className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                    profitProgress >= 100
-                      ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                      : profitProgress >= 50
-                      ? "border-cyan-500/30 bg-cyan-500/15 text-cyan-500"
-                      : "border-violet-500/30 bg-violet-500/15 text-violet-400"
+                    "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                   }`}
                 >
                   {profitProgress >= 100

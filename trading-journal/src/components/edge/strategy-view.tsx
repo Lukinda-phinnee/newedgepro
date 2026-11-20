@@ -250,7 +250,7 @@ function StrategyRightPanelSkeleton() {
 
 function EmptyPlaybookRightPanel() {
   return (
-    <aside className="flex w-full flex-col gap-4">
+    <aside className="edge-type-scale flex w-full flex-col gap-4">
       <div className="overflow-hidden rounded-xl border border-border/70 bg-card/60">
         <div className="flex items-center gap-1.5 px-4 pb-2 pt-3.5 text-xs font-semibold text-foreground">
           <Activity size={13} className="text-violet-400" /> Plan Stats
@@ -403,6 +403,7 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
   const handleChooseEmptyPlaybook = () => {
     setAddChoiceOpen(false);
     setPlaybookTitle("Untitled playbook");
+    setSelectedId(null);
     setPlaybookIsActive(false);
     setContinuousPlaybook(false);
     setPlaybookContent(defaultPlaybookTemplate);
@@ -740,11 +741,11 @@ export function StrategyView({ initialStrategies }: StrategyViewProps) {
 
         {/* ─── Right: Stats Panel with Loading Animation on Selection ─── */}
         {(selectedStrategy || blankPlaybookOpen) && (
-          <div className="hidden lg:block w-[220px] xl:w-[240px] shrink-0 overflow-y-auto p-4 bg-background h-full">
-            {blankPlaybookOpen ? (
-              <EmptyPlaybookRightPanel />
-            ) : loadingId ? (
+          <div className="hidden lg:block w-[280px] xl:w-[320px] shrink-0 overflow-y-auto p-4 bg-background h-full">
+            {loadingId ? (
               <StrategyRightPanelSkeleton />
+            ) : blankPlaybookOpen && !blankPlaybookId ? (
+              <EmptyPlaybookRightPanel />
             ) : (
               selectedStrategy && <StrategyRightPanel strategy={selectedStrategy} />
             )}

@@ -23,6 +23,11 @@ import type { Rule, RuleCategory, RuleSet } from "@/types/rules";
 import type { TradingAccount } from "@/types/account";
 import { cn } from "@/lib/utils";
 import { useOperationFeedback } from "@/components/ui/operation-feedback";
+import {
+  getTraderReadableConsequence,
+  getTraderReadableRuleCopy,
+  getTraderReadableScope,
+} from "@/lib/rules/trader-readable";
 
 interface RuleSetsTabProps {
   ruleSet: RuleSet | null;
@@ -280,11 +285,7 @@ export function RuleSetsTab({
                 className={cn(
                   "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all press-scale-sm",
                   isSelected
-                    ? status === "ACTIVE"
-                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                      : status === "INACTIVE"
-                        ? "bg-neutral-800 text-neutral-300 border border-neutral-700 shadow-sm"
-                        : "bg-white/10 text-white border border-white/10 shadow-sm"
+                    ? "bg-primary text-primary-foreground border border-primary shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -441,35 +442,23 @@ export function RuleSetsTab({
                                       : "bg-amber-500/15 text-amber-300 border border-amber-500/30",
                                 )}
                               >
-                                {rule.severity}
+                                {rule.severity.charAt(0) + rule.severity.slice(1).toLowerCase()}
                               </span>
 
                               {/* Consequence Badge */}
                               <span className="px-2 py-0.2 rounded text-[10px] font-mono font-medium bg-white/[0.06] text-foreground">
-                                {rule.consequence}
+                                {getTraderReadableConsequence(rule.consequence)}
                               </span>
 
                               {/* Scope */}
-                              <span className="text-[10px] text-muted-foreground/70 uppercase font-mono">
-                                Scope: {rule.evaluationScope}
+                              <span className="text-[10px] text-muted-foreground/70">
+                                {getTraderReadableScope(rule.evaluationScope)}
                               </span>
                             </div>
 
-                            {/* Human readable condition equation */}
-                            <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground flex-wrap">
-                              <span className="text-violet-300 font-semibold">{rule.condition}</span>
-                              <span className="text-muted-foreground/80">{rule.comparisonOperator}</span>
-                              <span className="text-foreground font-semibold">
-                                {Array.isArray(rule.thresholdValue)
-                                  ? `[${rule.thresholdValue.join(", ")}]`
-                                  : String(rule.thresholdValue)}
-                              </span>
-                              {rule.userMessage && (
-                                <span className="text-muted-foreground/60 text-[11px] truncate max-w-sm">
-                                  — "{rule.userMessage}"
-                                </span>
-                              )}
-                            </div>
+                            <p className="text-xs leading-relaxed text-muted-foreground">
+                              {getTraderReadableRuleCopy(rule)}
+                            </p>
                           </div>
                         </div>
 

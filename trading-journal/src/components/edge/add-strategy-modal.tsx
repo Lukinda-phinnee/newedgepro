@@ -53,12 +53,12 @@ interface InstrumentItem {
 }
 
 const TYPE_BADGE_STYLES: Record<string, string> = {
-  Futures: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  Forex: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  Crypto: "bg-violet-500/15 text-violet-300 border-violet-500/30",
-  Equity: "bg-blue-500/15 text-blue-300 border-blue-500/30",
-  ETF: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
-  Index: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+  Futures: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  Forex: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  Crypto: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
+  Equity: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  ETF: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
+  Index: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
 };
 
 const SESSION_OPTIONS = [
@@ -178,7 +178,7 @@ export function AddStrategyModal({
   const [killZoneStart, setKillZoneStart] = useState("09:30");
   const [killZoneEnd, setKillZoneEnd] = useState("11:30");
   const [selectedDays, setSelectedDays] = useState<string[]>(["Tuesday", "Wednesday", "Thursday"]);
-  const [newsBlackoutRule, setNewsBlackoutRule] = useState("Blackout 15m before/after high-impact news");
+  const [newsBlackoutRule, setNewsBlackoutRule] = useState("");
   const [thesis, setThesis] = useState("");
 
   // ─── Step 5: Playbook & Exit Rules (Optional) ───
@@ -216,9 +216,7 @@ export function AddStrategyModal({
       setKillZoneStart(editingStrategy.killZoneStart || "09:30");
       setKillZoneEnd(editingStrategy.killZoneEnd || "11:30");
       setSelectedDays(editingStrategy.daysOfWeek || ["Tuesday", "Wednesday", "Thursday"]);
-      setNewsBlackoutRule(
-        editingStrategy.newsBlackoutRule || "Blackout 15m before/after high-impact news"
-      );
+      setNewsBlackoutRule(editingStrategy.newsBlackoutRule || "");
       setThesis(editingStrategy.thesis || "");
       setChecklist(editingStrategy.entryChecklist || []);
       setNewCriterion("");
@@ -259,7 +257,7 @@ export function AddStrategyModal({
     setKillZoneStart("09:30");
     setKillZoneEnd("11:30");
     setSelectedDays(["Tuesday", "Wednesday", "Thursday"]);
-    setNewsBlackoutRule("Blackout 15m before/after high-impact news");
+    setNewsBlackoutRule("");
     setThesis("");
     setChecklist([]);
     setNewCriterion("");
@@ -564,7 +562,7 @@ export function AddStrategyModal({
                     s === step
                       ? "bg-violet-500 text-white border-violet-500 shadow-sm shadow-violet-500/30"
                       : isEditing || s < step
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30"
+                        ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
                         : "bg-white/[0.04] text-muted-foreground border-border/60"
                   )}
                 >
@@ -803,8 +801,8 @@ export function AddStrategyModal({
                               "flex-1 text-[11px] font-medium px-2 py-2 rounded-xl border text-center transition-all",
                               status === opt.value
                                 ? opt.value === "ACTIVE"
-                                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40"
-                                  : "bg-amber-500/15 text-amber-400 border-amber-500/40"
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+                                  : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40"
                                 : "bg-white/[0.03] text-muted-foreground border-border/60 hover:text-foreground"
                             )}
                           >
@@ -967,7 +965,7 @@ export function AddStrategyModal({
                           className={cn(
                             "text-[11px] font-medium px-2.5 py-1.5 rounded-lg border transition-all",
                             selectedSessions.includes(session)
-                              ? "bg-sky-500/15 text-sky-300 border-sky-500/40"
+                              ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40"
                               : "bg-white/[0.03] text-muted-foreground border-border/60 hover:text-foreground"
                           )}
                         >
@@ -1015,7 +1013,7 @@ export function AddStrategyModal({
                           className={cn(
                             "text-[11px] font-medium px-2.5 py-1.5 rounded-lg border transition-all",
                             selectedDays.includes(day)
-                              ? "bg-violet-500/15 text-violet-300 border-violet-500/40"
+                              ? "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/40"
                               : "bg-white/[0.03] text-muted-foreground border-border/60 hover:text-foreground"
                           )}
                         >
@@ -1023,6 +1021,20 @@ export function AddStrategyModal({
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="strategy-news-blackout" className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                      News Blackout Rule <span className="font-normal">(optional)</span>
+                    </Label>
+                    <Input
+                      id="strategy-news-blackout"
+                      value={newsBlackoutRule}
+                      onChange={(event) => setNewsBlackoutRule(event.target.value)}
+                      maxLength={120}
+                      placeholder="e.g. Avoid trading 15 minutes before or after high-impact news"
+                      className="h-9 text-xs"
+                    />
                   </div>
 
                   <div>
@@ -1042,7 +1054,7 @@ export function AddStrategyModal({
               {/* ─── Step 5: Playbook & Exit Rules (Optional) ─── */}
               {step === 5 && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-xs text-violet-300">
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-xs text-violet-800 dark:text-violet-300">
                     <Layers size={14} className="shrink-0 text-violet-400" />
                     <span>
                       <strong>Optional step:</strong> You can add initial entry criteria &amp; scale-outs now or customize your complete Playbook anytime on the strategy page.
@@ -1111,10 +1123,10 @@ export function AddStrategyModal({
                                 className={cn(
                                   "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded font-mono shrink-0",
                                   item.phase === "PRE_CONDITION"
-                                    ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
                                     : item.phase === "TRIGGER"
-                                    ? "bg-violet-500/15 text-violet-300 border border-violet-500/30"
-                                    : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                                    ? "bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30"
+                                    : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
                                 )}
                               >
                                 {item.phase.replace("_", " ")}

@@ -125,6 +125,7 @@ export function LogTradeDialog({
   const [plannedEntry, setPlannedEntry] = useState("");
   const [isPlanned, setIsPlanned] = useState<boolean>(true);
   const [strategy, setStrategy] = useState("None");
+  const [playbookNames, setPlaybookNames] = useState<string[]>([]);
   const [customStrategy, setCustomStrategy] = useState("");
   const [marketSession, setMarketSession] = useState("");
   const [marketCondition, setMarketCondition] = useState("Trend");
@@ -138,6 +139,36 @@ export function LogTradeDialog({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !accountId) {
+      setPlaybookNames([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch(`/api/strategies?accountId=${encodeURIComponent(accountId)}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load playbooks");
+        return (await response.json()) as { strategies?: Array<{ name?: string }> };
+      })
+      .then((data) => {
+        const popularNames = new Set(POPULAR_STRATEGIES.map((name) => name.toLowerCase()));
+        const names = [...new Set((data.strategies ?? [])
+          .map((item) => item.name?.trim())
+          .filter((name): name is string => Boolean(name) && !popularNames.has(name.toLowerCase())))];
+        setPlaybookNames(names);
+      })
+      .catch((loadError: unknown) => {
+        if (loadError instanceof DOMException && loadError.name === "AbortError") return;
+        setPlaybookNames([]);
+      });
+
+    return () => controller.abort();
+  }, [open, accountId]);
 
   // Global paste handler: Ctrl+V chart screenshots directly while logging trade
   useEffect(() => {
@@ -689,6 +720,13 @@ export function LogTradeDialog({
                     {s}
                   </option>
                 ))}
+                {playbookNames.length > 0 && (
+                  <optgroup label="My playbooks">
+                    {playbookNames.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 

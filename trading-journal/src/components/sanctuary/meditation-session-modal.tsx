@@ -7,12 +7,6 @@ import {
   Pause,
   RotateCcw,
   SkipForward,
-  Volume2,
-  VolumeX,
-  CloudRain,
-  Droplets,
-  Wind,
-  Bell,
   CheckCircle2,
   Mic,
   MicOff,
@@ -22,10 +16,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  sanctuaryAudio,
-  type AmbientSoundType,
-} from "@/components/sanctuary/audio-synthesizer";
+import { kokoroVoice } from "./kokoro-tts";
 import {
   ALL_SANCTUARY_TECHNIQUES,
   TechniqueProfile,
@@ -37,61 +28,11 @@ interface MeditationSessionModalProps {
   techniqueId?: string;
   sessionTitle: string;
   durationMinutes: number;
-  initialSound?: AmbientSoundType;
+  initialSound?: string;
   onComplete?: (minutes: number) => void;
 }
 
 type BreathPhase = "Inhale" | "Hold" | "Exhale" | "Rest";
-
-const SOUND_OPTIONS: { id: AmbientSoundType; label: string; icon: typeof VolumeX; isYouTube?: boolean }[] = [
-  { id: "silence", label: "No Sound", icon: VolumeX },
-  { id: "rain", label: "Rain", icon: CloudRain, isYouTube: true },
-  { id: "water", label: "Water Stream", icon: Droplets, isYouTube: true },
-  { id: "singing-bowl", label: "Singing Bowl", icon: Bell },
-  { id: "wind", label: "Forest Wind", icon: Wind },
-];
-
-// ─── Voice helpers ────────────────────────────────────────────────────────────
-/**
- * Returns the best available SpeechSynthesisVoice for calm meditation narration.
- * Priority: high-quality named voices → any English female voice → any English → first available
- */
-function pickBestVoice(): SpeechSynthesisVoice | null {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
-  const voices = window.speechSynthesis.getVoices();
-  if (!voices.length) return null;
-
-  // Preference list — first match wins
-  const preferredNames = [
-    "Google UK English Female",
-    "Microsoft Aria Online (Natural) - English (United States)",
-    "Microsoft Jenny Online (Natural) - English (United States)",
-    "Microsoft Zira - English (United States)",
-    "Karen",          // macOS Australian
-    "Samantha",       // macOS US
-    "Moira",          // macOS Irish
-    "Tessa",          // macOS South African
-    "Victoria",       // macOS
-    "Google US English",
-  ];
-
-  for (const name of preferredNames) {
-    const v = voices.find((voice) => voice.name === name);
-    if (v) return v;
-  }
-
-  // Fallback: any English female-sounding voice (name heuristic)
-  const femaleHint = voices.find(
-    (v) => v.lang.startsWith("en") && /female|woman|girl/i.test(v.name)
-  );
-  if (femaleHint) return femaleHint;
-
-  // Fallback: any English voice
-  const anyEnglish = voices.find((v) => v.lang.startsWith("en"));
-  if (anyEnglish) return anyEnglish;
-
-  return voices[0] ?? null;
-}
 
 export function MeditationSessionModal({
   isOpen,
@@ -112,21 +53,14 @@ export function MeditationSessionModal({
   const [secondsRemaining, setSecondsRemaining] = useState(durationMinutes * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [isReady, setIsReady] = useState(false); // true = session started by user
-  const [currentSound, setCurrentSound] = useState<AmbientSoundType>(initialSound);
-  const [volume, setVolume] = useState(0.5);
-  const [isMuted, setIsMuted] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
   // Stage progression
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const currentStage = profile.stages[currentStageIdx] || profile.stages[0];
 
-  // Voice narration toggle using Web Speech API
+  // Voice narration toggle using Kokoro-82M TTS (with native Web Speech fallback)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
-
-  // Cache the chosen voice once voices are loaded
-  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
-
   // Dynamic Breath pacing based on active stage or default breathing pattern
   const activePattern = currentStage?.breathingPattern || profile.defaultBreathing;
   const [breathPhase, setBreathPhase] = useState<BreathPhase>("Inhale");
@@ -137,73 +71,35 @@ export function MeditationSessionModal({
   // ─── Voice narration ────────────────────────────────────────────────────────
   const speakNarration = useCallback(
     (text: string) => {
-      if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-      window.speechSynthesis.cancel();
-      if (!isVoiceEnabled || !text) return;
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.88;   // slower, more considered pace
-      utterance.pitch = 0.95;  // slightly lower, calming
-      utterance.volume = 1.0;
-
-      // Use cached voice or pick one now
-      if (!voiceRef.current) {
-        voiceRef.current = pickBestVoice();
+      if (!isVoiceEnabled || !text) {
+        kokoroVoice.stop();
+        return;
       }
-      if (voiceRef.current) utterance.voice = voiceRef.current;
-
-      window.speechSynthesis.speak(utterance);
+      void kokoroVoice.speak(text, "af_heart");
     },
     [isVoiceEnabled]
   );
-
-  // Pre-load voices when the browser fires voiceschanged
-  useEffect(() => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    const load = () => {
-      voiceRef.current = pickBestVoice();
-    };
-    window.speechSynthesis.addEventListener("voiceschanged", load);
-    load(); // try immediately in case already loaded
-    return () => window.speechSynthesis.removeEventListener("voiceschanged", load);
-  }, []);
-
-  // Initialize YouTube Audio Player
-  useEffect(() => {
-    sanctuaryAudio.attachYouTubePlayer("sanctuary-yt-player-slot");
-  }, []);
 
   // Sync state when modal opens
   useEffect(() => {
     if (isOpen) {
       setSecondsRemaining(durationMinutes * 60);
-      setIsRunning(false);  // wait for user to press Begin
+      setIsRunning(false);  // wait for user to press Start Session
       setIsReady(false);
       setIsFinished(false);
       setCurrentStageIdx(0);
       setBreathPhase("Inhale");
       breathPhaseRef.current = "Inhale";
       setBreathCounter(profile.stages[0]?.breathingPattern?.inhale ?? profile.defaultBreathing.inhale);
-      // Ensure any previous audio is stopped — sound begins only when user clicks start
-      sanctuaryAudio.stop();
-      const chosen = initialSound ?? profile.defaultSound ?? "rain";
-      setCurrentSound(chosen);
     } else {
-      sanctuaryAudio.stop();
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
+      kokoroVoice.stop();
       setIsRunning(false);
       setIsReady(false);
     }
     return () => {
-      sanctuaryAudio.stop();
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
+      kokoroVoice.stop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, durationMinutes, initialSound, techniqueId]);
+  }, [isOpen, durationMinutes, techniqueId]);
 
   // Main Session Timer
   useEffect(() => {
@@ -215,8 +111,6 @@ export function MeditationSessionModal({
           clearInterval(timer);
           setIsRunning(false);
           setIsFinished(true);
-          sanctuaryAudio.stop();
-          sanctuaryAudio.playGentleChime();
           if (typeof window !== "undefined" && "speechSynthesis" in window) {
             window.speechSynthesis.cancel();
           }
@@ -288,7 +182,7 @@ export function MeditationSessionModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning, isOpen, activePattern]);
 
-  // Called when user presses the Begin Session button — syncs all timers at once
+  // Called when user presses the Start Session button — syncs all timers at once
   const handleBeginSession = () => {
     setIsReady(true);
     setIsRunning(true);
@@ -296,18 +190,9 @@ export function MeditationSessionModal({
     breathPhaseRef.current = "Inhale";
     setBreathCounter(profile.stages[0]?.breathingPattern?.inhale ?? profile.defaultBreathing.inhale);
 
-    // Ambient sound begins playing when the user clicks start
-    if (currentSound !== "silence") {
-      sanctuaryAudio.play(currentSound);
-      sanctuaryAudio.setVolume(volume);
-    } else {
-      sanctuaryAudio.stop();
-    }
-
-    // Speak first narration (slight delay lets the browser settle)
-    setTimeout(() => {
-      speakNarration(profile.stages[0]?.narration || profile.guidanceQuote);
-    }, 300);
+    // Start narration directly from the user's click. Browsers can block speech
+    // synthesis or audio playback when it is deferred outside the user gesture.
+    speakNarration(profile.stages[0]?.narration || profile.guidanceQuote);
   };
 
   const handleNextStage = () => {
@@ -326,32 +211,9 @@ export function MeditationSessionModal({
     }
   };
 
-  const handleSoundChange = (sound: AmbientSoundType) => {
-    setCurrentSound(sound);
-    if (sound === "silence") {
-      sanctuaryAudio.stop();
-    } else if (isReady && isRunning) {
-      sanctuaryAudio.play(sound);
-      sanctuaryAudio.setVolume(volume);
-    }
-  };
-
-  const handleVolumeChange = (val: number) => {
-    setVolume(val);
-    sanctuaryAudio.setVolume(val);
-    if (isMuted && val > 0) setIsMuted(false);
-  };
-
-  const handleToggleMute = () => {
-    const muted = sanctuaryAudio.toggleMute();
-    setIsMuted(muted);
-  };
-
   const toggleVoice = () => {
     if (isVoiceEnabled) {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
+      kokoroVoice.stop();
       setIsVoiceEnabled(false);
     } else {
       setIsVoiceEnabled(true);
@@ -456,13 +318,6 @@ export function MeditationSessionModal({
       )} />
       <div className="absolute inset-0 bg-radial from-transparent via-black/40 to-black/80 pointer-events-none" />
 
-      {/* ─── HIDDEN YOUTUBE IFRAME HOST ─── */}
-      <div
-        className="fixed -bottom-40 -left-40 size-32 pointer-events-none opacity-0 overflow-hidden"
-        aria-hidden="true"
-      >
-        <div id="sanctuary-yt-player-slot" />
-      </div>
 
       {/* ─── TOP BAR ─── */}
       <header className="relative z-10 w-full flex items-center justify-between p-4 sm:p-8 shrink-0 border-b border-white/10 backdrop-blur-md bg-black/20">
@@ -492,7 +347,7 @@ export function MeditationSessionModal({
         </div>
 
         {/* Right: controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Voice Narration Toggle */}
           <button
             type="button"
@@ -513,26 +368,16 @@ export function MeditationSessionModal({
             </span>
           </button>
 
-          {/* Master Volume */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-md">
-            <button
-              type="button"
-              onClick={handleToggleMute}
-              className="text-white/70 hover:text-white transition-colors cursor-pointer"
+          {/* Narration status */}
+          {isVoiceEnabled && (
+            <div
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono border border-emerald-400/30 bg-emerald-500/15 text-emerald-300 backdrop-blur-md"
+              title="Narration uses your browser’s speech voice"
             >
-              {isMuted || volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            </button>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={isMuted ? 0 : volume}
-              onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-              className="w-16 h-1 cursor-pointer"
-              style={{ accentColor: theme.accentHex }}
-            />
-          </div>
+              <Mic size={11} className="text-emerald-400" />
+              <span>Browser voice</span>
+            </div>
+          )}
 
           {/* Close */}
           <button
@@ -578,46 +423,7 @@ export function MeditationSessionModal({
               &ldquo;{profile.guidanceQuote}&rdquo;
             </blockquote>
 
-            {/* Sound Selector on Ready Screen */}
-            <div className="flex flex-col items-center gap-2 max-w-lg w-full">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-white/50">
-                Ambient Soundscape (Starts on Begin)
-              </span>
-              <div className="flex flex-wrap items-center justify-center gap-1.5 bg-black/40 p-1.5 rounded-2xl border border-white/15 backdrop-blur-md">
-                {SOUND_OPTIONS.map((snd) => {
-                  const Icon = snd.icon;
-                  const isChosen = currentSound === snd.id;
-                  return (
-                    <button
-                      key={snd.id}
-                      type="button"
-                      onClick={() => handleSoundChange(snd.id)}
-                      className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer",
-                        isChosen
-                          ? cn(theme.soundActiveBg, theme.soundActiveText, "font-bold shadow-md scale-102")
-                          : "text-white/70 hover:text-white hover:bg-white/10"
-                      )}
-                    >
-                      <Icon size={13} />
-                      <span>{snd.label}</span>
-                      {snd.isYouTube && (
-                        <span
-                          className={cn(
-                            "text-[9px] px-1 py-0.5 rounded font-mono font-bold uppercase leading-none",
-                            isChosen ? "bg-black/25 text-stone-900" : "bg-red-500/25 text-red-200"
-                          )}
-                        >
-                          YT
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* BEGIN button */}
+            {/* START SESSION button */}
             <button
               type="button"
               onClick={handleBeginSession}
@@ -628,7 +434,7 @@ export function MeditationSessionModal({
               )}
             >
               <Play size={20} className="fill-current" />
-              Begin Session
+              Start Session
             </button>
 
             {/* Breathing pattern hint */}
@@ -757,38 +563,16 @@ export function MeditationSessionModal({
       {/* ─── BOTTOM CONTROL BAR ─── */}
       <footer className="relative z-10 w-full p-4 sm:p-6 shrink-0 border-t border-white/10 backdrop-blur-md bg-black/25 flex flex-col sm:flex-row items-center justify-between gap-4 max-w-5xl mx-auto">
 
-        {/* Left: Soundscape selector */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-white/10 p-1 rounded-2xl border border-white/10 backdrop-blur-md">
-          {SOUND_OPTIONS.map((snd) => {
-            const Icon = snd.icon;
-            const isChosen = currentSound === snd.id;
-            return (
-              <button
-                key={snd.id}
-                type="button"
-                onClick={() => handleSoundChange(snd.id)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer",
-                  isChosen
-                    ? cn(theme.soundActiveBg, theme.soundActiveText, "font-bold shadow-md")
-                    : "text-white/70 hover:text-white hover:bg-white/10"
-                )}
-              >
-                <Icon size={13} />
-                <span>{snd.label}</span>
-                {snd.isYouTube && (
-                  <span
-                    className={cn(
-                      "text-[9px] px-1 py-0.5 rounded font-mono font-bold uppercase leading-none",
-                      isChosen ? "bg-black/25 text-stone-900" : "bg-red-500/25 text-red-200"
-                    )}
-                  >
-                    YT
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* Left: Technique info pill */}
+        <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-md">
+          <span className={cn("size-2 rounded-full", `bg-${theme.accent}-400`)} />
+          <span className="text-xs font-mono text-white/80 font-medium">
+            {profile.title}
+          </span>
+          <span className="text-white/30 text-[10px]">·</span>
+          <span className={cn("text-[10px] font-mono uppercase tracking-widest", theme.voiceActiveText)}>
+            {profile.tradingContext}
+          </span>
         </div>
 
         {/* Center: Playback controls */}
@@ -804,7 +588,6 @@ export function MeditationSessionModal({
               setBreathPhase("Inhale");
               breathPhaseRef.current = "Inhale";
               setBreathCounter(activePattern.inhale);
-              sanctuaryAudio.stop();
               if (typeof window !== "undefined" && "speechSynthesis" in window) {
                 window.speechSynthesis.cancel();
               }
@@ -824,15 +607,10 @@ export function MeditationSessionModal({
                 if (typeof window !== "undefined" && "speechSynthesis" in window) {
                   window.speechSynthesis.pause();
                 }
-                sanctuaryAudio.stop();
                 setIsRunning(false);
               } else {
                 if (typeof window !== "undefined" && "speechSynthesis" in window) {
                   window.speechSynthesis.resume();
-                }
-                if (currentSound !== "silence") {
-                  sanctuaryAudio.play(currentSound);
-                  sanctuaryAudio.setVolume(volume);
                 }
                 setIsRunning(true);
               }
@@ -841,7 +619,7 @@ export function MeditationSessionModal({
               "flex items-center justify-center size-16 rounded-full bg-gradient-to-r text-stone-950 font-bold shadow-xl transition-transform hover:scale-105 active:scale-95 cursor-pointer",
               theme.playButtonGradient
             )}
-            title={!isReady ? "Begin session" : isRunning ? "Pause" : "Resume"}
+            title={!isReady ? "Start session" : isRunning ? "Pause" : "Resume"}
           >
             {isRunning && isReady
               ? <Pause size={24} className="fill-current" />

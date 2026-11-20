@@ -34,25 +34,25 @@ export function StrategyTopPillars({
     switch (status) {
       case "ACTIVE":
         return {
-          badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+          badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
           dot: "bg-emerald-400 shadow-emerald-500/50",
           label: "Active Edge",
         };
       case "CALIBRATING":
         return {
-          badge: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+          badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
           dot: "bg-amber-400 shadow-amber-500/50",
           label: "In Calibration",
         };
       case "PROBATION":
         return {
-          badge: "bg-rose-500/15 text-rose-400 border-rose-500/30",
+          badge: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
           dot: "bg-rose-400 shadow-rose-500/50",
           label: "On Probation",
         };
       case "ARCHIVED":
         return {
-          badge: "bg-neutral-500/15 text-neutral-400 border-neutral-500/30",
+          badge: "bg-neutral-500/15 text-neutral-700 dark:text-neutral-300 border-neutral-500/30",
           dot: "bg-neutral-400 shadow-neutral-500/50",
           label: "Archived",
         };
@@ -104,7 +104,7 @@ export function StrategyTopPillars({
               <div className="flex items-baseline gap-1 mt-0.5">
                 <span className="text-2xl font-bold tracking-tight text-foreground font-mono">
                   {strategy.expectancyR >= 0 ? `+${strategy.expectancyR}` : strategy.expectancyR}
-                  <span className="text-violet-400 text-lg">R</span>
+                  <span className="text-violet-700 dark:text-violet-400 text-lg">R</span>
                 </span>
                 <span className="text-[11px] text-muted-foreground">/ trade</span>
               </div>
@@ -115,7 +115,7 @@ export function StrategyTopPillars({
                 Health Score
               </span>
               <div className="inline-flex items-center gap-1.5 mt-0.5">
-                <div className="flex items-center justify-center size-7 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold border border-emerald-500/20">
+                <div className="flex items-center justify-center size-7 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono text-xs font-bold border border-emerald-500/20">
                   {strategy.edgeScore}
                 </div>
                 <span className="text-[10px] text-muted-foreground">/100</span>
@@ -179,7 +179,7 @@ export function StrategyTopPillars({
             <div className="rounded-xl bg-white/[0.03] p-2.5 border border-border/30">
               <span className="text-[10px] text-muted-foreground block">Max Risk / Trade</span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-lg font-bold font-mono text-rose-400">
+                <span className="text-lg font-bold font-mono text-rose-700 dark:text-rose-400">
                   {strategy.maxRiskPercent}%
                 </span>
                 <span className="text-[10px] text-muted-foreground">equity</span>
@@ -189,7 +189,7 @@ export function StrategyTopPillars({
             <div className="rounded-xl bg-white/[0.03] p-2.5 border border-border/30">
               <span className="text-[10px] text-muted-foreground block">Min Target R:R</span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-lg font-bold font-mono text-emerald-400">
+                <span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400">
                   1:{strategy.minRrRatio.toFixed(1)}
                 </span>
                 <span className="text-[10px] text-muted-foreground">min</span>
@@ -233,7 +233,7 @@ export function StrategyTopPillars({
             </span>
           </div>
 
-          <span className="text-[11px] font-mono text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
+          <span className="text-[11px] font-mono text-sky-700 dark:text-sky-300 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
             {strategy.timeZone || "EST"}
           </span>
         </div>
@@ -249,7 +249,7 @@ export function StrategyTopPillars({
                 <Badge
                   key={session}
                   variant="secondary"
-                  className="bg-sky-500/10 text-sky-300 border-sky-500/20 text-[11px] font-medium px-2 py-0.5"
+                  className="bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20 text-[11px] font-medium px-2 py-0.5"
                 >
                   {session}
                 </Badge>
@@ -275,16 +275,17 @@ export function StrategyTopPillars({
             </div>
           </div>
 
-          {/* News Blackout Policy */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <AlertTriangle size={11} className="text-amber-400" />
-              News Blackout Policy
-            </span>
-            <p className="text-[11px] text-muted-foreground leading-snug line-clamp-1">
-              {strategy.newsBlackoutRule || "Blackout 15m before/after Red Folder High Impact news"}
-            </p>
-          </div>
+          {strategy.newsBlackoutRule && (
+            <div className="space-y-1">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <AlertTriangle size={11} className="text-amber-600 dark:text-amber-400" />
+                News Blackout Policy
+              </span>
+              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-1">
+                {strategy.newsBlackoutRule}
+              </p>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

@@ -33,12 +33,9 @@ export function PortfolioHubView({
   initialAccounts,
   initialSummary,
 }: PortfolioHubViewProps) {
-  const { accounts: contextAccounts, refreshAccounts, setActiveAccount } = useActiveAccount();
+  const { accounts: contextAccounts, activeAccount, refreshAccounts, setActiveAccount } = useActiveAccount();
   const { showFeedback } = useOperationFeedback();
   const accounts = contextAccounts && contextAccounts.length > 0 ? contextAccounts : initialAccounts;
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(
-    accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "",
-  );
   const [search, setSearch] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "live" | "demo" | "active">("all");
   const [sortBy, setSortBy] = useState<"balance-desc" | "pnl-desc" | "newest">("balance-desc");
@@ -77,9 +74,9 @@ export function PortfolioHubView({
     };
   }, [accounts]);
 
-  const selectedAccount = useMemo(() => {
-    return accounts.find((a) => a.id === selectedAccountId) || accounts[0] || null;
-  }, [accounts, selectedAccountId]);
+  const selectedAccount = activeAccount
+    ? accounts.find((account) => account.id === activeAccount.id) ?? activeAccount
+    : accounts.find((account) => account.isDefault) ?? accounts[0] ?? null;
 
   // Handlers — all mutations sync back to the global ActiveAccountContext
   const handleAccountCreated = (newAcc: TradingAccount) => {
@@ -169,9 +166,7 @@ export function PortfolioHubView({
       {/* Selected Account Trading Performance & Guardrails */}
       {selectedAccount && (
         <AccountPerformanceRow
-          accounts={accounts}
           selectedAccount={selectedAccount}
-          onSelectAccount={(id) => setSelectedAccountId(id)}
         />
       )}
 

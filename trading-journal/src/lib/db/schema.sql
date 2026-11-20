@@ -20,12 +20,31 @@ CREATE TABLE IF NOT EXISTS user_profile_settings (
   theme VARCHAR(8) NOT NULL DEFAULT 'dark' CHECK (theme IN ('light', 'dark', 'system')),
   avatar_data TEXT,
   pre_market_routine JSONB,
+  during_market_routine JSONB,
+  post_market_routine JSONB,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Daily checklist progress used by the dashboard and trade calendar.
+CREATE TABLE IF NOT EXISTS routine_completions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  date DATE NOT NULL,
+  routine_type TEXT NOT NULL DEFAULT 'premarket',
+  completed_steps TEXT[] NOT NULL DEFAULT '{}',
+  all_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT routine_completions_user_date_type_key UNIQUE (user_id, date, routine_type)
+);
+CREATE INDEX IF NOT EXISTS idx_routine_completions_user_date ON routine_completions (user_id, date);
 ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS phone_country_code VARCHAR(5) NOT NULL DEFAULT '+1';
 ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS phone_region VARCHAR(2) NOT NULL DEFAULT 'US';
 ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS theme VARCHAR(8) NOT NULL DEFAULT 'dark';
 ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS pre_market_routine JSONB;
+ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS during_market_routine JSONB;
+ALTER TABLE user_profile_settings ADD COLUMN IF NOT EXISTS post_market_routine JSONB;
 
 CREATE TABLE IF NOT EXISTS feedback_submissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -326,7 +345,7 @@ CREATE TABLE IF NOT EXISTS strategies (
   kill_zone_end VARCHAR(10) DEFAULT '11:30',
   time_zone VARCHAR(30) DEFAULT 'EST (UTC-5)',
   days_of_week JSONB DEFAULT '["Tuesday", "Wednesday", "Thursday"]'::jsonb,
-  news_blackout_rule VARCHAR(120) DEFAULT 'Blackout 15m before/after high-impact news',
+  news_blackout_rule VARCHAR(120),
   entry_checklist JSONB DEFAULT '[]'::jsonb,
   entry_model_images JSONB DEFAULT '[]'::jsonb,
   disqualifiers JSONB DEFAULT '[]'::jsonb,
@@ -343,6 +362,7 @@ ALTER TABLE strategies ADD COLUMN IF NOT EXISTS playbook_content TEXT;
 ALTER TABLE strategies ADD COLUMN IF NOT EXISTS playbook_continuous BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE strategies ADD COLUMN IF NOT EXISTS is_reviewed BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE strategies ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE strategies ALTER COLUMN news_blackout_rule DROP DEFAULT;
 
 CREATE INDEX IF NOT EXISTS strategies_user_id_idx ON strategies (user_id, status);
 CREATE INDEX IF NOT EXISTS strategies_account_id_idx ON strategies (account_id);

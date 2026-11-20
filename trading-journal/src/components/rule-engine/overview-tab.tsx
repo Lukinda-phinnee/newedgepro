@@ -67,6 +67,17 @@ export function OverviewTab({
   const violationsToday = compliance?.violationsToday ?? 0;
   const violationsThisWeek = compliance?.violationsThisWeek ?? 0;
   const totalActiveRules = status?.totalActiveRules ?? activeRuleSet?.rules?.filter((rule) => rule.isActive).length ?? 0;
+  const escalationLevel = status?.escalationLevel ?? "Normal";
+  const escalationColor = escalationLevel === "Locked" || escalationLevel === "Severe"
+    ? "text-rose-400"
+    : escalationLevel === "Elevated"
+    ? "text-amber-400"
+    : "text-emerald-400";
+  const escalationSurface = escalationLevel === "Locked" || escalationLevel === "Severe"
+    ? "border-rose-500/30 bg-rose-500/10"
+    : escalationLevel === "Elevated"
+    ? "border-amber-500/30 bg-amber-500/10"
+    : "border-emerald-500/30 bg-emerald-500/10";
 
   // Grade badge derived from score
   const grade = useMemo(() => {
@@ -199,15 +210,30 @@ export function OverviewTab({
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-border/60 bg-black/25 p-3">
+            <div className={cn(
+              "rounded-xl border p-3",
+              violationsToday > 0
+                ? "border-rose-500/30 bg-rose-500/10"
+                : "border-emerald-500/30 bg-emerald-500/10",
+            )}>
               <span className="text-[11px] text-muted-foreground block">Violations Today</span>
               <span className={cn("text-2xl font-bold mt-0.5 block", violationsToday > 0 ? "text-rose-400" : "text-emerald-400")}>
                 {violationsToday}
               </span>
             </div>
-            <div className="rounded-xl border border-border/60 bg-black/25 p-3">
+            <div className={cn(
+              "rounded-xl border p-3",
+              violationsThisWeek > 3
+                ? "border-rose-500/30 bg-rose-500/10"
+                : violationsThisWeek > 0
+                ? "border-amber-500/30 bg-amber-500/10"
+                : "border-emerald-500/30 bg-emerald-500/10",
+            )}>
               <span className="text-[11px] text-muted-foreground block">7-Day Infractions</span>
-              <span className={cn("text-2xl font-bold mt-0.5 block", violationsThisWeek > 3 ? "text-amber-400" : "text-foreground")}>
+              <span className={cn(
+                "text-2xl font-bold mt-0.5 block",
+                violationsThisWeek > 3 ? "text-rose-400" : violationsThisWeek > 0 ? "text-amber-400" : "text-emerald-400",
+              )}>
                 {violationsThisWeek}
               </span>
             </div>
@@ -215,8 +241,8 @@ export function OverviewTab({
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
             <span>Escalation level:</span>
-            <span className="font-semibold text-foreground uppercase tracking-wider">
-              {status?.escalationLevel || "Normal"}
+            <span className={cn("rounded-md border px-2 py-1 font-semibold uppercase tracking-wider", escalationColor, escalationSurface)}>
+              {escalationLevel}
             </span>
           </div>
         </div>

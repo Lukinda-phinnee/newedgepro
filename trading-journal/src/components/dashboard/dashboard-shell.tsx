@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileMenu } from "@/components/dashboard/profile-menu";
 import { AccountSelector } from "@/components/dashboard/account-selector";
+import { RulesQuickAccess } from "@/components/dashboard/rules-quick-access";
 import { cn } from "@/lib/utils";
 import { NavigationPageLoading } from "@/components/dashboard/page-loading";
 import { BrandMark } from "@/components/brand-mark";
@@ -267,6 +268,7 @@ export function DashboardShell({
             <h1 className="text-sm font-medium text-foreground/90">{title}</h1>
           </div>
           <div className="flex items-center gap-2.5">
+            <RulesQuickAccess />
             <AccountSelector />
             <ThemeToggle className="h-8 w-8 rounded-lg border-border/70 bg-white/[0.02]" />
             <Link
