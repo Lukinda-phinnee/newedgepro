@@ -7,6 +7,7 @@ import SignInForm from "@/components/auth/SignInForm";
 import SignUpForm from "@/components/auth/SignUpForm";
 import AuthBranding from "@/components/auth/AuthBranding";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -135,28 +136,30 @@ export default function AuthSplitScreen() {
 
           {/* Tab switcher + Theme toggle */}
           <div className="flex items-center gap-2">
-            <div className="flex bg-muted/60 dark:bg-white/5 rounded-full p-1 gap-1 border border-border/50">
+            <div className="relative flex bg-muted/60 dark:bg-white/5 rounded-full p-1 gap-1 border border-border/50">
               <button
                 id="mobile-signin-tab"
                 onClick={() => switchTo("sign-in")}
-                className={`px-3.5 py-1 rounded-full text-xs font-medium transition-all duration-300 cursor-pointer ${
+                className={`relative px-3.5 py-1 rounded-full text-xs font-medium transition-all duration-300 cursor-pointer ${
                   mode === "sign-in"
-                    ? "bg-violet-600 text-white shadow-sm"
+                    ? "text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Sign In
+                {mode === "sign-in" && <SlidingTabIndicator layoutId="auth-mode-tabs" className="rounded-full" />}
+                <span className="relative">Sign In</span>
               </button>
               <button
                 id="mobile-signup-tab"
                 onClick={() => switchTo("sign-up")}
-                className={`px-3.5 py-1 rounded-full text-xs font-medium transition-all duration-300 cursor-pointer ${
+                className={`relative px-3.5 py-1 rounded-full text-xs font-medium transition-all duration-300 cursor-pointer ${
                   mode === "sign-up"
-                    ? "bg-violet-600 text-white shadow-sm"
+                    ? "text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Sign Up
+                {mode === "sign-up" && <SlidingTabIndicator layoutId="auth-mode-tabs" className="rounded-full" />}
+                <span className="relative">Sign Up</span>
               </button>
             </div>
             <ThemeToggle />

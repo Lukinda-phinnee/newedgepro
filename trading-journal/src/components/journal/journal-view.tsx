@@ -19,6 +19,7 @@ import { JournalTradeCard } from "@/components/journal/journal-trade-card";
 import { JournalDetailModal } from "@/components/journal/journal-detail-modal";
 import { LogTradeDialog } from "@/components/trade-log/log-trade-dialog";
 import { useOperationFeedback } from "@/components/ui/operation-feedback";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import type { Trade } from "@/types/trade";
 import { cn } from "@/lib/utils";
 
@@ -327,69 +328,74 @@ export function JournalView({ initialTrades }: JournalViewProps) {
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Outcome Toggle */}
-          <div className="flex rounded-lg border border-border/80 bg-background p-0.5 text-xs">
+          <div className="relative flex rounded-lg border border-border/80 bg-background p-0.5 text-xs">
             <button
               type="button"
               onClick={() => setOutcomeFilter("all")}
               className={cn(
-                "rounded-md px-2.5 py-1 font-medium transition",
+                "relative rounded-md px-2.5 py-1 font-medium transition",
                 outcomeFilter === "all"
-                  ? "bg-secondary text-foreground shadow-xs font-semibold"
+                  ? "text-primary-foreground shadow-xs font-semibold"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
+              {outcomeFilter === "all" && <SlidingTabIndicator layoutId="journal-outcome-tabs" />}
               All
             </button>
             <button
               type="button"
               onClick={() => setOutcomeFilter("win")}
               className={cn(
-                "rounded-md px-2.5 py-1 font-medium transition",
+                "relative rounded-md px-2.5 py-1 font-medium transition",
                 outcomeFilter === "win"
-                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold"
+                  ? "text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
+              {outcomeFilter === "win" && <SlidingTabIndicator layoutId="journal-outcome-tabs" />}
               Wins
             </button>
             <button
               type="button"
               onClick={() => setOutcomeFilter("loss")}
               className={cn(
-                "rounded-md px-2.5 py-1 font-medium transition",
+                "relative rounded-md px-2.5 py-1 font-medium transition",
                 outcomeFilter === "loss"
-                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-semibold"
+                  ? "text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
+              {outcomeFilter === "loss" && <SlidingTabIndicator layoutId="journal-outcome-tabs" />}
               Losses
             </button>
           </div>
 
           {/* Media Filter */}
-          <div className="flex rounded-lg border border-border/80 bg-background p-0.5 text-xs">
+          <div className="relative flex rounded-lg border border-border/80 bg-background p-0.5 text-xs">
             <button
               type="button"
               onClick={() => setMediaFilter("all")}
               className={cn(
-                "rounded-md px-2.5 py-1 font-medium transition",
+                "relative rounded-md px-2.5 py-1 font-medium transition",
                 mediaFilter === "all"
-                  ? "bg-secondary text-foreground shadow-xs font-semibold"
+                  ? "text-primary-foreground shadow-xs font-semibold"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
+              {mediaFilter === "all" && <SlidingTabIndicator layoutId="journal-media-tabs" />}
               All Trades
             </button>
             <button
               type="button"
               onClick={() => setMediaFilter("with-charts")}
               className={cn(
-                "flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition",
+                "relative flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition",
                 mediaFilter === "with-charts"
-                  ? "bg-violet-500/15 text-violet-600 dark:text-violet-300 font-semibold"
+                  ? "text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
+              {mediaFilter === "with-charts" && <SlidingTabIndicator layoutId="journal-media-tabs" />}
               <LucideImage size={12} />
               With Charts
             </button>

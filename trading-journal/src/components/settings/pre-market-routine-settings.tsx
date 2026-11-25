@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import { useOperationFeedback } from "@/components/ui/operation-feedback";
 import {
   DEFAULT_PRE_MARKET_ROUTINE,
@@ -199,7 +200,7 @@ export function PreMarketRoutineSettings() {
       </div>
 
       {/* Routine Phase Switcher Pills */}
-      <div className="flex items-center gap-2 border-b border-border/70 pb-3">
+      <div className="relative flex items-center gap-2 border-b border-border/70 pb-3">
         {(["premarket", "intraday", "postmarket"] as RoutinePhase[]).map((phase) => {
           const isSelected = activePhase === phase;
           const isPhaseEnabled = draftRoutines[phase].enabled;
@@ -209,17 +210,18 @@ export function PreMarketRoutineSettings() {
               key={phase}
               type="button"
               onClick={() => setActivePhase(phase)}
-              className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
+              className={`relative flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
                 isSelected
-                  ? "border-violet-500 bg-violet-500/10 text-foreground ring-1 ring-violet-500/30"
+                  ? "border-primary text-primary-foreground"
                   : "border-border/70 bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
             >
-              {phase === "premarket" && <Sun size={14} className="text-amber-400" />}
-              {phase === "intraday" && <Zap size={14} className="text-violet-400" />}
-              {phase === "postmarket" && <Moon size={14} className="text-indigo-400" />}
+              {isSelected && <SlidingTabIndicator layoutId="routine-settings-phase-tabs" className="rounded-xl" />}
+              {phase === "premarket" && <Sun size={14} className={isSelected ? "text-primary-foreground" : "text-amber-400"} />}
+              {phase === "intraday" && <Zap size={14} className={isSelected ? "text-primary-foreground" : "text-violet-400"} />}
+              {phase === "postmarket" && <Moon size={14} className={isSelected ? "text-primary-foreground" : "text-indigo-400"} />}
 
-              <span>{ROUTINE_PHASE_CONFIG[phase].label}</span>
+              <span className="relative">{ROUTINE_PHASE_CONFIG[phase].label}</span>
 
               <span
                 className={`size-2 rounded-full ${

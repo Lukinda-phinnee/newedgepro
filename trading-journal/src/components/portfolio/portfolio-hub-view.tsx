@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import type { TradingAccount, PortfolioSummary } from "@/types/account";
 import { useActiveAccount } from "@/components/active-account-context";
 import { PortfolioSummaryBanner } from "./portfolio-summary-banner";
@@ -174,49 +175,53 @@ export function PortfolioHubView({
       <section className="space-y-4">
         <div className="flex flex-col justify-between gap-3 border-y border-border/70 py-3.5 sm:flex-row sm:items-center">
           {/* Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="relative flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={() => setFilterTab("all")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`relative rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 filterTab === "all"
-                  ? "bg-violet-600 text-white shadow-sm shadow-violet-950/30"
+                  ? "text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
               }`}
             >
+              {filterTab === "all" && <SlidingTabIndicator layoutId="portfolio-filter-tabs" />}
               All Accounts ({accounts.length})
             </button>
             <button
               type="button"
               onClick={() => setFilterTab("demo")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`relative rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 filterTab === "demo"
-                  ? "bg-violet-600 text-white shadow-sm shadow-violet-950/30"
+                  ? "text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
               }`}
             >
+              {filterTab === "demo" && <SlidingTabIndicator layoutId="portfolio-filter-tabs" />}
               Demo / Paper ({accounts.filter((a) => a.accountType === "demo").length})
             </button>
             <button
               type="button"
               onClick={() => setFilterTab("live")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`relative rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 filterTab === "live"
-                  ? "bg-violet-600 text-white shadow-sm shadow-violet-950/30"
+                  ? "text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
               }`}
             >
+              {filterTab === "live" && <SlidingTabIndicator layoutId="portfolio-filter-tabs" />}
               Live Brokers ({accounts.filter((a) => a.accountType === "live").length})
             </button>
             <button
               type="button"
               onClick={() => setFilterTab("active")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`relative rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                 filterTab === "active"
-                  ? "bg-violet-600 text-white shadow-sm shadow-violet-950/30"
+                  ? "text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
               }`}
             >
+              {filterTab === "active" && <SlidingTabIndicator layoutId="portfolio-filter-tabs" />}
               Active Only ({accounts.filter((a) => a.status === "active").length})
             </button>
           </div>

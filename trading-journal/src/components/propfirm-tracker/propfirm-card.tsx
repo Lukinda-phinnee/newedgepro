@@ -18,6 +18,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import type { PropfirmRecord } from "@/types/propfirm-tracker";
 
 interface PropfirmCardProps {
@@ -225,7 +226,7 @@ export function PropfirmCard({
           <div
             role="tablist"
             aria-label="Evaluation phases"
-            className="flex w-full items-center gap-1 rounded-xl border border-border/70 bg-muted/60 p-1 dark:border-white/[0.08] dark:bg-white/[0.04]"
+            className="relative flex w-full items-center gap-1 rounded-xl border border-border/70 bg-muted/60 p-1 dark:border-white/[0.08] dark:bg-white/[0.04]"
           >
             {phases.map((phase, index) => {
               const isSelected = index === selectedPhaseIndex;
@@ -236,12 +237,13 @@ export function PropfirmCard({
                   role="tab"
                   aria-selected={isSelected}
                   onClick={() => setSelectedPhaseIndex(index)}
-                  className={`flex-1 rounded-lg px-2.5 py-1 text-center text-xs transition-all duration-150 active:scale-[0.98] cursor-pointer ${isSelected
-                      ? "bg-violet-600 text-white shadow-xs font-semibold"
+                  className={`relative flex-1 rounded-lg px-2.5 py-1 text-center text-xs transition-all duration-150 active:scale-[0.98] cursor-pointer ${isSelected
+                      ? "text-primary-foreground shadow-xs font-semibold"
                       : "font-medium text-muted-foreground hover:bg-background/50 hover:text-foreground"
                     }`}
                 >
-                  {phase.name}
+                  {isSelected && <SlidingTabIndicator layoutId="propfirm-phase-tabs" />}
+                  <span className="relative">{phase.name}</span>
                 </button>
               );
             })}

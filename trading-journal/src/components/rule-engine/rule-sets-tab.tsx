@@ -19,6 +19,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import type { Rule, RuleCategory, RuleSet } from "@/types/rules";
 import type { TradingAccount } from "@/types/account";
 import { cn } from "@/lib/utils";
@@ -235,7 +236,7 @@ export function RuleSetsTab({
       {/* Category & Status Filter Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+        <div className="relative flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
           {CATEGORIES.map((cat) => {
             const isSel = activeCategory === cat;
             const count = categoryCounts[cat] ?? 0;
@@ -245,17 +246,18 @@ export function RuleSetsTab({
                 type="button"
                 onClick={() => setActiveCategory(cat)}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5",
+                  "relative px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5",
                   isSel
-                    ? "bg-violet-600 text-white shadow-sm font-semibold"
+                    ? "text-primary-foreground shadow-sm font-semibold"
                     : "bg-card text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-border/60",
                 )}
               >
+                {isSel && <SlidingTabIndicator layoutId="rule-category-tabs" />}
                 <span>{cat}</span>
                 <span
                   className={cn(
                     "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
-                    isSel ? "bg-white/20 text-white" : "bg-white/[0.05] text-muted-foreground",
+                    isSel ? "bg-primary-foreground/20 text-primary-foreground" : "bg-white/[0.05] text-muted-foreground",
                   )}
                 >
                   {count}
@@ -266,7 +268,7 @@ export function RuleSetsTab({
         </div>
 
         {/* Active / Inactive Status Filter */}
-        <div className="flex items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-1 shrink-0 self-start md:self-auto text-xs shadow-sm">
+        <div className="relative flex items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-1 shrink-0 self-start md:self-auto text-xs shadow-sm">
           {(["ALL", "ACTIVE", "INACTIVE"] as const).map((status) => {
             const isSelected = statusFilter === status;
             const count =
@@ -283,17 +285,18 @@ export function RuleSetsTab({
                 type="button"
                 onClick={() => setStatusFilter(status)}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all press-scale-sm",
+                  "relative flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all press-scale-sm",
                   isSelected
-                    ? "bg-primary text-primary-foreground border border-primary shadow-sm"
+                    ? "text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
+                {isSelected && <SlidingTabIndicator layoutId="rule-status-tabs" />}
                 <span>{labels[status]}</span>
                 <span
                   className={cn(
                     "text-[10px] font-mono px-1.5 py-0.2 rounded-full",
-                    isSelected ? "bg-black/30 text-white" : "bg-white/[0.06] text-muted-foreground",
+                    isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-white/[0.06] text-muted-foreground",
                   )}
                 >
                   {count}

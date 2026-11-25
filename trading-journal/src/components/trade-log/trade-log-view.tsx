@@ -13,6 +13,7 @@ import { TradeCalendarView } from "@/components/trade-log/trade-calendar-view";
 import { TradeTableView } from "@/components/trade-log/trade-table-view";
 import { useOperationFeedback } from "@/components/ui/operation-feedback";
 import { LogTradeDialog } from "@/components/trade-log/log-trade-dialog";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import type { Trade } from "@/types/trade";
 
 interface TradeLogViewProps {
@@ -109,28 +110,30 @@ export function TradeLogView({ initialTrades }: TradeLogViewProps) {
         {/* View Switcher & Action Button */}
         <div className="flex items-center gap-2.5">
           {/* View Toggle */}
-          <div className="flex rounded-xl border border-border/80 bg-card p-1 shadow-xs">
+          <div className="relative flex rounded-xl border border-border/80 bg-card p-1 shadow-xs">
             <button
               type="button"
               onClick={() => setActiveView("calendar")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                 activeView === "calendar"
-                  ? "bg-violet-600 text-white shadow-xs"
+                  ? "text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
+              {activeView === "calendar" && <SlidingTabIndicator layoutId="trade-log-view-tabs" />}
               <CalendarIcon size={14} />
               <span>Calendar</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveView("table")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                 activeView === "table"
-                  ? "bg-violet-600 text-white shadow-xs"
+                  ? "text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
+              {activeView === "table" && <SlidingTabIndicator layoutId="trade-log-view-tabs" />}
               <TableIcon size={14} />
               <span>Table</span>
             </button>

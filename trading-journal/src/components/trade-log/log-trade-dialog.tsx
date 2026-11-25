@@ -159,7 +159,7 @@ export function LogTradeDialog({
         const popularNames = new Set(POPULAR_STRATEGIES.map((name) => name.toLowerCase()));
         const names = [...new Set((data.strategies ?? [])
           .map((item) => item.name?.trim())
-          .filter((name): name is string => Boolean(name) && !popularNames.has(name.toLowerCase())))];
+          .filter((name): name is string => typeof name === "string" && name.length > 0 && !popularNames.has(name.toLowerCase())))];
         setPlaybookNames(names);
       })
       .catch((loadError: unknown) => {

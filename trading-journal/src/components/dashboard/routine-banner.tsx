@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import { cn } from "@/lib/utils";
 import {
   ACTION_LINKS,
@@ -399,7 +400,7 @@ export function RoutineBanner({
             </div>
 
             {/* Phase Selector Tabs */}
-            <div className="flex border-b border-border/60 bg-muted/30 px-3 pt-2 gap-1 overflow-x-auto">
+            <div className="relative flex border-b border-border/60 bg-muted/30 px-3 pt-2 gap-1 overflow-x-auto">
               {(["premarket", "intraday", "postmarket"] as RoutinePhase[]).map((phase) => {
                 const isSelected = activeTab === phase;
                 const comp = completions[phase];
@@ -413,24 +414,27 @@ export function RoutineBanner({
                     type="button"
                     onClick={() => setActiveTab(phase)}
                     className={cn(
-                      "flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-all cursor-pointer whitespace-nowrap",
+                      "relative flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-xs font-medium transition-all cursor-pointer whitespace-nowrap",
                       isSelected
-                        ? "border-violet-500 text-foreground font-semibold bg-background rounded-t-lg"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                        ? "text-primary-foreground font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    {phase === "premarket" && <Sun size={13} className={done ? "text-emerald-500" : "text-amber-400"} />}
-                    {phase === "intraday" && <Zap size={13} className={done ? "text-emerald-500" : "text-violet-400"} />}
-                    {phase === "postmarket" && <Moon size={13} className={done ? "text-emerald-500" : "text-indigo-400"} />}
+                    {isSelected && <SlidingTabIndicator layoutId="routine-phase-tabs" className="rounded-t-lg rounded-b-none" />}
+                    {phase === "premarket" && <Sun size={13} className={isSelected ? "text-primary-foreground" : done ? "text-emerald-500" : "text-amber-400"} />}
+                    {phase === "intraday" && <Zap size={13} className={isSelected ? "text-primary-foreground" : done ? "text-emerald-500" : "text-violet-400"} />}
+                    {phase === "postmarket" && <Moon size={13} className={isSelected ? "text-primary-foreground" : done ? "text-emerald-500" : "text-indigo-400"} />}
 
-                    <span>{ROUTINE_PHASE_CONFIG[phase].label}</span>
+                    <span className="relative">{ROUTINE_PHASE_CONFIG[phase].label}</span>
 
                     <span
                       className={cn(
                         "rounded-full px-1.5 py-0.2 text-[10px] font-mono",
-                        done
+                        isSelected
+                          ? "bg-primary-foreground/20 text-primary-foreground font-bold"
+                          : done
                           ? "bg-emerald-500/20 text-emerald-500 font-bold"
-                          : "bg-muted text-muted-foreground"
+                          : "bg-muted/50 text-muted-foreground"
                       )}
                     >
                       {count}/{total}

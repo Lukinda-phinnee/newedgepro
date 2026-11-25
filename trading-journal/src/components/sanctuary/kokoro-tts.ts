@@ -77,8 +77,15 @@ class KokoroVoiceEngine {
 
     this.loadPromise = (async () => {
       try {
-        // Dynamically import kokoro-js to avoid SSR build conflicts
-        const { KokoroTTS } = await import("kokoro-js");
+        // Dynamically load Kokoro TTS in the browser via ESM CDN to keep server builds 100% dependency-free
+        // eslint-disable-next-line @typescript-eslint/no-implied-eval
+        const cdnLoader = new Function('return import("https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm")');
+        const cdnModule = await cdnLoader();
+        const KokoroTTS = cdnModule?.KokoroTTS;
+
+        if (!KokoroTTS) {
+          throw new Error("KokoroTTS could not be loaded from CDN");
+        }
 
         // Try WebGPU first for instant hardware-accelerated synthesis, fallback to WASM
         const device = typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "wasm";

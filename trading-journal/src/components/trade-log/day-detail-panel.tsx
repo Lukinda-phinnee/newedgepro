@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import type { DayTradeSummary } from "@/types/trade";
 
 interface DayDetailPanelProps {
@@ -454,38 +455,41 @@ export function DayDetailPanel({
               {/* Filters Bar: ALL, WINS, LOSSES + Instrument Search */}
               <div className="flex items-center justify-between gap-2">
                 {/* Outcome Pill tabs */}
-                <div className="flex rounded-full border border-border/80 bg-secondary/40 p-1">
+                <div className="relative flex rounded-full border border-border/80 bg-secondary/40 p-1">
                   <button
                     type="button"
                     onClick={() => setOutcomeTab("all")}
-                    className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase transition ${
+                    className={`relative rounded-full px-3 py-1 text-[11px] font-bold uppercase transition ${
                       outcomeTab === "all"
-                        ? "bg-blue-600 text-white shadow-xs"
+                        ? "text-primary-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
+                    {outcomeTab === "all" && <SlidingTabIndicator layoutId="day-detail-outcome-tabs" className="rounded-full" />}
                     ALL
                   </button>
                   <button
                     type="button"
                     onClick={() => setOutcomeTab("wins")}
-                    className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase transition ${
+                    className={`relative rounded-full px-3 py-1 text-[11px] font-bold uppercase transition ${
                       outcomeTab === "wins"
-                        ? "bg-emerald-600 text-white shadow-xs"
+                        ? "text-primary-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
+                    {outcomeTab === "wins" && <SlidingTabIndicator layoutId="day-detail-outcome-tabs" className="rounded-full" />}
                     WINS
                   </button>
                   <button
                     type="button"
                     onClick={() => setOutcomeTab("losses")}
-                    className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase transition ${
+                    className={`relative rounded-full px-3 py-1 text-[11px] font-bold uppercase transition ${
                       outcomeTab === "losses"
-                        ? "bg-rose-600 text-white shadow-xs"
+                        ? "text-primary-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
+                    {outcomeTab === "losses" && <SlidingTabIndicator layoutId="day-detail-outcome-tabs" className="rounded-full" />}
                     LOSSES
                   </button>
                 </div>

@@ -244,16 +244,16 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
               className={cn(
                 "relative z-10 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
                 viewMode === "cards"
-                  ? "text-foreground font-semibold"
+                  ? "text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <LayoutGrid size={14} />
+              <LayoutGrid size={14} className={viewMode === "cards" ? "text-primary-foreground" : "text-muted-foreground"} />
               <span>Cards</span>
               {viewMode === "cards" && (
                 <motion.div
                   layoutId="viewModeIndicator"
-                  className="absolute inset-0 z-[-1] rounded-lg bg-card shadow-xs border border-border/60"
+                  className="absolute inset-0 z-[-1] rounded-lg bg-primary shadow-xs border border-primary"
                   transition={{ type: "spring", damping: 25, stiffness: 350 }}
                 />
               )}
@@ -264,16 +264,16 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
               className={cn(
                 "relative z-10 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
                 viewMode === "table"
-                  ? "text-foreground font-semibold"
+                  ? "text-primary-foreground font-semibold"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <TableIcon size={14} />
+              <TableIcon size={14} className={viewMode === "table" ? "text-primary-foreground" : "text-muted-foreground"} />
               <span>Table</span>
               {viewMode === "table" && (
                 <motion.div
                   layoutId="viewModeIndicator"
-                  className="absolute inset-0 z-[-1] rounded-lg bg-card shadow-xs border border-border/60"
+                  className="absolute inset-0 z-[-1] rounded-lg bg-primary shadow-xs border border-primary"
                   transition={{ type: "spring", damping: 25, stiffness: 350 }}
                 />
               )}
@@ -313,17 +313,17 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
                 className={cn(
                   "relative z-10 flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors",
                   isActive
-                    ? "text-foreground font-semibold"
+                    ? "text-primary-foreground font-semibold"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Icon size={13} className={isActive ? "text-foreground" : "text-muted-foreground"} />
+                <Icon size={13} className={isActive ? "text-primary-foreground" : "text-muted-foreground"} />
                 <span>{tab.label}</span>
                 <span
                   className={cn(
                     "rounded-md px-1.5 py-0.2 text-[10px] font-medium tabular-nums transition-colors",
                     isActive
-                      ? "bg-secondary text-foreground font-semibold"
+                      ? "bg-primary-foreground/20 text-primary-foreground font-semibold"
                       : "bg-secondary/60 text-muted-foreground"
                   )}
                 >
@@ -333,7 +333,7 @@ export function TradeReviewView({ initialTrades, initialStrategies }: TradeRevie
                 {isActive && (
                   <motion.div
                     layoutId="queueTabIndicator"
-                    className="absolute inset-0 z-[-1] rounded-lg bg-card shadow-xs border border-border/60"
+                    className="absolute inset-0 z-[-1] rounded-lg bg-primary shadow-xs border border-primary"
                     transition={{ type: "spring", damping: 25, stiffness: 350 }}
                   />
                 )}

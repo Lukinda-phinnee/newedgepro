@@ -506,14 +506,14 @@ export function RuleEditorModal({
                     className={cn(
                       "relative flex-1 min-w-[70px] py-1.5 text-xs font-medium rounded-lg text-center transition-colors press-scale-sm z-10",
                       isSelected
-                        ? "text-white font-semibold"
+                        ? "text-primary-foreground font-semibold"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     {isSelected && (
                       <motion.div
                         layoutId="rule-category-pill"
-                        className="absolute inset-0 rounded-lg bg-violet-600 shadow-sm"
+                        className="absolute inset-0 rounded-lg bg-primary shadow-sm"
                         transition={springPill}
                       />
                     )}

@@ -12,6 +12,7 @@ import { useOperationFeedback } from "@/components/ui/operation-feedback";
 import { useUserPreferences } from "@/components/user-preferences-provider";
 import { authClient } from "@/lib/auth/client";
 import { PreMarketRoutineSettings } from "@/components/settings/pre-market-routine-settings";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import { AboutSettings } from "@/components/settings/about-settings";
 
 type SettingsPageProps = { name: string | null; email: string };
@@ -177,9 +178,10 @@ export function SettingsPage({ name: initialName, email }: SettingsPageProps) {
     </header>
 
     <nav aria-label="Settings sections" className="-mx-4 overflow-x-auto border-y border-border/70 px-4 sm:-mx-5 sm:px-5">
-      <div role="tablist" aria-label="Settings sections" className="flex min-w-max items-center gap-1 py-1">
-        {tabs.map((tab) => <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)} className={`relative min-h-9 whitespace-nowrap rounded-none px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${activeTab === tab ? "bg-primary/10 font-medium text-primary after:absolute after:-bottom-px after:left-0 after:right-0 after:h-0.5 after:bg-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}>
-          {tab}{tab === "Notifications" && <span aria-label="Unread notifications" className="ml-1.5 inline-block size-2 rounded-full bg-primary align-middle"/>}
+      <div role="tablist" aria-label="Settings sections" className="relative flex min-w-max items-center gap-1 py-1">
+        {tabs.map((tab) => <button key={tab} type="button" role="tab" aria-selected={activeTab === tab} onClick={() => setActiveTab(tab)} className={`relative z-10 min-h-9 whitespace-nowrap rounded-lg px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${activeTab === tab ? "font-semibold text-primary-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}>
+          {activeTab === tab && <SlidingTabIndicator layoutId="settings-section-tabs"/>}
+          <span className="relative">{tab}{tab === "Notifications" && <span aria-label="Unread notifications" className="ml-1.5 inline-block size-2 rounded-full bg-primary align-middle"/>}</span>
         </button>)}
       </div>
     </nav>

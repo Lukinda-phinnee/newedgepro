@@ -16,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import { OverviewTab } from "@/components/rule-engine/overview-tab";
 import { RuleSetsTab } from "@/components/rule-engine/rule-sets-tab";
 import { SimulationTab } from "@/components/rule-engine/simulation-tab";
@@ -37,7 +38,6 @@ import { useOperationFeedback } from "@/components/ui/operation-feedback";
 const TAB_ORDER: TabKey[] = ["overview", "rulesets", "simulation"];
 
 // Apple §4: Spring configs — critically damped for UI, slight bounce for gesture-driven
-const springTab = { type: "spring" as const, damping: 28, stiffness: 320 };
 const springContent = { type: "spring" as const, damping: 26, stiffness: 260 };
 
 interface RuleEngineViewProps {
@@ -310,19 +310,12 @@ export function RuleEngineView({
                 className={cn(
                   "relative flex items-center gap-2 px-4 py-2.5 text-xs font-semibold -mb-px press-scale-sm",
                   isActive
-                    ? "text-violet-400"
+                    ? "text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {/* Apple §4: Spring-animated underline indicator */}
-                {isActive && (
-                  <motion.span
-                    layoutId="rule-engine-tab-indicator"
-                    className="absolute inset-x-0 -bottom-px h-0.5 bg-violet-500 rounded-full"
-                    transition={springTab}
-                  />
-                )}
-                <Icon size={14} />
+                {isActive && <SlidingTabIndicator layoutId="rule-engine-tab-indicator" />}
+                <Icon size={14} className={isActive ? "text-primary-foreground" : "text-muted-foreground"} />
                 {labels[tab]}
                 {tab === "rulesets" && (
                   <span className="ml-0.5 rounded-full bg-white/[0.08] px-1.5 py-0.2 text-[10px] font-mono text-muted-foreground">

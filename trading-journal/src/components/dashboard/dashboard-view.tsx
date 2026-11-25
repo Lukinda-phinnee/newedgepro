@@ -23,6 +23,7 @@ import type { Strategy } from "@/types/strategy";
 import type { TradingAccount } from "@/types/account";
 import type { RuleEngineStatus, RuleEngineCompliance } from "@/types/rules";
 import { cn } from "@/lib/utils";
+import { SlidingTabIndicator } from "@/components/ui/sliding-tab-indicator";
 import { buildMonthCalendar, DAYS_OF_WEEK, formatDateKey } from "@/lib/trade-calendar";
 import { RoutineBanner } from "@/components/dashboard/routine-banner";
 
@@ -1346,8 +1347,11 @@ export function DashboardView({
                 <span className="flex size-6 items-center justify-center rounded-md bg-violet-500/10"><CalendarDays size={13} className="text-violet-400" /></span>
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground">Trading Activities</h2>
               </div>
-              <div className="inline-flex rounded-lg border border-border/70 bg-muted/40 p-0.5" role="group" aria-label="Calendar view">
-                {(["weekly", "monthly"] as const).map((view) => <button key={view} type="button" aria-pressed={activityView === view} onClick={() => setActivityView(view)} className={cn("rounded-md px-2.5 py-1 text-[10px] font-medium capitalize transition-colors", activityView === view ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>{view}</button>)}
+              <div className="relative inline-flex rounded-lg border border-border/70 bg-muted/40 p-0.5" role="group" aria-label="Calendar view">
+                {(["weekly", "monthly"] as const).map((view) => <button key={view} type="button" aria-pressed={activityView === view} onClick={() => setActivityView(view)} className={cn("relative rounded-md px-2.5 py-1 text-[10px] font-medium capitalize transition-colors", activityView === view ? "text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                  {activityView === view && <SlidingTabIndicator layoutId="dashboard-activity-view-tabs" />}
+                  <span className="relative">{view}</span>
+                </button>)}
               </div>
             </div>
             <div className={cn("relative isolate overflow-hidden rounded-full border px-3 py-1.5 text-[10px] font-semibold tabular-nums", activityPnl >= 0 ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "border-rose-500/30 bg-rose-500/15 text-rose-700 dark:text-rose-300")} aria-label={`${periodLabel}, ${Math.round(progressInPeriod * 100)}% through period, ${fmtCurrency(activityPnl)} profit and loss`}>
